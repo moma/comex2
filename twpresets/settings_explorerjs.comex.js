@@ -36,10 +36,18 @@ TW.conf = (function(TW){
 
   TWConf.getRelatedDocs = false
   TWConf.relatedDocsMax = 10
-  TWConf.relatedDocsAPI = "http://127.0.0.1:5000/twitter_search"
 
   TWConf.relatedDocsType = "twitter"      // accepted: "twitter" | "wosLocalDB"
                                           // POSSible: "elastic"
+
+  TWConf.relatedDocsAPIS = {
+    // routes by corresponding type
+    "wosLocalDB": "twbackends/phpAPI",
+    "twitter": "http://127.0.0.1:5000/twitter_search"
+  }
+
+  // fallback topPapers API if none found by type
+  TWConf.relatedDocsAPI = "twbackends/phpAPI"
 
   // =======================
   // DATA FACETS AND LEGENDS
@@ -155,6 +163,7 @@ TW.conf = (function(TW){
   // Modules path
   // ------------
   TWConf.paths = {
+    'ourlibs': 'static/tinawebJS/twlibs',
     'modules': 'twmodules'
   }
   Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
@@ -171,9 +180,11 @@ TW.conf = (function(TW){
   TWConf.ModulesFlags["crowdsourcingModule"] = true ;
 
 
-  // Other optional functionalities
-  // -----------------------------
-  TWConf.filterSliders = true     // show sliders for nodes/edges subsets
+  // Other GUI options
+  // ------------------
+  TWConf.sidePanelSize = "300px"       // width of the side panel (def: 400px)
+
+  TWConf.filterSliders = true          // show sliders for nodes/edges subsets
 
   TWConf.clusterColorsAtt = true;      // show "Set colors" menu
 
