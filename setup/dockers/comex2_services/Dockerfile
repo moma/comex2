@@ -43,6 +43,11 @@ RUN git clone https://github.com/moma/comex2.git
 WORKDIR /comex2
 RUN git checkout with_tina_1.2
 
+# prepare the production version of tina
+WORKDIR static/tinawebJS
+RUN bash twtools/adapt_html_paths.sh "static/tinawebJS/"
+WORKDIR ../..
+
 # ...or copy it locally
 # ADD comex2 /comex2
 
