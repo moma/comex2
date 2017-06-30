@@ -287,7 +287,23 @@ cmxClt = (function(cC) {
                             cC.uauth.showEmailGUIEffects(obja, "login recognized")
                         }
                         else {
-                            cC.uauth.showEmailGUIEffects(obja, "login not found")
+                            // login wasn't found in doors but perhaps the user
+                            // never validated there...
+                            // so let's see if it exists locally
+                            cC.uauth.callUserApi(
+                              'exists', emailValue,
+                              function(boolExists){
+                                if (!boolExists) {
+                                  cC.uauth.showEmailGUIEffects(obja, "login not found")
+                                }
+                                else {
+                                  cC.uauth.showEmailGUIEffects(
+                                    obja,
+                                    `<p>Can't log you in: your login exists but is incomplete:<br>(did you forget to use the doors validation link?)</p>
+                                     <p>Please go to <a href=http://doors.iscpif.fr>doors.iscpif.fr</a> to re-register with the same credentials<br> and make sure to click in the validation email you will receive.</p>`)
+                                }
+                              }
+                            )
                         }
                         obja.lastEmailValue = emailValue
                   }
