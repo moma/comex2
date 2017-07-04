@@ -6,8 +6,8 @@ TW.conf = (function(TW){
 
   let TWConf = {}
 
-  TWConf.branding = 'ProjectExplorer'   // <--- the name displayed in upper left
-  TWConf.brandingLink = 'https://github.com/moma/ProjectExplorer'   // <--- link to "home"
+  TWConf.branding = 'Community Explorer 2'  // <--- name displayed in upper left
+  TWConf.brandingLink = 'https://communityexplorer.org'   // <--- link to "home"
 
 
   // ==========================
@@ -17,10 +17,10 @@ TW.conf = (function(TW){
   // Graph data source
   // -----------------
   // the graph input depends on TWConf.sourcemode (or manual url arg 'sourcemode')
-  TWConf.sourcemode = "servermenu"   // accepted: "api" | "serverfile" | "servermenu" | "localfile"
+  TWConf.sourcemode = "api"   // accepted: "api" | "serverfile" | "servermenu" | "localfile"
 
   // server-side .gexf|.json default source
-  TWConf.sourceFile = "data/politoscope/ProgrammeDesCandidats.enrichi.gexf"
+  TWConf.sourceFile = ""
 
   // ...or server-side gexf default source list
   TWConf.sourceMenu = "db.json"
@@ -34,8 +34,9 @@ TW.conf = (function(TW){
   // Related documents (topPapers) data source
   // -----------------------------------------
 
-  TWConf.getRelatedDocs = true
+  TWConf.getRelatedDocs = false
   TWConf.relatedDocsMax = 10
+  TWConf.relatedDocsAPI = "http://127.0.0.1:5000/twitter_search"
 
   TWConf.relatedDocsType = "LocalDB"      // accepted: "twitter" | "LocalDB"
                                           // POSSible: "elastic"
@@ -145,9 +146,9 @@ TW.conf = (function(TW){
   TWConf.maxDiscreteValues = 15
   TWConf.legendsBins = 7
 
-  // to normalize node sizes: (NB not very useful because tina normalizes them at display)
+  // to normalize node sizes (larger range does increase visual size difference)
   TWConf.desirableNodeSizeMin=1;
-  TWConf.desirableNodeSizeMax=2;
+  TWConf.desirableNodeSizeMax=10;
 
 
   // =============
@@ -164,7 +165,7 @@ TW.conf = (function(TW){
   // Modules path
   // ------------
   TWConf.paths = {
-    'ourlibs': 'twlibs',
+    'ourlibs': 'static/tinawebJS/twlibs',
     'modules': 'twmodules'
   }
   Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
@@ -256,8 +257,8 @@ TW.conf = (function(TW){
       font: "Droid Sans",                // font params
       fontStyle: "bold",
       defaultLabelColor: '#000',         // labels text color
-      labelSizeRatio: 1,                 // initial label size (on the slider)
-      labelThreshold: 5,                 // min node cam size to start showing label
+      labelSizeRatio: 1,                 // label size in ratio of node size
+      labelThreshold: 4,                 // min node cam size to start showing label
                                          // (old tina: showLabelsIfZoom)
 
       // hovered nodes
@@ -301,8 +302,8 @@ TW.conf = (function(TW){
 
   // relative sizes (iff ChangeType == both nodetypes)
   TWConf.sizeMult = [];
-  TWConf.sizeMult[0] = 1.0;     // ie for node type 0 (<=> sem)
-  TWConf.sizeMult[1] = 5.0;     // ie for node type 1 (<=> soc)
+  TWConf.sizeMult[0] = 1.0;      // ie for node type 0 (<=> sem)
+  TWConf.sizeMult[1] = 10.0;     // ie for node type 1 (<=> soc)
 
 
   // ===========
