@@ -222,6 +222,8 @@ def get_field_aggs(a_field,
 
         if n_rows > 0:
             agg_rows = db_c.fetchall()
+        else:
+            mlog('WARNING', 'no rows for query')
 
         db.close()
 
@@ -820,6 +822,8 @@ class BipartiteExtractor:
                             else:
                                 scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
 
+                                # eg matrix entry for scholar k
+                                # 'D::SK/04047': {'occ': 1, 'cooc': {'D::SL/02223': 1}}
             nodeId = "N::"+str(term)
             self.Graph.add_node(nodeId)
 
@@ -854,12 +858,12 @@ class BipartiteExtractor:
                         # TODO ^^^ check formula ^^^
 
                         # # detailed debug
-                        # if neighbors[str(neigh)] != 1:
-                        #     mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
-                        #     mlog("DEBUG", "term:", self.terms_dict[int(term)]['kwstr'], "<===> neighb:", self.terms_dict[int(neigh)]['kwstr'])
-                        #     mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
-                        #     mlog("DEBUG", "neighbors[neigh]:", neighbors[str(neigh)])
-                        #     mlog("DEBUG", "edge w", weight)
+                        if neighbors[neigh] != 1:
+                            mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
+                            mlog("DEBUG", "term:", self.terms_dict[int(term)]['kwstr'], "<===> neighb:", self.terms_dict[int(neigh)]['kwstr'])
+                            mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
+                            mlog("DEBUG", "neighbors[neigh]:", neighbors[str(neigh)])
+                            mlog("DEBUG", "edge w", weight)
 
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
 
@@ -869,6 +873,8 @@ class BipartiteExtractor:
 
                 # weighted list of other scholars
                 neighbors=scholarsMatrix[str(nodeId1)]['cooc'];
+                # eg {'D::KW/03291': 1, 'D::WTB/04144': 3}
+
 
                 for i, neigh in enumerate(neighbors):
                     if neigh != str(scholar):
@@ -1048,14 +1054,13 @@ class BipartiteExtractor:
                 node["color"] = color
 
                 dacountry = self.scholars[idNode]["country"]
-                code=inst.searchCode(dacountry)
 
                 # new tina: any values under .attributes can be mapped to a color
                 node["attributes"] = {}
 
                 # country code
-                if code: node["attributes"]["CC"] = code
-                else: node["attributes"]["CC"]="-"
+                if dacountry: node["attributes"]["country"] = dacountry
+                else: node["attributes"]["country"]="-"
 
                 # Affiliation
                 node["attributes"]["ACR"] = self.scholars[idNode]["org"]

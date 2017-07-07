@@ -46,6 +46,7 @@ RUN git checkout with_tina_1.2
 # prepare the production version of tina
 WORKDIR static/tinawebJS
 RUN bash twtools/adapt_html_paths.sh "static/tinawebJS/"
+RUN cp twpresets/settings_explorerjs.comex.js settings_explorerjs.js
 WORKDIR ../..
 
 # ...or copy it locally
