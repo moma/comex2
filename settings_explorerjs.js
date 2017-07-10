@@ -158,9 +158,9 @@ TW.conf = (function(TW){
   // Modules path
   // ------------
   TWConf.paths = {
-    'ourlibs': 'twlibs',
-    'templates': "twlibs/hit_templates",
-    'modules': 'twmodules',
+    'ourlibs':   'twlibs',
+    'templates': 'twlibs/hit_templates',
+    'modules':   'twmodules',
 
     'sourceFile': "",           // server-side .gexf|.json default source
     'sourceMenu': "db.json"     // ...or server-side gexf default source list
@@ -246,7 +246,7 @@ TW.conf = (function(TW){
       twNodeRendBorderColor: "#222",
 
       // edges
-      minEdgeSize: 2,                    // in fact used in tina as edge size
+      minEdgeSize: 1,                    // in fact used in tina as edge size
       defaultEdgeType: 'curve',          // 'curve' or 'line' (curve only iff ourRendering)
       twEdgeDefaultOpacity: 0.4,         // initial opacity added to src/tgt colors
 
@@ -271,7 +271,7 @@ TW.conf = (function(TW){
                                    // "default" for note-like yellow
 
       // not selected <=> (1-greyness)
-      twNodesGreyOpacity: .7,                       // smaller value: more grey
+      twNodesGreyOpacity: .5,                       // smaller value: more grey
       twBorderGreyColor: "rgba(100, 100, 100, 0.5)",
       twEdgeGreyColor: "rgba(100, 100, 100, 0.3)",
   };
@@ -281,9 +281,13 @@ TW.conf = (function(TW){
 
   // tina environment rendering settings
   // -----------------------------------
+  // normal and meso level background colors
+  TWConf.normalBackground = '#fff'             // <= should match css default
+  TWConf.mesoBackground = '#fcfcea'
+
   // mouse captor zoom limits
   TWConf.zoomMin = .015625         // for zoom IN   (ex: 1/64 to allow zoom x64)
-  TWConf.zoomMax = 8               // for zoom OUT
+  TWConf.zoomMax = 2               // for zoom OUT
 
   // circle selection cursor
   TWConf.circleSizeMin = 0;
