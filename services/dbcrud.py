@@ -61,6 +61,16 @@ ORG_COLS = [
     ]
 
 
+#          NAME,          NOT NULL,  MAXCHARS  KEY elt
+JOB_COLS = [
+         ("uid",                True,      15,    False),  # "lab" or "inst"
+         ("mission_text",       True,    2400,    False),
+         ("recruiter_org_text", True,    2400,    False),
+         ("email",              False,    255,    False),  # job contact mail
+         ("job_valid_date",     False,   None,    False)
+    ]
+
+
 def connect_db(config=REALCONFIG):
     """
     Simple connection
@@ -841,3 +851,44 @@ def create_legacy_user_rettokens(
     #                         ON scholars.luid = legacy_temp_rettoks.uid
     #             SET valid_date = DATE_ADD(CURDATE(), INTERVAL 3 MONTH);
     #        """
+
+
+def save_job(job_infos, cmx_db):
+    """
+    Save a new row in jobs table
+    @pairings_list: list of tuples
+    """
+
+    db_cursor = cmx_db.cursor()
+    for id_pair in set(pairings_list):
+        db_cursor.execute('INSERT INTO %s VALUES %s' % (map_table, str(id_pair)))
+        cmx_db.commit()
+
+
+    db_tgtcols = []
+    db_qstrvals = []
+
+    for colinfo in JOB_COLS:
+        colname = colinfo[0]
+
+        val = job_infos.get(colname, None)
+
+        if val != None:
+            val = str(normalize_forms(normalize_chars(val, rm_qt=True)))
+
+        if val and len(val):
+            quotedstrval = "'"+val+"'"
+            # for insert, if needed later
+            db_tgtcols.append(colname)
+            db_qstrvals.append(quotedstrval)
+
+    db_cursor.execute('INSERT INTO jobs(%s) VALUES (%s)' % (
+                        ','.join(db_tgtcols),
+                        ','.join(db_qstrvals)
+                       )
+                     )
+    job_id = db_cursor.lastrowid
+    cmx_db.commit()
+    mlog("DEBUG", "jobs: saved %s infos" % job_infos)
+
+    return job_id
