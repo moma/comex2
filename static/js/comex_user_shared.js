@@ -423,7 +423,7 @@ var cmxClt = (function() {
     // checks if mandatory fields are filled
     // checks if other plsfill ones are filled
     // highlights labels of missing mandatory fields
-    cC.uform.testFillField = function (aUForm, params, cols) {
+    cC.uform.testFillField = function (aUForm, params) {
         // "private" copy
         var wholeFormData = new FormData(aUForm.elForm)
 
@@ -510,7 +510,6 @@ var cmxClt = (function() {
               actualValue = null
           }
 
-
           // debug
           // console.log(
           //              "cmxClt.testFillField: field", fieldName,
@@ -558,10 +557,9 @@ var cmxClt = (function() {
     //
     cC.uform.simpleValidateAndMessage = function (aUform, diagnosticParams) {
 
-        // console.log(">> simpleValidateAndMessage on ", aUform.id)
-
         var diagnostic = cmxClt.uform.testFillField(aUform,
                                                     diagnosticParams)
+
         var isValid = diagnostic[0]
         var mandatoryMissingFields = diagnostic[1]
         var optionalMissingFields = diagnostic[2]

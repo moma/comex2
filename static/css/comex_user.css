@@ -241,8 +241,9 @@ ul.minilabels {
   cursor: pointer;
 }
 
-li.minilabel {
+.minilabel {
     font-weight: bold ;
+    cursor:pointer;
 }
 
 

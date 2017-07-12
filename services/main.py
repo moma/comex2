@@ -71,6 +71,12 @@ app.config['PERMANENT_SESSION_LIFETIME'] = cookie_timer
 app.config['REMEMBER_COOKIE_DURATION'] = cookie_timer
 app.config['REMEMBER_COOKIE_NAME'] = 'communityexplorer.org cookie'
 
+# -------------------------- 8<----------------------
+from flask_cors import CORS, cross_origin
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
+app.config['CORS_HEADERS'] = 'Content-Type'
+# -------------------------- 8<----------------------
+
 login_manager.login_view = "login"
 login_manager.session_protection = "strong"
 login_manager.init_app(app)
@@ -766,6 +772,31 @@ def register():
               </ul>
             """ % {'luid': luid })
 
+
+
+
+
+# /services/jobad/
+@app.route(config['PREFIX'] + '/jobad/', methods=['GET','POST'])
+@fresh_login_required
+def jobad():
+
+    # debug
+    # mlog("DEBUG", "register route: ", config['PREFIX'] + config['USR_ROUTE'] + '/register')
+
+    if request.method == 'GET':
+        return render_template("jobad_form.html")
+    elif request.method == 'POST':
+        mlog("DEBUG", "GOT JOB AD ANSWERS <<========<<", request.form)
+
+        # ImmutableMultiDict([('recruiter_org_text', 'A wonderful company'), ('job_valid_date', '2017/8/30'), ('mission_text', 'a very important job'), ('email', 'romain.loth@truc.org'), ('luid', '4206'),  ('keywords', 'agent-based models,cellular automata')])
+
+        return render_template(
+            "message.html",
+            message = """
+                Your job ad was successfully recorded. You can now find it in your <a href="/services/user/myjobs"> job-board section </a>
+                """
+        )
 
 
 # any static pages with topbar are set in /about prefix

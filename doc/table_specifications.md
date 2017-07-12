@@ -192,4 +192,21 @@ CREATE TABLE legacy_temp_rettoks (
     PRIMARY KEY (luid),
     INDEX rettok_index_ltempt (rettok)
 ) ;
+
+
+-- current jobs table
+CREATE TABLE jobs (
+    jobid                int(15) not null auto_increment unique primary key,
+    -- creator user (one to many: no need for mapping table)
+    uid                  int(15) not null,
+    last_modified        timestamp,
+    mission_text         varchar(2400) not null,
+    recruiter_org_text   varchar(2400) not null,
+    email                varchar(255) not null,
+    job_valid_date       date,
+
+    -- NB: should the job be deleted when scholar is deleted ?
+    FOREIGN KEY (uid)  REFERENCES scholars(luid)
+) ;
+
 ```
