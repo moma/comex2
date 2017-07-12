@@ -71,12 +71,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = cookie_timer
 app.config['REMEMBER_COOKIE_DURATION'] = cookie_timer
 app.config['REMEMBER_COOKIE_NAME'] = 'communityexplorer.org cookie'
 
-# -------------------------- 8<----------------------
-from flask_cors import CORS, cross_origin
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
-app.config['CORS_HEADERS'] = 'Content-Type'
-# -------------------------- 8<----------------------
-
 login_manager.login_view = "login"
 login_manager.session_protection = "strong"
 login_manager.init_app(app)
