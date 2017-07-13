@@ -114,7 +114,6 @@ SOURCE_FIELDS = [
          ("hashtags",               True,        None)
          # => for *hashtags* table (after split str)
       ]
-
 # NB password values have already been sent by ajax to Doors
 
 # mandatory minimum of keywords
@@ -767,9 +766,6 @@ def register():
             """ % {'luid': luid })
 
 
-
-
-
 # /services/jobad/
 @app.route(config['PREFIX'] + '/jobad/', methods=['GET','POST'])
 @fresh_login_required
@@ -778,12 +774,32 @@ def jobad():
     # debug
     # mlog("DEBUG", "register route: ", config['PREFIX'] + config['USR_ROUTE'] + '/register')
 
+    # show form
     if request.method == 'GET':
         return render_template("jobad_form.html")
-    elif request.method == 'POST':
-        mlog("DEBUG", "GOT JOB AD ANSWERS <<========<<", request.form)
 
-        # ImmutableMultiDict([('recruiter_org_text', 'A wonderful company'), ('job_valid_date', '2017/8/30'), ('mission_text', 'a very important job'), ('email', 'romain.loth@truc.org'), ('luid', '4206'),  ('keywords', 'agent-based models,cellular automata')])
+    # save form
+    elif request.method == 'POST':
+        # sanitization params
+        job_fields = [
+        #             NAME,              SANITIZE?    sanitizing specificity
+                 ("uid",                   False,        None),
+                 ("mission_text",           True,        None),
+                 ("recruiter_org_text",     True,        None),
+                 ("email",                  True,        None),
+                 ("job_valid_date",         True,       "sdate"),
+                 # => for *jobs* table
+
+                 ("keywords",               True,        None)
+                 # => for *keywords* table (after split str)
+              ]
+
+        clean_records = read_record_from_request(request, job_fields)
+
+        # exemple clean_records
+        # {'uid': '4206', 'job_valid_date': '2017/09/30', 'mission_text': 'In the town where I was born Lived a man who sailed the sea', 'email': 'romain.loth@truc.org', 'recruiter_org_text': 'We all live in a yellow submarine'}
+
+        dbcrud.save_job( clean_records )
 
         return render_template(
             "message.html",
@@ -1004,7 +1020,7 @@ def save_form(clean_records, update_flag=False, previous_user_info=None):
     return luid
 
 
-def read_record_from_request(request):
+def read_record_from_request(request, optional_fields = None):
     """
     Runs all request-related form actions
 
@@ -1024,9 +1040,14 @@ def read_record_from_request(request):
 
     # sources: request.form and request.files
 
+    if (optional_fields):
+        fields = optional_fields
+    else:
+        fields = SOURCE_FIELDS
+
     # we should have all the mandatory fields (checked in client-side js)
     # POSS recheck b/c if post comes from elsewhere
-    for field_info in SOURCE_FIELDS:
+    for field_info in fields:
         field = field_info[0]
         do_sanitize = field_info[1]
         spec_type = field_info[2]

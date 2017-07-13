@@ -63,11 +63,12 @@ ORG_COLS = [
 
 #          NAME,          NOT NULL,  MAXCHARS  KEY elt
 JOB_COLS = [
-         ("uid",                True,      15,    False),  # "lab" or "inst"
+         ("uid",                True,      15,    False),  # author of the ad
          ("mission_text",       True,    2400,    False),
          ("recruiter_org_text", True,    2400,    False),
-         ("email",              False,    255,    False),  # job contact mail
-         ("job_valid_date",     False,   None,    False)
+         ("email",               True,    255,    False),  # job contact mail
+         ("job_valid_date",      True,   None,    False)
+         # 'last_modified'       timestamp added by DB itself
     ]
 
 
@@ -853,18 +854,12 @@ def create_legacy_user_rettokens(
     #        """
 
 
-def save_job(job_infos, cmx_db):
+def save_job(job_infos):
     """
     Save a new row in jobs table
-    @pairings_list: list of tuples
     """
-
-    db_cursor = cmx_db.cursor()
-    for id_pair in set(pairings_list):
-        db_cursor.execute('INSERT INTO %s VALUES %s' % (map_table, str(id_pair)))
-        cmx_db.commit()
-
-
+    db = connect_db()
+    db_cursor = db.cursor()
     db_tgtcols = []
     db_qstrvals = []
 
@@ -888,7 +883,7 @@ def save_job(job_infos, cmx_db):
                        )
                      )
     job_id = db_cursor.lastrowid
-    cmx_db.commit()
+    db.commit()
+    db.close()
     mlog("DEBUG", "jobs: saved %s infos" % job_infos)
-
     return job_id

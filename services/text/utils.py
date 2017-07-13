@@ -47,7 +47,7 @@ def sanitize(value, specific_type=None):
         clean_val = normalize_forms(normalize_chars(str_val))
         san_val = sub(r'\b(?:drop|select|update|delete)\b', '_', clean_val)
         if not specific_type:
-            san_val = sub(r'[^\w@\.:,()# -]', '_', san_val)
+            san_val = sub(r'[^\w@\.:,()# \n-]', '_', san_val)
         elif specific_type == "sorg":
             # most troublesome because we'll want to parse the label
             # (to split name and acronym and perhaps suggest similar org)
