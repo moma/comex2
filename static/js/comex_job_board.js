@@ -22,7 +22,7 @@ let myController = {
     return params.jobsTable.filter(function(record){
       for (key in someFilter) {
         if (someFilter[key].length) {
-          if (record[key].indexOf(someFilter[key]) == -1) {
+          if (!record[key] || record[key].indexOf(someFilter[key]) == -1) {
             return false
           }
         }
@@ -54,17 +54,25 @@ let gridFields = [
      name: "mission_text",
      title:"Mission",
      type: "text",
-     width: 100,
+     width: 110,
      css:"mission",
      itemTemplate: function(value, item) {
        return value
      }
    },
    {
+     name: "keywords",
+     title:"Keywords",
+     type: "text",
+     width: 80,
+     align: "center",
+     css:"keywords"
+   },
+   {
      name: "recruiter_org_text",
      title:"Organization",
      type: "text",
-     width: 100,
+     width: 80,
      align: "center",
      css:"recr-org"
    },
@@ -72,7 +80,7 @@ let gridFields = [
      name: "email",
      title:"Contact",
      type: "text",
-     width: 80,
+     width: 60,
      align: "center",
      css:"email"
    },
@@ -80,7 +88,7 @@ let gridFields = [
      name: "job_valid_date",
      title:"Valid until",
      type: "text",
-     width: 60,
+     width: 40,
      align: "center",
      css:"jobdate"
    }
@@ -108,7 +116,7 @@ $("#jobsgrid").jsGrid({
     editing: false,
     inserting: false,
 
-    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs.<br><br>If you're registered, you can add jobs <a href='/services/jobad/'>here</a></p></div>",
+    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/jobad/'>here</a></p></div>",
 
     data: params.jobsTable,
     controller: myController,

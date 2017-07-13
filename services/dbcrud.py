@@ -528,17 +528,22 @@ def update_scholar_cols(selected_safe_recs, cmx_db, where_luid=None):
     return where_luid
 
 
-def save_pairs_sch_tok(pairings_list, cmx_db, map_table='sch_kw'):
+def save_pairs_sch_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
     """
     Simply save all pairings (luid, kwid) or (luid, htid) in the list
     @pairings_list: list of tuples
     """
-    db_cursor = cmx_db.cursor()
+    if cmx_db:
+        db = cmx_db
+    else:
+        db = connect_db()
+    db_cursor = db.cursor()
     for id_pair in set(pairings_list):
         db_cursor.execute('INSERT INTO %s VALUES %s' % (map_table, str(id_pair)))
-        cmx_db.commit()
+        db.commit()
         mlog("DEBUG", "%s: saved %s pair" % (map_table, str(id_pair)))
-
+    if not cmx_db:
+        db.close()
 
 def delete_pairs_sch_tok(uid, cmx_db, map_table='sch_kw'):
     """
@@ -552,7 +557,7 @@ def delete_pairs_sch_tok(uid, cmx_db, map_table='sch_kw'):
     mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(uid)))
 
 
-def get_or_create_tokitems(tok_list, cmx_db, tok_table='keywords'):
+def get_or_create_tokitems(tok_list, cmx_db = None, tok_table='keywords'):
     """
         kw_str -> lookup/add to *keywords* table -> kw_id
         ht_str -> lookup/add to *hashtags* table -> ht_id
@@ -569,6 +574,10 @@ def get_or_create_tokitems(tok_list, cmx_db, tok_table='keywords'):
           => if a keyword/tag matches return kwid/htid
           => if no keyword/tag matches create new and return kwid/htid
     """
+    if cmx_db:
+        db = cmx_db
+    else:
+        db = connect_db()
 
     # sql names
     fill = {'tb': tok_table}
@@ -579,7 +588,7 @@ def get_or_create_tokitems(tok_list, cmx_db, tok_table='keywords'):
         fill['idc'] = 'htid'
         fill['strc']= 'htstr'
 
-    db_cursor = cmx_db.cursor()
+    db_cursor = db.cursor()
     found_ids = []
     for tok_str in tok_list:
 
@@ -599,7 +608,7 @@ def get_or_create_tokitems(tok_list, cmx_db, tok_table='keywords'):
 
             # ex: INSERT INTO keywords(kwstr) VALUES ("complexity")
             db_cursor.execute('INSERT INTO %(tb)s(%(strc)s) VALUES ("%(q)s")' % fill)
-            cmx_db.commit()
+            db.commit()
 
             mlog("INFO", "Added '%s' to %s table" % (tok_str, tok_table))
 
@@ -607,6 +616,8 @@ def get_or_create_tokitems(tok_list, cmx_db, tok_table='keywords'):
 
         else:
             raise Exception("ERROR: non-unique token '%s'" % tok_str)
+    if not cmx_db:
+        db.close()
     return found_ids
 
 
@@ -899,7 +910,15 @@ def get_jobs(author_uid = None):
     db_c = db.cursor(DictCursor)
 
     db_c.execute(
-        'SELECT * FROM jobs WHERE %s' % " AND ".join(constraints)
+        """SELECT jobs.*,
+                  COUNT(job_kw.kwid) AS kwid_nb,
+                  GROUP_CONCAT(keywords.kwstr) AS keywords
+           FROM jobs
+           LEFT JOIN job_kw ON jobs.jobid = job_kw.jobid
+           LEFT JOIN keywords ON keywords.kwid = job_kw.kwid
+           WHERE %s
+           GROUP BY jobs.jobid;
+        """ % " AND ".join(constraints)
     )
 
     job_rows = db_c.fetchall()

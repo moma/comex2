@@ -799,7 +799,14 @@ def jobad():
         # exemple clean_records
         # {'uid': '4206', 'job_valid_date': '2017/09/30', 'mission_text': 'In the town where I was born Lived a man who sailed the sea', 'email': 'romain.loth@truc.org', 'recruiter_org_text': 'We all live in a yellow submarine'}
 
-        dbcrud.save_job( clean_records )
+        jobid = dbcrud.save_job( clean_records )
+
+        # save associated keywords
+        kwids = dbcrud.get_or_create_tokitems(clean_records['keywords'])
+        dbcrud.save_pairs_sch_tok(
+            [(jobid, kwid) for kwid in kwids],
+            map_table = "job_kw"
+        )
 
         return render_template(
             "message.html",

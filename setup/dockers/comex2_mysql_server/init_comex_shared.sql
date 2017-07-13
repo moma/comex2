@@ -204,6 +204,14 @@ CREATE TABLE jobs (
     email                varchar(255) not null,
     job_valid_date       date,
 
-    -- NB: should the job be deleted when scholar is deleted ?
-    FOREIGN KEY (uid)  REFERENCES scholars(luid)
+    FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;
+
+-- relationship jobs <n=n> keywords
+CREATE TABLE job_kw(
+    jobid          int(15) not null,
+    kwid           int(15) not null,
+    PRIMARY KEY (jobid, kwid),
+    FOREIGN KEY (jobid)  REFERENCES jobs(jobid) ON DELETE CASCADE,
+    FOREIGN KEY (kwid) REFERENCES keywords(kwid)
+);
