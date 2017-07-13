@@ -809,6 +809,35 @@ def jobad():
         )
 
 
+# /services/jobad/
+@app.route(config['PREFIX'] + '/jobboard/', methods=['GET'])
+def jobboard():
+
+    # array of dicts
+    all_jobs = dbcrud.get_jobs()
+    # ({'email': 'romain.loth@truc.org',
+    #   'job_valid_date': datetime.date(2017, 9, 30),
+    #   'jobid': 1,
+    #   'last_modified': datetime.datetime(2017, 7, 13, 7, 55, 24),
+    #   'mission_text': 'In the town where I was born \nLived a man who sailed the sea',
+    #   'recruiter_org_text': 'We all live in a yellow submarine',
+    #   'uid': 4206},
+    #  {'email': 'romain.loth@iscpif.fr',
+    #   'job_valid_date': datetime.date(2018, 9, 14),
+    #   'jobid': 2,
+    #   'last_modified': datetime.datetime(2017, 7, 13, 8, 2, 31),
+    #   'mission_text': 'Job zwei',
+    #   'recruiter_org_text': 'oo',
+    #   'uid': 4221})
+
+    json_rows = dumps([tools.prejsonize(job) for job in all_jobs])
+
+    return render_template(
+                "job_board.html",
+                jobs_table = json_rows
+           )
+
+
 # any static pages with topbar are set in /about prefix
 
 # /about/privacy

@@ -63,5 +63,10 @@ iframe.wwwthumbsmall {
 }
 
 #news-container {
-    min-height: 50px !important;
+    padding-top: 10px;
+    min-height: 31px !important;
+}
+
+#news-container ul {
+    margin-top: 10px !important;
 }

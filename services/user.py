@@ -8,19 +8,19 @@ __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
 __email__     = "romain.loth@iscpif.fr"
 
-from json        import dumps, loads
-from datetime    import date, datetime
+from json        import loads, dumps
+from datetime    import date
 from flask_login import LoginManager
 from re          import match
 
 if __package__ == 'services':
     from services.dbcrud import connect_db, get_full_scholar, \
                                             get_doors_temp_user
-    from services.tools import mlog, REALCONFIG
+    from services.tools import mlog, REALCONFIG, prejsonize
 else:
     from dbcrud         import connect_db, get_full_scholar, \
                                            get_doors_temp_user
-    from tools          import mlog, REALCONFIG
+    from tools          import mlog, REALCONFIG, prejsonize
 
 # will be exported to main for initialization with app
 login_manager = LoginManager()
@@ -47,36 +47,6 @@ def load_user(mixedid):
             mlog("DEBUG", "load_user: empty user recreated from doors_uid")
 
     return u
-
-
-def jsonize_uinfo(uinfo_dict):
-    """
-    Dumps user_info in json format for client-side needs
-    """
-
-    serializable_dict = {}
-    for k,v in uinfo_dict.items():
-        # mlog('DEBUG', 'user: jsonize_uinfo k=v', k, '=' , v)
-
-        # most values are already serializable
-        if (   v is None
-            or k not in [ 'last_modified',
-                          'valid_date',
-                          'job_looking_date' ]
-            ):
-            serializable_dict[k] = v
-
-        # when k is a non-empty date field
-        else:
-            # if type(v) != date or type(v) != datetime:
-            if type(v) not in [date, datetime]:
-                raise TypeError("Incorrect type for %s field: /%s/ instead of date or datetime" % (k, type(v)))
-            else:
-                serializable_dict[k] = v.isoformat()
-                #   date   "YYYY-MM-DD"
-                # datetime "YYYY-MM-DDTHH:MM:SS"
-
-    return dumps(serializable_dict)
 
 
 class User(object):
@@ -107,7 +77,7 @@ class User(object):
             else:
                 self.uid = luid
                 self.info = scholar
-                self.json_info = jsonize_uinfo(scholar)
+                self.json_info = dumps(prejsonize(scholar))
                 self.doors_uid = self.info['doors_uid']
                 self.empty = False
 

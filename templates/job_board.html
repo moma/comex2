@@ -1,0 +1,46 @@
+{% extends "base_layout.html" %}
+
+{% block headers %}
+  <title>Community Explorer Job Board</title>
+  <meta name="description" content="Community Explorer Job Board">
+  <meta name="keywords" content="community, job ads, job-board">
+  <link type="text/css" rel="stylesheet"
+        href="{{ url_for('static', filename='js/jsgrid/jsgrid.css') }}">
+  <link type="text/css" rel="stylesheet"
+        href="{{ url_for('static', filename='js/jsgrid/jsgrid-theme.css') }}">
+  <link type="text/css" rel="stylesheet"
+        href="{{ url_for('static', filename='css/jsgrid_comex.css') }}">
+{% endblock %}
+
+<!-- ======================================================================= -->
+
+{% block main_content %}
+    <div class="row smallspacerrow">&nbsp;</div>
+    <div class="row">
+      <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
+      <div class="my-centering-box col-lg-8 col-md-10 col-sm-12">
+          <div id="intro">
+              <h2 class="oldstyle">Jobs</h2>
+              <div class="message-hero">
+                You'll find here all the currently available jobs on our server.
+              </div>
+          </div>
+      </div>
+    </div>
+    <div class="row">
+      <div id="jobsgrid"><!--filled by comex_job_board.js--></div>
+    </div>
+
+{% endblock %}
+
+{% block last_imports %}
+    <script type="text/javascript">
+      //               ---------
+      // a copy of the jobs info in json
+      //               ---------
+      var jobsTable = {{ jobs_table | safe }}
+    </script>
+    <!--  our js with jsgrid  -->
+    <script src="{{ url_for('static', filename='js/jsgrid/jsgrid.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/comex_job_board.js') }}"></script>
+{% endblock %}

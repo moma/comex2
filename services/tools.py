@@ -12,6 +12,7 @@ from sys          import stdout
 from urllib.parse import unquote
 from ctypes       import c_int32
 from traceback    import format_tb
+from datetime     import date, datetime
 
 # ========================== FILL REALCONFIG ===================================
 
@@ -272,3 +273,26 @@ def pic_blob_to_filename(pic_blob):
     pic_blob.save(new_img_relpath)
     # filename
     return fbasename
+
+
+def prejsonize(dict_of_vals):
+    """
+    Prepares dict_of_vals good for dumping in json format for client-side needs
+    => esp. useful for datetime values that json.dumps can't handle alone
+    """
+
+    serializable_dict = {}
+    for k,v in dict_of_vals.items():
+        # mlog('DEBUG', 'user: jsonize_uinfo k=v', k, '=' , v)
+
+        # most values are already serializable
+        if (type(v) not in [date, datetime]):
+            serializable_dict[k] = v
+
+        # when k is a non-empty date field
+        else:
+            serializable_dict[k] = v.isoformat()
+            #   date   "YYYY-MM-DD"
+            # datetime "YYYY-MM-DDTHH:MM:SS"
+
+    return serializable_dict

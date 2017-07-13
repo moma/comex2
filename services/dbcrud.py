@@ -887,3 +887,21 @@ def save_job(job_infos):
     db.close()
     mlog("DEBUG", "jobs: saved %s infos" % job_infos)
     return job_id
+
+
+def get_jobs(author_uid = None):
+
+    constraints = ['job_valid_date >= CURDATE()']
+    if author_uid:
+        constraints.append('uid = "%s"' % author_uid)
+
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+
+    db_c.execute(
+        'SELECT * FROM jobs WHERE %s' % " AND ".join(constraints)
+    )
+
+    job_rows = db_c.fetchall()
+    db.close()
+    return job_rows

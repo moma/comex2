@@ -3,7 +3,7 @@
 {% block headers %}
   <title>Formulaire Community Explorer : nouvelle offre d'emploi</title>
   <meta name="description" content="Formulaire d'ajout d'offre d'emploi sur la plateforme Community Explorer (ISCPIF CNRS UPS 3611)">
-  <meta name="keywords" content="complex systems, community, job ad, jobboard">
+  <meta name="keywords" content="complex systems, community, job ads, job-board">
 {% endblock %}
 
 <!-- ======================================================================= -->
@@ -17,14 +17,14 @@
         <div id="intro">
           <h2 class="oldstyle">Job Ad</h2>
               <p class="mini-hero">
-                  Fill this <strong>job ad creation form</strong> to add a job ad to the <a href="#TODO">Community Explorer Job-board</a>.
+                  Fill this <strong>job ad creation form</strong> to add a job ad to the <a href="/services/jobboard">Community Explorer Job-board</a>.
                   <br> (All fields are mandatory.)
               </p>
         </div>
 
 
         <!-- ########################### ( FORM ) ########################## -->
-      <div class="uform-white">
+      <div class="uform">
         <form id="comex_job_form" enctype="multipart/form-data"
               method="post" onsubmit="console.info('submitted')">
 
@@ -43,7 +43,7 @@
                          onblur="cmxClt.makeBold(this)" onfocus="cmxClt.makeNormal(this)"
                          ></textarea>
              </div>
-             <p class="legend">Optional, ~30 lines max (2400 chars)</p>
+             <p class="legend">~30 lines max (2400 chars)</p>
             </div>
 
             <div class="question">
