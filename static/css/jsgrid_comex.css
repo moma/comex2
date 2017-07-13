@@ -6,22 +6,33 @@
 
 #jobsgrid {
   margin: 50px 10% 0 10%;
-  border: 1px solid #444;
+  border: 1px solid #ccc;
   border-radius: 10px;
-  font-family: Calibri, sans-serif;
+  font-family: "Droid Sans", Calibri, "Helvetica Neue", Helvetica, sans-serif;
+  box-shadow: 3px 3px 5px 0px rgba(0,0,0,0.75);
+}
+
+th.jsgrid-header-cell.mission {
+  border-radius: 11px 0px 0px 0px;
 }
 
 .jsgrid-header-cell {
   box-sizing: border-box;
   text-align: center;
-  background-color: #3e6280 !important;
+  background-color: #0d7bb7 !important;
+  font-size: 16px;
   color: #fff;
 }
 
 .jsgrid-cell {
-  min-height: 3em;
+  min-height: 4em !important;
+  height: 4em;
   font-size: 14px;
   font-family: Georgia, serif;
+}
+
+.jsgrid-cell > input {
+  font-size: 14px !important;
 }
 
 /* triangles */
@@ -36,15 +47,9 @@
 }
 
 
-.mission, .recr-org, .email, .jobdate {
+.mission, .recr-org, .email, .jobdate, .keywords {
 }
 
-.mission {
-
-}
-.recr-org {
-
-}
 .email.jsgrid-cell {
   font-size: 10px;
 }
@@ -52,6 +57,11 @@
   font-size: 10px;
 }
 
+.minibox{
+  font-family: "Droid Sans", Calibri, "Helvetica Neue", Helvetica, sans-serif;
+  padding: .5em .3em;
+  font-size: .8em;
+}
 
 
 /*

@@ -55,10 +55,7 @@ let gridFields = [
      title:"Mission",
      type: "text",
      width: 110,
-     css:"mission",
-     itemTemplate: function(value, item) {
-       return value
-     }
+     css:"mission"
    },
    {
      name: "keywords",
@@ -66,7 +63,19 @@ let gridFields = [
      type: "text",
      width: 80,
      align: "center",
-     css:"keywords"
+     css:"keywords",
+     itemTemplate: function(value) {
+       let html = ''
+       if (value) {
+         let kws = value.split(/,/)
+         for (var k in kws) {
+           if (k.length) {
+             html += makeTagBox(kws[k]).outerHTML
+           }
+         }
+       }
+       return html
+     }
    },
    {
      name: "recruiter_org_text",
@@ -86,7 +95,7 @@ let gridFields = [
    },
    {
      name: "job_valid_date",
-     title:"Valid until",
+     title:"Until",
      type: "text",
      width: 40,
      align: "center",
@@ -104,6 +113,17 @@ if (params.isAdmin) {
     }
   })
 }
+
+
+
+// to create a tag box
+function makeTagBox(textValue) {
+  let newBox = document.createElement('div')
+  newBox.textContent = textValue
+  newBox.classList.add("box-highlight", "minibox")
+  return newBox
+}
+
 
 $("#jobsgrid").jsGrid({
     width: "80%",
