@@ -22,7 +22,7 @@
           <div id="intro">
               <h2 class="oldstyle">Jobs</h2>
               <div class="message-hero">
-                You'll find here all the currently available jobs on our server.
+                {{ message | safe }}
               </div>
           </div>
       </div>
@@ -35,10 +35,13 @@
 
 {% block last_imports %}
     <script type="text/javascript">
-      //               ---------
-      // a copy of the jobs info in json
-      //               ---------
-      var jobsTable = {{ jobs_table | safe }}
+      // a frozen copy of our params: can_edit flag and all jobs info in json
+      var params = {
+        'jobsTable': {{ jobs_table | safe }},
+        'isAdmin': {{ can_edit }},
+        'user': {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }}
+      }
+      Object.freeze(params)
     </script>
     <!--  our js with jsgrid  -->
     <script src="{{ url_for('static', filename='js/jsgrid/jsgrid.js') }}"></script>

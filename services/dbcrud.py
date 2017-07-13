@@ -905,3 +905,17 @@ def get_jobs(author_uid = None):
     job_rows = db_c.fetchall()
     db.close()
     return job_rows
+
+def delete_job(jobid = None, author_uid = None):
+    if not jobid or not author_uid:
+        raise Exception("ERROR: won't delete job without jobid and matching author uid")
+
+    db = connect_db()
+    db_c = db.cursor()
+
+    db_c.execute(
+        'DELETE FROM jobs WHERE jobid="%s" AND uid="%s"' % (str(jobid), str(author_uid))
+    )
+    db.commit()
+    db.close()
+    return jobid

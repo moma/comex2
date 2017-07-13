@@ -284,7 +284,6 @@ h2.catfirst {
 /* like a green stamp */
 .stamp {
   font-family: Courier, "Courier 10 Pitch", "Courier Code", "Nimbus Mono L", "Liberation Mono", monospace;
-  transform: rotate(15deg);
   font-weight: bolder;
   color: white;
   /*background-color: #004C26;*/
@@ -294,8 +293,12 @@ h2.catfirst {
   padding: .5em;
   border: 1px solid rgba(0, 0, 0, .5);
   border-radius: .4em;
-  margin-top: -60px;
   opacity: 0.75;
+}
+
+.tilted {
+  margin-top: -60px;
+  transform: rotate(15deg);
 }
 
 

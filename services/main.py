@@ -809,7 +809,7 @@ def jobad():
         )
 
 
-# /services/jobad/
+# /services/jobboard/
 @app.route(config['PREFIX'] + '/jobboard/', methods=['GET'])
 def jobboard():
 
@@ -834,8 +834,64 @@ def jobboard():
 
     return render_template(
                 "job_board.html",
-                jobs_table = json_rows
+                message = """
+                You'll find here all the currently available jobs on our server.
+                """,
+                jobs_table = json_rows,
+                can_edit = 0
            )
+
+# /services/user/myjobs/
+@app.route(config['PREFIX'] + config['USR_ROUTE'] + '/myjobs/', methods=['GET'])
+def myjobs():
+
+    # jobs filtered by uid
+    all_jobs = dbcrud.get_jobs(current_user.uid)
+
+    json_rows = dumps([tools.prejsonize(job) for job in all_jobs])
+
+    return render_template(
+                "job_board.html",
+                message = """
+                This is the list of jobs you entered. They are available to all from <a href="/services/jobboard/">the open job-board</a> page. You are the admin of this list and can add or remove items.
+                """,
+                jobs_table = json_rows,
+                can_edit = 1
+           )
+
+
+# /services/api/jobs
+@fresh_login_required
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['DELETE'])
+def api_delete_job():
+    jobid = request.args.get('jobid')
+    job_author_uid = request.args.get('author')
+    mlog("DEBUG",
+         'received api delete job:', jobid, job_author_uid)
+
+    # double condition to prevent tampering with requests
+    # 1) the person who asked should be the same as the cookies' current_user.uid to prove the request is legit
+    # 2) this job author uid should be the same as the one we have in jobs table => cf. try below
+
+    if (jobid and (str(job_author_uid) == str(current_user.uid))):
+        try:
+            deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
+            return Response(
+                response=dumps({'deleted': deleted_jobid}),
+                status=200,
+                mimetype="application/json")
+
+        except Exception as dberr:
+            return Response(
+                response=dumps({'error': tools.format_err(dberr)}),
+                status=500,
+                mimetype="application/json")
+    else:
+        return Response(
+            response=dumps({'error': 'the provided arguments did not match any job resource'}),
+            status=400,
+            mimetype="application/json")
+
 
 
 # any static pages with topbar are set in /about prefix
