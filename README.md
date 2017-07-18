@@ -159,15 +159,6 @@ The comex app was refactored and merged in dec 2016 with a new registration form
 
 More info in `doc/` directory
 
-### TODOLIST
-  - once we have SSL certificates for communityexplorer, add them to inner nginx
-      ```
-      # ssl_certificate /etc/ssl/cert/ssl-future-comex.pem;
-      # ssl_certificate_key /etc/ssl/private/ssl-future-comex.key;
-      ```
-
-  - transform `affiliations` table into 2 tables (differentiate labs and orgs)
-
 ### Project History Overview
 This project first started as a side-project of the EU FET Funded TINA project (2009-2011) coordinated by David Chavalarias (CNRS). It was endorsed by the Complex Systems Institute of Paris Ile-de-France (ISC-PIF), the Complex Systems Society and the French National Network for Complex Systems.
 
