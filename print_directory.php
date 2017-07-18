@@ -48,7 +48,7 @@ $categoryb = $data["categoryb"] ?? [];
 $countries = $data["countries"] ?? [];
 $keywords = $data["keywords"] ?? [];
 $laboratories = $data["laboratories"] ?? [];
-$organizations = $data["organizations"] ?? [];
+$institutions = $data["institutions"] ?? [];
 $tags = $data["tags"] ?? [];
 
 
@@ -57,7 +57,7 @@ $tags = $data["tags"] ?? [];
 // echo '<p style="color:grey">params:  $countries =====> "'. implode($countries) .'"</p>';
 // echo '<p style="color:grey">params:  $keywords =====> "'. implode($keywords) .'"</p>';
 // echo '<p style="color:grey">params:  $laboratories =====> "'. implode($laboratories) .'"</p>';
-// echo '<p style="color:grey">params:  $organizations =====> "'. implode($organizations) .'"</p>';
+// echo '<p style="color:grey">params:  $institutions =====> "'. implode($institutions) .'"</p>';
 // echo '<p style="color:grey">params:  $tags =====> "'. implode($tags) .'"</p>';
 
 $query_details='<ul>';
@@ -177,23 +177,23 @@ if ($laboratories) {
     $query_details .= "</li>";
 }
 
-if ($organizations) {
+if ($institutions) {
     // debug
     // echo '<p style="color:white">MATCHING ON organizations<p>';
 
-    if (sizeof($organizations) > 0) {
+    if (sizeof($institutions) > 0) {
         $f .= 'AND (';
     }
         $query_details.='<li class="small-item"><strong>In the organization named : </strong>';
     $i = 0;
-    foreach ($organizations as $org) {
-        // echo '<p style="color:white">========> org =====> '. $org ."<p>";
-        $org = sanitize_input(trim(strtolower($org)));
-        if ($org == "") continue;
+    foreach ($institutions as $inst) {
+        // echo '<p style="color:white">========> org =====> '. $inst ."<p>";
+        $inst = sanitize_input(trim(strtolower($inst)));
+        if ($inst == "") continue;
         if ($i > 0)
             $f .= " OR ";
-        $f .= 'insts_list LIKE "%' . $org . '%" ';
-        $query_details.=$org.', ';
+        $f .= 'insts_list LIKE "%' . $inst . '%" ';
+        $query_details.=$inst.', ';
         $i++;
     }
     $f .= ")  ";
@@ -230,7 +230,7 @@ $org_id_to_label = array();
 // MAIN HTML CONTENT
 $content='';
 
-// error_log("=======> WHERE filters {$f}");
+error_log("=======> WHERE filters {$f}");
 
 // filtered query
 if (strlen($f)>0) {
