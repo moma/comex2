@@ -315,7 +315,7 @@ class BipartiteExtractor:
 
     def jaccard(self,cooc,occ1,occ2):
         """
-        Was used for SOC edges (aka nodes1 or edgesA)
+        Used for SOC edges (aka nodes1 or edgesA)
 
         (Cooc normalized by total scholars occs)
         """
@@ -326,7 +326,7 @@ class BipartiteExtractor:
 
     def log_sim(self,cooc,occ1,occ2):
         """
-        Newly used for SOC edges
+        Alternative for SOC edges
             => preserves monotony
             => + log scale (=> good for display !!)
         """
@@ -591,7 +591,6 @@ class BipartiteExtractor:
         # mlog("DEBUG", "MySQL extract scholar_array:", scholar_array)
         # scholar_array = list(scholar_array.keys())[0:3]
 
-
         sql3='''
             SELECT
                 scholars_and_orgs.*,
@@ -717,6 +716,15 @@ class BipartiteExtractor:
         scholarsMatrix = {};
         scholarsIncluded = 0;
 
+        # constant for bipartite edge weights
+        bipaW = 8
+        # explanation:
+        #  - same sides edge weights are of magnitude ~~ coocc / occ²
+        #  - but bipart edge weights are of magnitude ~~     1 / occ²
+        #  - used like this with a forceAtlas, the visual result of graphs
+        #    will then always cluster nodes of each type together (stronger ties for same side edges)
+        #  - used with the constant this effect is avoided (stronger ties for bipartite edges)
+
         for i in self.scholars:
             mlog('DEBUG', 'extractDataCustom:'+self.scholars[i]['email'])
             self.scholars_colors[self.scholars[i]['email'].strip()]=0;
@@ -779,7 +787,7 @@ class BipartiteExtractor:
             info['kwid'] = idT
             info['occurrences'] = res['occs']
             info['kwstr'] = res['kwstr']
-            self.terms_dict[idT] = info
+            self.terms_dict[str(idT)] = info
         count=1
 
         for term in self.terms_dict:
@@ -793,7 +801,7 @@ class BipartiteExtractor:
 
         cont=0
         for term_id in self.terms_dict:
-            sql="SELECT uid, initials FROM sch_kw JOIN scholars ON uid=luid WHERE kwid=%i" % term_id
+            sql="SELECT uid, initials FROM sch_kw JOIN scholars ON uid=luid WHERE kwid=%s" % term_id
             term_scholars=[]
             self.cursor.execute(sql)
             rows = self.cursor.fetchall()
@@ -841,9 +849,10 @@ class BipartiteExtractor:
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
-                            target="N::"+str(keyword)
-                            self.Graph.add_edge( source , target , {'weight':1,'type':"bipartite"})
-                            #Some bipartite relations are missing (just the 1%)
+
+                            # term--scholar weight: constant / (total occs of term x total keywords of scholar)
+                            weight = bipaW / (self.terms_dict[keyword]['occurrences'] * scholarsMatrix[scholar]['occ'])
+                            self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
 
         for term in self.terms_dict:
             nodeId1 = self.terms_dict[term]['kwid'];
@@ -854,13 +863,13 @@ class BipartiteExtractor:
                         source="N::"+str(term)
                         target="N::"+neigh
 
-                        weight=neighbors[str(neigh)]/float(self.terms_dict[term]['occurrences'])
-                        # TODO ^^^ check formula ^^^
+                        # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
+                        weight=neighbors[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
 
-                        # # detailed debug
+                        # detailed debug
                         if neighbors[neigh] != 1:
                             mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
-                            mlog("DEBUG", "term:", self.terms_dict[int(term)]['kwstr'], "<===> neighb:", self.terms_dict[int(neigh)]['kwstr'])
+                            mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[int(neigh)]['kwstr'])
                             mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
                             mlog("DEBUG", "neighbors[neigh]:", neighbors[str(neigh)])
                             mlog("DEBUG", "edge w", weight)
@@ -880,9 +889,7 @@ class BipartiteExtractor:
                     if neigh != str(scholar):
                         source=str(scholar)
                         target=str(neigh)
-                        # weight=self.log_sim(neighbors[str(neigh)],
-                        #                         scholarsMatrix[nodeId1]['occ'],
-                        #                         scholarsMatrix[neigh]['occ'])
+                        # scholar--scholar weight: number of common terms / (total keywords of scholar 1 x total keywords of scholar 2)
                         weight=self.jaccard(neighbors[str(neigh)],
                                                 scholarsMatrix[nodeId1]['occ'],
                                                 scholarsMatrix[neigh]['occ'])
@@ -943,15 +950,15 @@ class BipartiteExtractor:
                 # debug
                 # mlog("DEBUG", "terms idNode:", idNode)
 
-                numID=int(idNode.split("::")[1])
+                kwid=idNode.split("::")[1]
                 try:
-                    nodeLabel= self.terms_dict[numID]['kwstr'].replace("&"," and ")
-                    colorg=max(0,180-(100*self.terms_colors[numID]))
+                    nodeLabel= self.terms_dict[kwid]['kwstr'].replace("&"," and ")
+                    colorg=max(0,180-(100*self.terms_colors[kwid]))
 
-                    term_occ = self.terms_dict[numID]['occurrences']
+                    term_occ = self.terms_dict[kwid]['occurrences']
 
                 except KeyError:
-                    mlog("WARNING", "couldn't find label and meta for term " + str(numID))
+                    mlog("WARNING", "couldn't find label and meta for term " + kwid)
                     nodeLabel = "UNKNOWN"
                     colorg = 0
                     term_occ = 1
