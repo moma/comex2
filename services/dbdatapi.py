@@ -849,6 +849,7 @@ class BipartiteExtractor:
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
+                            target="N::"+str(keyword)
 
                             # term--scholar weight: constant / (total occs of term x total keywords of scholar)
                             weight = bipaW / (self.terms_dict[keyword]['occurrences'] * scholarsMatrix[scholar]['occ'])
@@ -859,8 +860,8 @@ class BipartiteExtractor:
             if str(nodeId1) in termsMatrix:
                 neighbors = termsMatrix[str(nodeId1)]['cooc'];
                 for i, neigh in enumerate(neighbors):
-                    if neigh != str(term):
-                        source="N::"+str(term)
+                    if neigh != term:
+                        source="N::"+term
                         target="N::"+neigh
 
                         # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
@@ -869,9 +870,9 @@ class BipartiteExtractor:
                         # detailed debug
                         if neighbors[neigh] != 1:
                             mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
-                            mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[int(neigh)]['kwstr'])
+                            mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
                             mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
-                            mlog("DEBUG", "neighbors[neigh]:", neighbors[str(neigh)])
+                            mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
                             mlog("DEBUG", "edge w", weight)
 
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
