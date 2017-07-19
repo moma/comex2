@@ -60,16 +60,17 @@ app = Flask("services",
              template_folder=path.join(config['HOME'],"templates"))
 
 app.config['DEBUG'] = (config['LOG_LEVEL'] in ["DEBUG","DEBUGSQL"])
-app.config['SECRET_KEY'] = 'TODO fill secret key for sessions for login'
+app.config['SECRET_KEY'] = config['PASSPHRASE']
 
 # for SSL
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 # for flask_login
-cookie_timer = timedelta(hours=2)
+cookie_timer = timedelta(days=7)
 app.config['PERMANENT_SESSION_LIFETIME'] = cookie_timer
 app.config['REMEMBER_COOKIE_DURATION'] = cookie_timer
 app.config['REMEMBER_COOKIE_NAME'] = 'communityexplorer.org cookie'
+app.config['REMEMBER_COOKIE_SECURE'] = True  # we remember session only if https
 
 login_manager.login_view = "login"
 login_manager.session_protection = "strong"
@@ -365,21 +366,18 @@ def login():
                 dbcrud.save_doors_temp_user(doors_uid, email)  # preserve the email
                 user = User(None, doors_uid=doors_uid)     # get a user.empty
 
-            # =========================
-            login_ok = login_user(user)
-            # =========================
+            # ==================================================================
+            login_ok = login_user(user, remember=True)
+            #                           -------------
+            #                      creates REMEMBER_COOKIE_NAME
+            #             (keep session open if cookie was sent in https)
+            # ==================================================================
 
             mlog('INFO',
                  'login of %s (%s) was %s' % (str(luid),
                                               doors_uid,
                                               str(login_ok))
             )
-
-            # TODO check cookie
-            # login_ok = login_user(User(luid), remember=True)
-            #                                   -------------
-            #                            creates REMEMBER_COOKIE_NAME
-            #                        which is itself bound to session cookie
 
             if not login_ok:
                 # break: failed to login_user()
@@ -436,6 +434,7 @@ def logout():
     logout_user()
     mlog('INFO', 'logged out previous user')
     return reroute('rootindex')
+
 
 # /services/user/profile/
 @app.route(config['PREFIX'] + config['USR_ROUTE'] + '/profile/', methods=['GET', 'POST'])

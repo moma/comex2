@@ -31,6 +31,7 @@ CONFIGMENU = [
             # subserver
             {"sec": 'main',    "var":'COMEX_HOST',   "def": '0.0.0.0'       },
             {"sec": 'main',    "var":'COMEX_PORT',   "def": '9090'          },
+            {"sec": 'main',    "var":'PASSPHRASE',   "def": 's3cr3t k3y'    },
 
             {"sec": 'routes',  "var":'PREFIX',       "def": '/services'     },
             {"sec": 'routes',  "var":'USR_ROUTE',    "def": '/user'         },
@@ -238,7 +239,7 @@ def mlog(loglvl, *args):
         print("WARNING: attempt to use mlog before read_config")
 
 
-mlog("INFO", "conf\n  "+"\n  ".join(["%s=%s"%(k['var'],REALCONFIG[k['var']]) for k in CONFIGMENU]))
+mlog("INFO", "conf\n  "+"\n  ".join(["%s=%s"%(k['var'],REALCONFIG[k['var']]) for k in CONFIGMENU if k['var'] != 'PASSPHRASE']))
 
 
 def format_err(err):

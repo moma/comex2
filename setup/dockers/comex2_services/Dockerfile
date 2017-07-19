@@ -40,6 +40,9 @@ RUN echo "updating"
 RUN git clone https://github.com/moma/comex2.git
 WORKDIR /comex2
 
+# create a passphrase >> config/parametres_comex.ini
+RUN bash setup/toolbox/make_passphrase.sh
+
 # prepare the production version of tina
 WORKDIR static/tinawebJS
 RUN bash twtools/adapt_html_paths.sh "static/tinawebJS/"

@@ -3,6 +3,8 @@
 #; (cf. http://docs.gunicorn.org/en/stable/settings.html#worker-processes)
 COMEX_NWORKERS=2
 
+PASSPHRASE="replaced by docker at init"
+
 #; that's how much we'll log from services: DEBUG, INFO, WARNING or ERROR
 LOG_LEVEL=DEBUG
 LOG_FILE=logs/services.log
