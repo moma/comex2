@@ -152,6 +152,40 @@
                   <li class="comex-nav-item">
                       <a class="topbarlink" href='/print_scholar_directory.php?query={{ current_user.uid }}'> Your Directory </a>
                   </li>
+                  <li class="dropdown">
+                    <a href="#" class="navlink dropdown-toggle"
+                       data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                       <span class="glyphicon glyphicon-briefcase"></span>
+                       Jobs
+                       <span class="caret"></span>
+                   </a>
+                    <ul class="dropdown-menu">
+                      <li>
+                          <a href='/services/jobad/'> Add a new job </a>
+                      </li>
+                      <li>
+                          <a href='/services/user/myjobs/'> All your jobs </a>
+                      </li>
+                      <li>
+                        <a href='/services/jobboard/'> Job Market </a>
+                      </li>
+                    </ul>
+                  </li>
+                {% else %}
+                <li class="dropdown">
+                  <a href="#" class="navlink dropdown-toggle"
+                     data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                     <span class="glyphicon glyphicon-briefcase"></span>
+                     Jobs
+                     <span class="caret"></span>
+                 </a>
+                  <ul class="dropdown-menu">
+                    <li>
+                      <a href='/services/jobboard/'> Job Market </a>
+                    </li>
+                  </ul>
+                </li>
+
                 {% endif %}
 
                 <!-- USER TOOLBARS (LOGIN/REGISTER/PROFILE/ETC) -->
@@ -174,9 +208,6 @@
                               <a href="/services/user/profile"> Your Profile </a>
                           </li>
                           {% endif %}
-                          <li>
-                              <a href='/services/jobad/'> Add a new job </a>
-                          </li>
                           <li>
                               <a href='/services/user/logout/'> Logout </a>
                           </li>
