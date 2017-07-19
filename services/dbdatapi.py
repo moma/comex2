@@ -971,6 +971,7 @@ class BipartiteExtractor:
                 nodesB+=1
 
             if idNode[0]=='D':#If it is Document (or scholar)
+
                 nodeLabel= self.scholars[idNode]['hon_title']+" "+self.scholars[idNode]['first_name']+" "+self.scholars[idNode]['mid_initial']+" "+self.scholars[idNode]['last_name']
                 color=""
                 if self.scholars_colors[self.scholars[idNode]['email']]==1:
@@ -1053,12 +1054,18 @@ class BipartiteExtractor:
                 node["label"] = nodeLabel
                 node["color"] = color
 
-                dacountry = self.scholars[idNode]["country"]
-
                 # new tina: any values under .attributes can be mapped to a color
+                #           or used in any other way by ProjectExplorer
                 node["attributes"] = {}
 
+                # special attribute normalizing factor
+                if self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
+                    node["attributes"]["normfactor"] = "%.5f" % (1/log1p(len(self.scholars[idNode]["keywords_ids"])))
+                else:
+                    node["attributes"]["normfactor"] = 1
+
                 # country code
+                dacountry = self.scholars[idNode]["country"]
                 if dacountry: node["attributes"]["country"] = dacountry
                 else: node["attributes"]["country"]="-"
 
