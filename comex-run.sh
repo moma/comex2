@@ -51,4 +51,8 @@ fi
 # anyway we always need a simple web server to run the services
 export COMEX_NWORKERS=$(grep -oP '(?<=COMEX_NWORKERS=).*' config/parametres_comex.ini)
 
+# ...and a new passphrase for config/parametres_comex.ini
+bash setup/toolbox/make_passphrase.sh
+
+# ...and let's run
 gunicorn -b $COMEX_BIND_POINT services.main:app --workers $COMEX_NWORKERS --worker-class gevent
