@@ -851,8 +851,8 @@ class BipartiteExtractor:
                             source= str(scholar)
                             target="N::"+str(keyword)
 
-                            # term--scholar weight: constant / (total occs of term x total keywords of scholar)
-                            weight = bipaW / (self.terms_dict[keyword]['occurrences'] * scholarsMatrix[scholar]['occ'])
+                            # term--scholar weight: constant / log(1+total keywords of scholar)
+                            weight = bipaW / log1p(scholarsMatrix[scholar]['occ'])
                             self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
 
         for term in self.terms_dict:
