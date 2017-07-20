@@ -12,6 +12,7 @@ Use this only if you want to recreate the app's tables manually, say, for develo
 mysql -uroot -pvery-safe-pass -h $SQL_HOST -P 3306
 
 # --- after connection to mysql
+
 CREATE DATABASE comex_shared CHARACTER SET utf8 COLLATE utf8_general_ci ;
 USE comex_shared ;
 CREATE TABLE scholars (
@@ -77,16 +78,23 @@ CREATE TABLE orgs(
     -- address...          (...)      -- address elements POSS NOT IMPLEMENTED
     reserved            varchar(30),
 
-    -- tostring: generated column
-    -- ex "Instituto de Fisica de Cantabria (IFCA), Santander, Spain"
+
+    -- 1 generated columns for common uses as label
+    -- ex "Instituto de Fisica de Cantabria (IFCA)"
     -- searchable + human readable, often useful for autocompletes etc
-    tostring            varchar(800)
+    label              varchar(800)
         AS (CONCAT_WS( '',
                        CONCAT(name, ' '),
-                       CONCAT('(',acro,')'),
-                       CONCAT(', ', locname)) ),
+                       CONCAT('(',acro,')')) ),
+
+    -- 1 generated column for serialize
+    toarray            varchar(800)
+        AS (JSON_ARRAY(name, acro, locname)),
+
     PRIMARY KEY (orgid),
-    UNIQUE KEY full_org (name, acro, locname)
+    INDEX class_index_orgs (class),
+    UNIQUE KEY full_org (class, name, acro, inst_type)
+    -- POSS add locname to UNIQUE KEY (but handle variants!!)
 
     -- POSS FOREIGN KEY locname REFERENCES locs(locname)
     --  (useful when we use the locs more in the app)
@@ -193,23 +201,6 @@ CREATE TABLE legacy_temp_rettoks (
     INDEX rettok_index_ltempt (rettok)
 ) ;
 
-
--- current jobs table
-CREATE TABLE jobs (
-    jobid                int(15) not null auto_increment unique primary key,
-    -- creator user (one to many: no need for mapping table)
-    uid                  int(15) not null,
-    last_modified        timestamp,
-    mission_text         varchar(2400) not null,
-    recruiter_org_text   varchar(2400) not null,
-    email                varchar(255) not null,
-    job_valid_date       date,
-
-    -- NB: should the job be deleted when scholar is deleted ?
-    FOREIGN KEY (uid)  REFERENCES scholars(luid)
-) ;
-
-
 -- current jobs table
 CREATE TABLE jobs (
     jobid                int(15) not null auto_increment unique primary key,
@@ -232,5 +223,6 @@ CREATE TABLE job_kw(
     FOREIGN KEY (jobid)  REFERENCES jobs(jobid) ON DELETE CASCADE,
     FOREIGN KEY (kwid) REFERENCES keywords(kwid)
 );
+
 
 ```
