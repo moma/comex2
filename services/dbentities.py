@@ -23,7 +23,7 @@ class DBEntity:
 
     def getInfos(self):
         """
-        SQL to get detailed node's information (use with a WHERE entityID IN [] constraint)
+        SQL to get detailed node's information (JOIN with match query or any list of EntityIDs)
 
         NB: the SQL is often similar to toPivot but grouped by entityID
             (same difference as list of edges vs list of nodes...)
@@ -97,7 +97,7 @@ class DBKeywords(DBEntity):
     def getInfos(self):
         return """
                 SELECT keywords.kwid AS entityID,
-                      keywords.kwstr AS label,
+                       keywords.kwstr AS label,
                       count(sch_kw.uid) AS nodeweight
                 FROM keywords
                 LEFT JOIN sch_kw ON sch_kw.kwid = keywords.kwid
