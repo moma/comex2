@@ -117,7 +117,7 @@ class DBHashtags(DBEntity):
                       hashtags.htstr AS label,
                       count(sch_ht.uid) AS nodeweight
                 FROM hashtags
-                LEFT JOIN sch_kw ON sch_ht.htid = hashtags.htid
+                LEFT JOIN sch_ht ON sch_ht.htid = hashtags.htid
                 GROUP BY hashtags.htid
                """
 

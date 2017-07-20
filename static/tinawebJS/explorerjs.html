@@ -117,6 +117,12 @@
               <div id="gexfs"></div>
             </a>
           </li>
+          <li>
+              <a href="#multimatch-test" id="multimatch-toggle"
+                 data-toggle="modal" data-target="#multimatch-test">
+                 Test multimatch
+              </a>
+          </li>
         </ul>
 
         <ul class="nav navbar-nav navbar-right">
@@ -641,6 +647,65 @@
         </div>
         <div id="closeloader" data-dismiss="modal"></div>
     </div> -->
+
+    <div id="multimatch-test" class="modal fade">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h4 class="modal-title">Test the multimatch</h4>
+          </div>
+          <div class="modal-body">
+            <div class="uform-white">
+              <form id="multimatch_form" onsubmit="console.info('submitted')">
+                 <h3 class="formcat">Choose your node types</h3><br/>
+
+                   <div class="question">
+                     <div class="input-group">
+                       <label for="mm-type0" class="smlabel input-group-addon">type 0</label>
+                       <select id="mm-type0" name="mm-type0"
+                               class="custom-select form-control">
+                           <option selected value="lab">labs</option>
+                           <option value="inst">institutions</option>
+                           <option value="kw">keywords</option>
+                           <option value="ht">hashtags</option>
+                           <option value="country">countries</option>
+                           <option value="sch">scholars</option>
+                       </select>
+                     </div>
+                   </div>
+
+                   <div class="question">
+                     <div class="input-group">
+                       <label for="mm-type1" class="smlabel input-group-addon">type 1</label>
+                       <select id="mm-type1" name="mm-type1"
+                               class="custom-select form-control">
+                           <option value="lab">labs</option>
+                           <option value="inst">institutions</option>
+                           <option selected value="kw">keywords</option>
+                           <option value="ht">hashtags</option>
+                           <option value="country">countries</option>
+                           <option value="sch">scholars</option>
+                       </select>
+                     </div>
+                   </div>
+
+              </form>
+
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" data-dismiss="modal">
+              Cancel
+            </button>
+            <button class="btn btn-primary"
+              type=button onclick="testMultimatch()" data-dismiss="modal">
+              Ok
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
 
     <div id="facet-options" class="modal fade">

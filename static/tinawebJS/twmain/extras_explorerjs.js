@@ -1007,3 +1007,28 @@ function newAttrConfAndColor() {
   let colMethod = TW.gui.colorFuns[TW.conf.facetOptions[attrTitle]['col']]
   window[colMethod](attrTitle)
 }
+
+
+
+
+function testMultimatch() {
+  let type0 = document.getElementById('mm-type0').value
+  let type1 = document.getElementById('mm-type1').value
+
+  let theUrl = "services/api/multimatch"
+  let params = `type0=${type0}&type1=${type1}`
+
+  var inFormat = 'json'
+  var inConfKey = 'graphapi/default'
+  var mapLabel = `${type0} <==> ${type1}`
+
+  console.log("input case: multimatch api test, using ", theUrl, params)
+
+  TW.resetGraph()
+  TW.File = params
+  var mmRes = AjaxSync({ url: theUrl, data:params, type:'GET' })
+  TW.conf.catSem = type0
+  TW.conf.catSoc = type1
+  mainStartGraph(inFormat, mmRes.data, inConfKey, TW.instance)
+  writeLabel(mapLabel)
+}

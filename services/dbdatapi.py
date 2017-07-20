@@ -112,7 +112,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #       for instance: if we match laboratories <=> keywords
     #                     the weight of the labX -- kwA link is the
     #                     number of scholars from labX with kwA
-    threshold = 1
+    threshold = 1 if 'sch' not in [source_type, target_type] else 0
 
     matchq = """
     -- matching part
@@ -133,7 +133,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     CREATE INDEX mt1idx ON match_table(sourceID, targetID)
     """ % (subq1, subq2, threshold)
 
-    # print(matchq)
+    print(matchq)
 
     # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
     db_c.execute(matchq)
@@ -219,8 +219,10 @@ def multimatch(source_type, target_type, pivot_filters = []):
             graph["nodes"][nid] = {
               'label': nd['label'],
               'type': ntype,
-              'size': nd['nodeweight']
+              'size': log1p(nd['nodeweight']),
+              'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
+
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
@@ -230,7 +232,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
             graph["links"][eid] = {
               's': nidi,
               't': nidj,
-              'w': int(ed['dotweight'])
+              'w': log1p(int(ed['dotweight']))
             }
 
     for ed in edges_XR:

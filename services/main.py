@@ -225,6 +225,34 @@ def aggs_api():
     else:
         raise TypeError("aggs API query is missing 'field' argument")
 
+
+
+# /services/api/multimatch
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/multimatch')
+def multimatch_graph_api():
+    """
+    API to provide json extracts of the DB to tinaweb
+    (uses the new approach dbdatapi.multimatch)
+    """
+    graph = {'links':{}, 'nodes':{}}
+    if 'type0' in request.args and 'type1' in request.args:
+        type0 = request.args['type0']
+        type1 = request.args['type1']
+        mlog("INFO", "multimatch query for", type0, type1)
+
+        supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
+        if type0 in supported_types and type1 in supported_types:
+            graph = dbdatapi.multimatch(type0, type1)
+
+    return(
+        Response(
+            response=dumps(graph),
+            status=200,
+            mimetype="application/json")
+        )
+
+
+
 # /services/api/graph
 @app.route(config['PREFIX'] + config['API_ROUTE'] + '/graph')
 def graph_api():
