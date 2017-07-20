@@ -20,10 +20,14 @@ if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db
     from services.text.utils import CountryConverter
+    from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                                    DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db
     from text.utils     import CountryConverter
+    from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                               DBHashtags, DBCountries
 
 
 # col are for str stats api
@@ -66,6 +70,85 @@ FIELDS_FRONTEND_TO_SQL = {
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
+
+# multimatch(obj_type_1, obj_type_2)
+# ================================================================
+# obj_type_1, obj_type_2 ∈ {sch, lab, inst, kw, ht, job, country}²
+# ================================================================
+def multimatch(source_type, target_type, pivot_filters = []):
+    """
+    Returns a list of edges between the objects of type 1 and those of type 2,
+    via their matching scholars (used as pivot and for filtering)
+    """
+
+    type_map = {
+        "sch" :  DBScholars,
+        "lab" :  DBLabs,
+        "inst" : DBInsts,
+        "kw" :   DBKeywords,
+        "kw" :   DBHashtags,
+        "country" :   DBCountries,
+    }
+
+    # unsupported entities
+    if ( source_type not in type_map
+      or target_type not in type_map ):
+        return []
+
+    # instanciating appropriate DBEntity class
+    o1 = type_map[source_type]()
+    o2 = type_map[target_type]()
+
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+
+    # idea: we can always (SELECT subq1)
+    #       and JOIN with (SELECT subq2)
+    #       because they both expose pivotID
+    subq1 = o1.toPivot()
+    subq2 = o2.toPivot()
+
+    # also: count(pivotID) is our weight
+    #       for instance: if we match laboratories <=> keywords
+    #                     the weight of the labX -- kwA link is the
+    #                     number of scholars from labX with kwA
+    threshold = 1
+
+    matchq = """
+    -- matching part
+    SELECT * FROM (
+        SELECT count(sources.pivotID) as weight,
+               sources.entityID AS sourceID,
+               targets.entityID AS targetID
+        FROM (%s) AS sources
+        LEFT JOIN (%s) AS targets
+            ON sources.pivotID = targets.pivotID
+        GROUP BY sourceID, targetID
+        ) AS match_table
+    WHERE match_table.weight > %i
+      AND sourceID IS NOT NULL
+      AND targetID IS NOT NULL
+    """ % (subq1, subq2, threshold)
+
+    db_c.execute(matchq)
+
+    # crossrel edges
+    edges_XR = db_c.fetchall()
+
+    db.close()
+
+    # TODO1 matrix product to build 'sameside' edges
+    #                         A
+    #                x  B [        ]
+    #             B       [   XR   ]
+    #         [      ]
+    #      A  [  XR  ]       square
+    #         [      ]      sameside
+
+
+    # TODO2 use DBEntity.getInfos() to build node sets
+
+    return {}
 
 
 # TODO also add paging as param and to postfilters
