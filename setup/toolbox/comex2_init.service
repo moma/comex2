@@ -1,0 +1,17 @@
+[Unit]
+Description=Docker-compose container for comex2
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# docker-compose up
+ExecStart=/usr/bin/docker-compose -f /PATH/TO/YOUR/comex2/setup/dockers/docker-compose.yml up -d
+
+# docker-compose down
+ExecStop=/usr/bin/docker-compose -f /PATH/TO/YOUR/comex2/setup/dockers/docker-compose.yml down
+
+[Install]
+WantedBy=multi-user.target
