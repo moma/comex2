@@ -143,6 +143,7 @@ cmxClt = (function(cC) {
             var blockButton = function() {
                 console.log('blocking submit button')
                 auForm.elSubmitBtn.disabled = true
+                return {'ok': true}
             }
             auForm.preSubmitActions.push(blockButton)
         }
@@ -166,7 +167,10 @@ cmxClt = (function(cC) {
                 auForm.preSubmitActions.push(
                     function () {
                         // console.log('collecting captcha data')
-                        cmxClt.uauth.collectCaptcha(auForm)
+                        let retVal = cmxClt.uauth.collectCaptcha(auForm)
+
+                        return {'ok': retVal,
+                                'errMsg': retVal ? '': 'Captcha is not filled'}
                     }
                 )
 
@@ -183,7 +187,7 @@ cmxClt = (function(cC) {
 
     cC.uauth.collectCaptcha = function (uformObj) {
         uformObj.elCapcheck.value = $(uformObj.elCaptcha).realperson('getHash')
-        // console.debug('  '+uformObj.id+': collected captcha hash ' +uformObj.elCapcheck.value)
+        return typeof uformObj.elCapcheck.value != 'undefined'
     }
 
     // NB removed earlyValidate

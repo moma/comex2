@@ -23,7 +23,7 @@ var regfo = cmxClt.uauth.AuthForm(
     {
       'type': "register",
       'validateCaptcha': true,
-      'multiTextinputs': [{'id':'keywords'}]
+      'multiTextinputs': [{'id':'keywords', 'minEntries':3}]
     }
 )
 

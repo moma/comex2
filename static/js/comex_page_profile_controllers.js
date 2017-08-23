@@ -100,8 +100,6 @@ if (uinfo.pic_url || uinfo.pic_fname) {
 }
 
 
-
-
 // initialize form controllers
 var theUForm = cmxClt.uform.Form(
     // id
@@ -110,10 +108,12 @@ var theUForm = cmxClt.uform.Form(
     completionAsYouGo,
     // other params
     { 'multiTextinputs': [{'id':'keywords',
-                           'prevals': uinfo.keywords},
+                           'prevals': uinfo.keywords,
+                           'minEntries': 3 },
                           {'id':'hashtags',
                            'prevals': uinfo.hashtags,
-                           'color': "#23A"}]
+                           'color': "#23A",
+                           'minEntries': 3 }]
     }
 )
 
