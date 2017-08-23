@@ -68,7 +68,7 @@ var cmxClt = (function(cC) {
             // 1st then() over promise
             .then(function(response) {
                 // NB 2 promises to unwrap for Fetch to complete which allows the cookie to be set in the OK case
-                if(response.ok) {
+                if (response.ok) {
                   // unwraps the promise => 2nd then()
                   response.text().then( function(bodyText) {
                     // cookie should be set now !
@@ -183,7 +183,7 @@ var cmxClt = (function(cC) {
             preEmail = boxParams.email
             emailLegend = "This email is your login for community explorer"
             passPlaceholder = "Your password"
-            passLegend = ""
+            passLegend = `Forgot your password ? You can reset it on <a href="https://doors.iscpif.fr">Doors</a> (our external authentication portal).`
             confirmPass = ""
         }
         else {
@@ -242,12 +242,12 @@ var cmxClt = (function(cC) {
                         </div>
 
                         <div class="question">
-                          <p class="legend">${passLegend}</p>
                           <div class="input-group">
                             <label for="menu_password" class="smlabel input-group-addon">Password</label>
                             <input id="menu_password" name="password" maxlength="30"
                                    type="password" class="form-control" placeholder="${passPlaceholder}">
                           </div>
+                          <p class="legend">${passLegend}</p>
                         </div>
                         <br/>
                         ${confirmPass}
