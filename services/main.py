@@ -117,9 +117,6 @@ SOURCE_FIELDS = [
       ]
 # NB password values have already been sent by ajax to Doors
 
-# mandatory minimum of keywords
-MIN_KW = 5
-
 # ============= context =============
 @app.context_processor
 def inject_doors_params():
@@ -1174,9 +1171,6 @@ def read_record_from_request(request, optional_fields = None):
                     temp_array.append(tok)
             # replace str by array
             clean_records[tok_field] = temp_array
-
-            if tok_field == 'keywords' and len(temp_array) < MIN_KW:
-                mlog('WARNING', 'only %i keywords instead of %i' % (len(temp_array), MIN_KW))
 
     # special treatment for pic_file
     if hasattr(request, "files") and 'pic_file' in request.files and request.files['pic_file']:

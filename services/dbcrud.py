@@ -565,8 +565,8 @@ def get_or_create_tokitems(tok_list, cmx_db = None, tok_table='keywords'):
 
     tok_list is an array of strings
 
-    NB keywords are mandatory: each registration should provide at least MIN_KW
-       hashtags aren't
+    NB keywords are mandatory, hashtags are not
+       (minimum number of entries is checked client-side)
 
     for loop
        1) query to *keywords* or *hashtags* table (exact match)
