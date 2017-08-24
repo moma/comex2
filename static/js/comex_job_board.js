@@ -13,9 +13,6 @@
 
 let myController = {
   loadData: function(someFilter) {
-    console.log('type of filter', typeof someFilter)
-    console.log('filter', someFilter)
-
     // filter object example:
     // {email: "", job_valid_date: "", mission_text: "blabla some query"}
 
@@ -30,6 +27,29 @@ let myController = {
       return true
     })
   },
+  updateItem: function(item){
+    // send the updated element as pseudo form
+    let multipart = new FormData()
+    for (let k in item) {
+      multipart.append(k, item[k])
+    }
+
+    $.ajax({
+        type: 'POST',
+        url: "/services/api/jobs/",
+        data: multipart,
+        processData: false,
+        contentType: false,
+        success: function(data) {
+            console.log('job update got return', data)
+        },
+        error: function(result) {
+            console.warn('job update ajax error with result', result)
+        }
+    });
+
+  },
+
   deleteItem: function(item){
     console.log("DELETE", item, params.user)
     if (params.isAdmin
@@ -103,17 +123,12 @@ let gridFields = [
    }
 ]
 
+var controller_ref
 
 if (params.isAdmin) {
-  gridFields.push({
-    title: "Delete",
-    type:'control',
-    itemTemplate: function(value, item) {
-        return [this._createDeleteButton(item)];
-    }
-  })
+  // adds edit and delete buttons
+  gridFields.push({type:'control'})
 }
-
 
 
 // to create a tag box
@@ -133,10 +148,10 @@ $("#jobsgrid").jsGrid({
     sorting: true,
     paging: true,
 
-    editing: false,
+    editing: true,
     inserting: false,
 
-    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/jobad/'>here</a></p></div>",
+    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/addjob/'>here</a></p></div>",
 
     data: params.jobsTable,
     controller: myController,

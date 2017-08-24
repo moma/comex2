@@ -117,6 +117,20 @@ SOURCE_FIELDS = [
       ]
 # NB password values have already been sent by ajax to Doors
 
+# sanitization params
+JOB_FIELDS = [
+#             NAME,              SANITIZE?    sanitizing specificity
+         ("uid",                   False,        None),
+         ("mission_text",           True,        None),
+         ("recruiter_org_text",     True,        None),
+         ("email",                  True,        None),
+         ("job_valid_date",         True,       "sdate"),
+         # => for *jobs* table
+
+         ("keywords",               True,        None)
+         # => for *keywords* table (after split str)
+      ]
+
 # ============= context =============
 @app.context_processor
 def inject_doors_params():
@@ -762,35 +776,21 @@ def register():
             """ % {'luid': luid })
 
 
-# /services/jobad/
-@app.route(config['PREFIX'] + '/jobad/', methods=['GET','POST'])
+# /services/addjob/
+@app.route(config['PREFIX'] + '/addjob/', methods=['GET','POST'])
 @fresh_login_required
-def jobad():
+def addjob():
 
     # debug
     # mlog("DEBUG", "register route: ", config['PREFIX'] + config['USR_ROUTE'] + '/register')
 
     # show form
     if request.method == 'GET':
-        return render_template("jobad_form.html")
+        return render_template("job_new.html")
 
     # save form
     elif request.method == 'POST':
-        # sanitization params
-        job_fields = [
-        #             NAME,              SANITIZE?    sanitizing specificity
-                 ("uid",                   False,        None),
-                 ("mission_text",           True,        None),
-                 ("recruiter_org_text",     True,        None),
-                 ("email",                  True,        None),
-                 ("job_valid_date",         True,       "sdate"),
-                 # => for *jobs* table
-
-                 ("keywords",               True,        None)
-                 # => for *keywords* table (after split str)
-              ]
-
-        clean_records = read_record_from_request(request, job_fields)
+        clean_records = read_record_from_request(request, JOB_FIELDS)
 
         # exemple clean_records
         # {'uid': '4206', 'job_valid_date': '2017/09/30', 'mission_text': 'In the town where I was born Lived a man who sailed the sea', 'email': 'romain.loth@truc.org', 'recruiter_org_text': 'We all live in a yellow submarine'}
@@ -799,7 +799,7 @@ def jobad():
 
         # save associated keywords
         kwids = dbcrud.get_or_create_tokitems(clean_records['keywords'])
-        dbcrud.save_pairs_sch_tok(
+        dbcrud.save_pairs_fkey_tok(
             [(jobid, kwid) for kwid in kwids],
             map_table = "job_kw"
         )
@@ -846,6 +846,7 @@ def jobboard():
 
 # /services/user/myjobs/
 @app.route(config['PREFIX'] + config['USR_ROUTE'] + '/myjobs/', methods=['GET'])
+@fresh_login_required
 def myjobs():
 
     # jobs filtered by uid
@@ -856,7 +857,9 @@ def myjobs():
     return render_template(
                 "job_board.html",
                 message = """
-                This is the list of jobs you entered. They are available to all from <a href="/services/jobboard/">the open job-board</a> page. You are the admin of this list and can add or remove items.
+                This is the list of jobs you entered.
+                They are available to all from <a href="/services/jobboard/">the open job-board</a> page.
+                You are the admin of this list and can add, edit or remove items.
                 """,
                 jobs_table = json_rows,
                 can_edit = 1
@@ -865,30 +868,61 @@ def myjobs():
 
 # /services/api/jobs
 @fresh_login_required
-@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['DELETE'])
-def api_delete_job():
-    jobid = request.args.get('jobid')
-    job_author_uid = request.args.get('author')
-    mlog("DEBUG",
-         'received api delete job:', jobid, job_author_uid)
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['POST', 'DELETE'])
+def api_job():
+    # testing if cookie user is the same as payload data user
+    if request.method == 'POST':
+        jobid = request.form.get('jobid')
+        job_author_uid = request.form.get('uid')
+    elif request.method == 'DELETE':
+        jobid = request.args.get('jobid')
+        job_author_uid = request.args.get('author')
 
-    # double condition to prevent tampering with requests
-    # 1) the person who asked should be the same as the cookies' current_user.uid to prove the request is legit
-    # 2) this job author uid should be the same as the one we have in jobs table => cf. try below
-
+    # proceed...
     if (jobid and (str(job_author_uid) == str(current_user.uid))):
-        try:
-            deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
+        # ...updating an existing job
+        if request.method == 'POST':
+            if 'jobid' in request.form:
+                new_data = read_record_from_request(request, JOB_FIELDS)
+                # try:
+                # update job
+                dbcrud.save_job(new_data, jobid)
+                # update associated keywords
+                dbcrud.delete_pairs_fkey_tok(jobid)
+                kwids = dbcrud.get_or_create_tokitems(new_data['keywords'])
+                dbcrud.save_pairs_fkey_tok(
+                    [(jobid, kwid) for kwid in kwids],
+                    map_table = "job_kw"
+                )
+
+
+                # except Exception as dberr:
+                #     return Response(
+                #         response=dumps({'error': tools.format_err(dberr)}),
+                #         status=500,
+                #         mimetype="application/json")
+                return Response(
+                    response=dumps({'updated': jobid}),
+                    status=200,
+                    mimetype="application/json")
+
+        # ...or just deleting it
+        elif request.method == 'DELETE':
+            mlog("DEBUG",
+                 'received api delete job:', jobid, job_author_uid)
+            try:
+                deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
+            except Exception as dberr:
+                return Response(
+                    response=dumps({'error': tools.format_err(dberr)}),
+                    status=500,
+                    mimetype="application/json")
             return Response(
                 response=dumps({'deleted': deleted_jobid}),
                 status=200,
                 mimetype="application/json")
 
-        except Exception as dberr:
-            return Response(
-                response=dumps({'error': tools.format_err(dberr)}),
-                status=500,
-                mimetype="application/json")
+    # if user id doesn't match, fake message just in case
     else:
         return Response(
             response=dumps({'error': 'the provided arguments did not match any job resource'}),
@@ -896,6 +930,7 @@ def api_delete_job():
             mimetype="application/json")
 
 
+# ==============================================================================
 
 # any static pages with topbar are set in /about prefix
 
@@ -903,7 +938,6 @@ def api_delete_job():
 @app.route('/about/privacy')
 def show_privacy():
     return render_template("privacy.html")
-
 
 
 ########### SUBS ###########
@@ -1087,9 +1121,9 @@ def save_form(clean_records, update_flag=False, previous_user_info=None):
                 # TODO class User method !!
                 # POSS selective delete ?
             if update_flag:
-                dbcrud.delete_pairs_sch_tok(luid, reg_db, map_table)
+                dbcrud.delete_pairs_fkey_tok(luid, reg_db, map_table)
 
-            dbcrud.save_pairs_sch_tok(
+            dbcrud.save_pairs_fkey_tok(
                 [(luid, tokid) for tokid in tokids],
                 reg_db,
                 map_table

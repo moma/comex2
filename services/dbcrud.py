@@ -462,7 +462,7 @@ def save_full_scholar(safe_recs, cmx_db, uactive=True, update_user=None):
                             db_vals_str
                        )
     else:
-        set_full_str = ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])
+        set_full_str = key_val_expr(db_tgtcols, db_qstrvals)
 
         # UPDATE: full_statement with formated values
         full_statmt = 'UPDATE scholars SET %s WHERE luid = "%s"' % (
@@ -516,19 +516,19 @@ def update_scholar_cols(selected_safe_recs, cmx_db, where_luid=None):
             db_qstrvals.append(quotedstrval)
 
     cmx_db_c = cmx_db.cursor()
-    set_full_str = ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])
+    set_full_str = key_val_expr(db_tgtcols, db_vals_str)
 
     # UPDATE: full_statement with formated values
     full_statmt = 'UPDATE scholars SET %s WHERE luid = "%s"' % (
-                        set_full_str,
-                        where_luid
-    )
+                    set_full_str,
+                    where_luid
+                  )
     cmx_db_c.execute(full_statmt)
     cmx_db.commit()
     return where_luid
 
 
-def save_pairs_sch_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
+def save_pairs_fkey_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
     """
     Simply save all pairings (luid, kwid) or (luid, htid) in the list
     @pairings_list: list of tuples
@@ -545,16 +545,28 @@ def save_pairs_sch_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
     if not cmx_db:
         db.close()
 
-def delete_pairs_sch_tok(uid, cmx_db, map_table='sch_kw'):
+def delete_pairs_fkey_tok(idkey, cmx_db = None, map_table='sch_kw'):
     """
-    Simply deletes all pairings (luid, *) in the table
+    Simply deletes all pairings (foreign_key, *) in the table
     """
-    if map_table not in ['sch_kw', 'sch_ht']:
+    if cmx_db:
+        db = cmx_db
+    else:
+        db = connect_db()
+    db_cursor = db.cursor()
+    if map_table not in ['sch_kw', 'sch_ht', 'job_kw']:
         raise TypeError('ERROR: Unknown map_table')
-    db_cursor = cmx_db.cursor()
-    n = db_cursor.execute('DELETE FROM %s WHERE uid = "%s"' % (map_table, uid))
-    cmx_db.commit()
-    mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(uid)))
+
+    table_to_col = {'sch_kw':'uid','sch_ht':'uid',
+                    'job_kw':'jobid'}
+    fkey = table_to_col[map_table]
+
+    db_cursor = db.cursor()
+    n = db_cursor.execute('DELETE FROM %s WHERE %s = "%s"' % (map_table,fkey,idkey))
+    db.commit()
+    mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(idkey)))
+    if not cmx_db:
+        db.close()
 
 
 def get_or_create_tokitems(tok_list, cmx_db = None, tok_table='keywords'):
@@ -865,7 +877,7 @@ def create_legacy_user_rettokens(
     #        """
 
 
-def save_job(job_infos):
+def save_job(job_infos, optional_job_id_to_update = None):
     """
     Save a new row in jobs table
     """
@@ -888,12 +900,19 @@ def save_job(job_infos):
             db_tgtcols.append(colname)
             db_qstrvals.append(quotedstrval)
 
-    db_cursor.execute('INSERT INTO jobs(%s) VALUES (%s)' % (
-                        ','.join(db_tgtcols),
-                        ','.join(db_qstrvals)
-                       )
-                     )
-    job_id = db_cursor.lastrowid
+    if optional_job_id_to_update:
+        # an updated job
+        job_id = optional_job_id_to_update
+        key_values = key_val_expr(db_tgtcols, db_qstrvals)
+        db_cursor.execute('UPDATE jobs SET %s WHERE jobid = %s' % (key_values, job_id))
+    else:
+        # a new job
+        db_cursor.execute('INSERT INTO jobs(%s) VALUES (%s)' % (
+                            ','.join(db_tgtcols),
+                            ','.join(db_qstrvals)
+                           )
+                         )
+        job_id = optional_job_id_to_update
     db.commit()
     db.close()
     mlog("DEBUG", "jobs: saved %s infos" % job_infos)
@@ -938,3 +957,11 @@ def delete_job(jobid = None, author_uid = None):
     db.commit()
     db.close()
     return jobid
+
+
+def key_val_expr(db_tgtcols, db_qstrvals):
+    """
+    Array of table keys and of values to update
+    => to string of the form: date = "2017-08-12", mission_text="d'accord"
+    """
+    return ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])
