@@ -203,7 +203,7 @@ def doors_login(email, password, config=REALCONFIG):
     NB: returned doors_uid will be None if user not found
     """
     uid = None
-    sentdata = {'login':email, 'password':password}
+    sentdata = {'login':email.lower(), 'password':password}
 
     http_scheme = "https:"
 
@@ -240,7 +240,7 @@ def doors_register(email, password, name, config=REALCONFIG):
     Remote query to Doors API to register a user
     """
     uid = None
-    sentdata = {'login':email, 'password':password, 'name':name}
+    sentdata = {'login':email.lower(), 'password':password, 'name':name}
 
     http_scheme = "https:"
 

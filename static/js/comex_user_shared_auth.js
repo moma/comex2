@@ -190,11 +190,6 @@ cmxClt = (function(cC) {
         return typeof uformObj.elCapcheck.value != 'undefined'
     }
 
-    // NB removed earlyValidate
-    //       => no need for 1 exposed validation function
-    //          b/c all 3 checks bound to their elements onchange/onkeyup
-
-
     // ----------- interaction for mailID check via fetch @doors ---------------
     // function testMailFormatAndExistence
     // ------------------------------------
@@ -203,6 +198,7 @@ cmxClt = (function(cC) {
     //
     // NB for login we only check the doors DB
     //    for registration, we must check both DBs if email is available
+    //    + email shall always be checked in lowercase
 
     // effect 1 emailStatus ok/no, and side effect 2 on icon + msg
     //    wrong format ===========================> grey
@@ -213,7 +209,7 @@ cmxClt = (function(cC) {
 
       // PREP-ING
       if (obja.lastEmailValue == undefined) {
-          obja.lastEmailValue == null
+          obja.lastEmailValue = null
       }
 
       // locate our dials if any and if not already done
@@ -227,18 +223,21 @@ cmxClt = (function(cC) {
       }
 
       // GO TESTS
-      var emailValue = obja.elEmail.value
+      var emailValue = obja.elEmail.value.toLowerCase()
 
-
-      // 0) memo
+      // 0) use cache if checked the same value in the same session
       if (obja.emailStatus != null
           && emailValue == obja.lastEmailValue) {
           return obja.emailStatus
       }
 
       // 1) tests if email is well-formed
-      // TODO: better extension and allowed chars set
-      var emailFormatOk = /^[-A-z0-9_=.+]+@[-A-z0-9_=.+]+\.[-A-z0-9_=.+]{2,4}$/.test(emailValue)
+      var emailFormatOk = /^[-._~a-z0-9!$&*=/\\|'`#+?{}]+@(?=.{1,255}$)[-_~a-z0-9.]+\.[-_~a-z0-9]+$/.test(emailValue)
+      // NB can still do better (non ASCII domain extensions like 我爱你, etc.)
+      // cf. https://tools.ietf.org/html/rfc2822#section-3.2.4
+      //     https://tools.ietf.org/html/rfc2822#section-3.4
+      //     http://haacked.com/archive/2007/08/21/i-knew-how-to-validate-an-email-address-until-i.aspx/
+      //     http://www.ex-parrot.com/~pdw/Mail-RFC822-Address.html
 
       if (! emailFormatOk) {
 
