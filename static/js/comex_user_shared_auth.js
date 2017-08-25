@@ -581,6 +581,10 @@ cmxClt = (function(cC) {
         var passStr = data[1]
         var nameStr = data[2]
 
+        if (mailStr && typeof mailStr == 'string') {
+          mailStr = mailStr.toLowerCase()
+        }
+
         // test params and set defaults
         if (typeof apiAction != 'string'
             || (! /user|register|userExists/.test(apiAction))) {
