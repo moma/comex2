@@ -141,13 +141,15 @@ def inject_doors_params():
           (base_layout-rendered templates need it for login popup)
     """
     if 'DOORS_PORT' not in config or config['DOORS_PORT'] in ['80', '443']:
-        context_dict = dict(
-            doors_connect= config['DOORS_HOST']
-        )
+        context_dict = {
+            'doors_connect': config['DOORS_HOST'],
+            'doors_scheme': 'http:' if config['DOORS_NOSSL'] else 'https:'
+        }
     else:
-        context_dict = dict(
-            doors_connect= config['DOORS_HOST']+':'+config['DOORS_PORT']
-        )
+        context_dict = {
+            'doors_connect': config['DOORS_HOST']+':'+config['DOORS_PORT'],
+            'doors_scheme': 'http:' if config['DOORS_NOSSL'] else 'https:'
+        }
 
     return context_dict
 
@@ -162,7 +164,9 @@ def unauthorized():
     return render_template(
         "message.html",
         message = """
-            Please <strong><a href="%(login)s">login here</a></strong>.
+            Please <strong>
+            <a onclick="cmxClt.elts.box.toggleBox('auth_modal',{'nextPage':'%(tgt)s'})">login here</a>
+            </strong>.
             <br/><br/>
             The page <span class='code'>%(tgt)s</span> is only available after login.
             """ % {'tgt': request.path,

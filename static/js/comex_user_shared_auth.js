@@ -24,7 +24,10 @@ cmxClt = (function(cC) {
 
     // #doors_connect.value ~~> like a @classparam for uauthforms
     // :str: "doors_hostname:doors_port"
-    cC.uauth.doorsConnectParam = document.getElementById('doors_connect').value
+    cC.uauth.doorsParam = {}
+    cC.uauth.doorsParam.connect = document.getElementById('doors_connect').value
+    cC.uauth.doorsParam.htscheme = document.getElementById('doors_scheme').value
+    Object.freeze(cC.uauth.doorsParam)
 
     // param for "realperson" widget generation & validation
     cC.uauth.realCaptchaLength = 5
@@ -205,7 +208,6 @@ cmxClt = (function(cC) {
     //    format ok, doorsStatus != expectExists => red
     //    format ok, doorsStatus == expectExists => green
     cC.uauth.testMailFormatAndExistence = function (obja) {
-
 
       // PREP-ING
       if (obja.lastEmailValue == undefined) {
@@ -618,13 +620,13 @@ cmxClt = (function(cC) {
                     "name":     nameStr
                 }
 
-            var scheme = 'https'
+            var htscheme = cC.uauth.doorsParam.htscheme || 'https:'
 
             $.ajax({
                 contentType: "application/x-www-form-urlencoded; charset=UTF-8",
                 dataType: 'json',
 
-                url: scheme + "://"+cC.uauth.doorsConnectParam+"/api/" + apiAction,
+                url: htscheme+"//"+cC.uauth.doorsParam.connect+"/api/" + apiAction,
                 data: sendData,
                 type: 'POST',
                 success: function(data) {

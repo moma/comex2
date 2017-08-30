@@ -46,16 +46,14 @@ var cmxClt = (function(cC) {
         var formdat = formObj.asFormData();
         // + real captcha value has also been collected by asFormData()
 
-        // TODO for SSL
-        //      currently relative URL <=> same protocol as source
-        //
-        //      but ideally should force https either:
-        //           1) https on all site
-        //              NB if 1st option use nginx rewrite
-        //              or
-        //           2) https at least for login
-        //              NB if 2nd option http => https just for login
-        //                 then need CORS on flask side to allow it
+        var nextLocation = '/services/user/profile'
+
+        if (   document.getElementById('auth_modal')
+            && document.getElementById('auth_modal').dataset
+            && document.getElementById('auth_modal').dataset.next
+          ) {
+            nextLocation = document.getElementById('auth_modal').dataset.next
+          }
 
         // new-style ajax
         if (window.fetch) {
@@ -73,7 +71,7 @@ var cmxClt = (function(cC) {
                   response.text().then( function(bodyText) {
                     // cookie should be set now !
                     console.log("Login was OK, redirecting to profile...")
-                    window.location = '/services/user/profile'
+                    window.location = nextLocation
                   })
                 }
                 else {
@@ -107,7 +105,7 @@ var cmxClt = (function(cC) {
                 url: "/services/user/login/",
                 success: function(data) {
                     // console.log('JQUERY got return', data, 'and login cookie should be set')
-                    window.location = '/services/user/profile'
+                    window.location = nextLocation
                 },
                 error: function(result) {
                     console.warn('jquery ajax error with result', result)
@@ -117,8 +115,12 @@ var cmxClt = (function(cC) {
     }
 
     // our self-made modal open/close function
-    // optional dontOpacifyPage (default false)
-    cC.elts.box.toggleBox = function(boxId, dontOpacifyPage) {
+    // optional params:
+    //      nextPage        (default null)
+    //      dontOpacifyPage (default false)
+    cC.elts.box.toggleBox = function(boxId, params) {
+        if (typeof params == 'undefined') params = {}
+
         var laBox = document.getElementById(boxId)
         if (laBox) {
             if (laBox.style.display == 'none') {
@@ -126,8 +128,11 @@ var cmxClt = (function(cC) {
                 laBox.style.display = 'block'
                 laBox.style.opacity = 1
 
+                // optional set data
+                if (params.nextPage) laBox.dataset.next = params.nextPage
+
                 // opacify .page element
-                if (cC.elts.elPage && !dontOpacifyPage) cC.elts.elPage.style.opacity = .2
+                if (cC.elts.elPage && !params.dontOpacifyPage) cC.elts.elPage.style.opacity = .2
             }
             else {
                 // remove box
@@ -135,7 +140,7 @@ var cmxClt = (function(cC) {
                 setTimeout(function(){laBox.style.display = 'none'}, 300)
 
                 // show .page
-                if (cC.elts.elPage && !dontOpacifyPage) cC.elts.elPage.style.opacity = ''
+                if (cC.elts.elPage && !params.dontOpacifyPage) cC.elts.elPage.style.opacity = ''
             }
         }
         else {
@@ -183,7 +188,7 @@ var cmxClt = (function(cC) {
             preEmail = boxParams.email
             emailLegend = "This email is your login for community explorer"
             passPlaceholder = "Your password"
-            passLegend = `Forgot your password ? You can reset it on <a href="https://doors.iscpif.fr">Doors</a> (our external authentication portal).`
+            passLegend = `Forgot your password ? You can reset it on <a href="${cmxClt.uauth.doorsParam.htscheme}//${cmxClt.uauth.doorsParam.connect}" target="_blank">Doors</a> (our external authentication portal).`
             confirmPass = ""
         }
         else {
@@ -360,7 +365,7 @@ var cmxClt = (function(cC) {
     // POSS use sessionStorage instead
 
     cC.elts.box.closeCookieOnceForAll = function () {
-        cmxClt.elts.box.toggleBox('cookie-div', true)
+        cmxClt.elts.box.toggleBox('cookie-div', {'dontOpacifyPage': true})
         localStorage['comex_cookie_warning_done'] = 1
     }
 
