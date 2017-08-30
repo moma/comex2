@@ -42,6 +42,7 @@ CONFIGMENU = [
             {"sec": 'backends',   "var":'SQL_PORT',     "def": '3306'       },
             {"sec": 'backends',   "var":'DOORS_HOST',   "def": '0.0.0.0'    },
             {"sec": 'backends',   "var":'DOORS_PORT',   "def": '443'        },
+            {"sec": 'backends',   "var":'DOORS_NOSSL',  "def": False        },
 
             # data processing
             {"sec": 'content',    "var":'HAPAX_THRESHOLD',   "def": '1 '    }
