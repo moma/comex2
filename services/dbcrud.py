@@ -912,10 +912,10 @@ def save_job(job_infos, optional_job_id_to_update = None):
                             ','.join(db_qstrvals)
                            )
                          )
-        job_id = optional_job_id_to_update
+        job_id = db_cursor.lastrowid
     db.commit()
     db.close()
-    mlog("DEBUG", "jobs: saved %s infos" % job_infos)
+    mlog("DEBUG", "jobs #%s: saved %s infos" % (job_id, job_infos))
     return job_id
 
 
