@@ -10,7 +10,6 @@
  * @requires jsgrid.js
  */
 
-
 let myController = {
   loadData: function(someFilter) {
     // filter object example:
@@ -27,29 +26,6 @@ let myController = {
       return true
     })
   },
-  updateItem: function(item){
-    // send the updated element as pseudo form
-    let multipart = new FormData()
-    for (let k in item) {
-      multipart.append(k, item[k])
-    }
-
-    $.ajax({
-        type: 'POST',
-        url: "/services/api/jobs/",
-        data: multipart,
-        processData: false,
-        contentType: false,
-        success: function(data) {
-            console.log('job update got return', data)
-        },
-        error: function(result) {
-            console.warn('job update ajax error with result', result)
-        }
-    });
-
-  },
-
   deleteItem: function(item){
     console.log("DELETE", item, params.user)
     if (params.isAdmin
@@ -123,8 +99,6 @@ let gridFields = [
    }
 ]
 
-var controller_ref
-
 if (params.isAdmin) {
   // adds edit and delete buttons
   gridFields.push({type:'control'})
@@ -139,8 +113,57 @@ function makeTagBox(textValue) {
   return newBox
 }
 
+// to create a job edit modal
+var jobeditModal = new Modal(
+    document.getElementById('job-details'),
+    {backdrop: 'static', keyboard: false}
+);
 
-$("#jobsgrid").jsGrid({
+// to edit a job in the modal (using globals: uinfo, params)
+function editJob(jobinfo) {
+  // re-create the form element + init form controllers and autocomplete
+  createJobForm( 'edit-job-container', {
+      'user': uinfo,
+      'job': jobinfo,
+      'can_edit': params.isAdmin,
+      'alt_submit': 'save-modified-job'
+  })
+  // show the modal
+  jobeditModal.open();
+}
+
+// to use as a callback for the jobForm onclick validateJobForm action
+function saveModifiedJob(aFormData) {
+  $.ajax({
+      type: 'POST',
+      url: "/services/api/jobs/",
+      data: aFormData,
+      processData: false,
+      contentType: false,
+      success: function(data) {
+          console.log('job update got return', data)
+          jobeditModal.close();
+          window.location.reload()
+      },
+      error: function(result) {
+          console.warn('job update ajax error with result', result)
+      }
+  });
+}
+
+// redefine jsGrid's default edit button action accordingly
+jsGrid.ControlField.prototype._createEditButton = function(item) {
+    return this._createGridButton(
+      this.editButtonClass,
+      this.editButtonTooltip,
+      function(grid, e) {
+        editJob(item)
+        e.stopPropagation();
+    });
+}
+
+
+let jobGrid = $("#jobsgrid").jsGrid({
     width: "80%",
     height: "700px",
 
@@ -148,16 +171,22 @@ $("#jobsgrid").jsGrid({
     sorting: true,
     paging: true,
 
-    editing: true,
+    editing: false,  // default editing behavior is off (we add our own instead)
     inserting: false,
+    deleteConfirm: "This will delete the job.\nAre you sure ?",
 
     noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/addjob/'>here</a></p></div>",
 
     data: params.jobsTable,
     controller: myController,
 
-    fields: gridFields
-});
+    fields: gridFields,
 
+    // open full form instead of inline editing
+    rowClick: function(rowargs){
+      console.log("rowClick item", rowargs.item)
+      editJob(rowargs.item)
+    }
+})
 
 console.log("job-board controllers load OK")

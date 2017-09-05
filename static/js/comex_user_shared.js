@@ -326,7 +326,7 @@ var cmxClt = (function() {
     // theForm.id  <=> the HTML #id value
     // theForm.elForm <=> the HTML <form> element
     // theForm.mti.stock <=> all tags entered via multiTextinputs
-    // theUForm.asFormData() <=> all values asFormData...
+    // theForm.asFormData() <=> all values asFormData...
     // theForm.preSubmitActions <=> functions to call before sending data
 
     // NB if you send the data by a classic formElt.submit() or use asFormData(), preSubmitActions will already be called

@@ -886,25 +886,26 @@ def api_job():
     if (jobid and (str(job_author_uid) == str(current_user.uid))):
         # ...updating an existing job
         if request.method == 'POST':
+            mlog("DEBUG",
+                 'received api POST job:', jobid, job_author_uid)
             if 'jobid' in request.form:
                 new_data = read_record_from_request(request, JOB_FIELDS)
-                # try:
-                # update job
-                dbcrud.save_job(new_data, jobid)
-                # update associated keywords
-                dbcrud.delete_pairs_fkey_tok(jobid)
-                kwids = dbcrud.get_or_create_tokitems(new_data['keywords'])
-                dbcrud.save_pairs_fkey_tok(
-                    [(jobid, kwid) for kwid in kwids],
-                    map_table = "job_kw"
-                )
+                try:
+                    # update job
+                    dbcrud.save_job(new_data, jobid)
+                    # update associated keywords
+                    dbcrud.delete_pairs_fkey_tok(jobid, map_table = "job_kw")
+                    kwids = dbcrud.get_or_create_tokitems(new_data['keywords'])
+                    dbcrud.save_pairs_fkey_tok(
+                        [(jobid, kwid) for kwid in kwids],
+                        map_table = "job_kw"
+                    )
 
-
-                # except Exception as dberr:
-                #     return Response(
-                #         response=dumps({'error': tools.format_err(dberr)}),
-                #         status=500,
-                #         mimetype="application/json")
+                except Exception as dberr:
+                    return Response(
+                        response=dumps({'error': tools.format_err(dberr)}),
+                        status=500,
+                        mimetype="application/json")
                 return Response(
                     response=dumps({'updated': jobid}),
                     status=200,

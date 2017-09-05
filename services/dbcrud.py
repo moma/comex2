@@ -539,6 +539,7 @@ def save_pairs_fkey_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
         db = connect_db()
     db_cursor = db.cursor()
     for id_pair in set(pairings_list):
+        print("id_pair", id_pair)
         db_cursor.execute('INSERT INTO %s VALUES %s' % (map_table, str(id_pair)))
         db.commit()
         mlog("DEBUG", "%s: saved %s pair" % (map_table, str(id_pair)))
@@ -562,7 +563,8 @@ def delete_pairs_fkey_tok(idkey, cmx_db = None, map_table='sch_kw'):
     fkey = table_to_col[map_table]
 
     db_cursor = db.cursor()
-    n = db_cursor.execute('DELETE FROM %s WHERE %s = "%s"' % (map_table,fkey,idkey))
+    sql = 'DELETE FROM %s WHERE %s = "%s"' % (map_table,fkey,str(idkey))
+    n = db_cursor.execute(sql)
     db.commit()
     mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(idkey)))
     if not cmx_db:
