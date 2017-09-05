@@ -99,7 +99,7 @@ SOURCE_FIELDS = [
          ("job_looking_date",       True,       "sdate"),
          ("home_url",               True,       "surl"),  # scholar's homepage
          ("pic_url",                True,       "surl"),
-         ("pic_file",              False,        None),   # saved separately
+         ("pic_file",              False,       "sblob", "pic", "pic_fname"), # saved separately
          # => for *scholars* table (optional)
 
          ("lab_label",              True,       "sorg"),  # ~ /name (acro)?/
@@ -124,10 +124,7 @@ JOB_FIELDS = [
          ("mission_text",           True,        None),
          ("recruiter_org_text",     True,        None),
          ("email",                  True,        None),
-         ("job_valid_date",         True,       "sdate"),
-         # => for *jobs* table
-
-         ("keywords",               True,        None)
+         ("job_valid_date",         True,       "sdate")
          # => for *keywords* table (after split str)
       ]
 
@@ -1159,8 +1156,8 @@ def read_record_from_request(request, optional_fields = None):
         input SOURCE_FIELDS data ~> normalized {COLS:values}
 
         Custom made for comex registration forms
-            - sanitization + string normalization as needed
-            - pic_file field ~~> save to fs + pic_fname col
+            - request.form fields: sanitization + string normalization as needed
+            - request.files blobs: save to fs + keep ref in filename col
     """
     # init var
     clean_records = {}
@@ -1186,12 +1183,23 @@ def read_record_from_request(request, optional_fields = None):
                 else:
                     # mysql will want None instead of ''
                     val = None
-            # this one is done separately at the end
-            elif field == "pic_file":
-                continue
             # any other fields that don't need sanitization (ex: menu options)
             else:
                 clean_records[field] = request.form[field]
+
+        # these ones have a blob treatment: saved + replaced by filename
+        elif (hasattr(request, "files")
+              and field in request.files
+              and spec_type == "sblob"):
+            # read 2 additional attributes: fileext and tgt dbfield
+            file_type = field_info[3]
+            ref_fieldname = field_info[4]
+            new_filename = tools.save_blob_and_get_filename(
+                request.files[field],
+                file_type
+            )
+            clean_records[ref_fieldname] = new_filename
+            mlog("DEBUG", "new blob with fname", new_filename)
 
     # special treatment for "other" subquestions
     if 'inst_type' in clean_records:
@@ -1210,12 +1218,6 @@ def read_record_from_request(request, optional_fields = None):
                     temp_array.append(tok)
             # replace str by array
             clean_records[tok_field] = temp_array
-
-    # special treatment for pic_file
-    if hasattr(request, "files") and 'pic_file' in request.files and request.files['pic_file']:
-        new_fname = tools.pic_blob_to_filename(request.files['pic_file'])
-        clean_records['pic_fname'] = new_fname
-        mlog("DEBUG", "new pic with fname", new_fname)
 
     return clean_records
 
