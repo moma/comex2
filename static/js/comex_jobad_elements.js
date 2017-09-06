@@ -130,6 +130,15 @@ function createJobForm(containerId, args) {
           <p class="legend">You can always remove the job manually before this date.</p>
         </div>
 
+        <div class="question">
+          <div class="input-group">
+            <label for="pdf_attachment" class="smlabel input-group-addon"><small>Job description (PDF)</small></label>
+            <input id="pdf_attachment" name="pdf_attachment" maxlength="10" ${rw}
+                   type="file" class="form-control">
+          </div>
+          <p class="legend">You can add an optional pdf document here.</p>
+        </div>
+
         <!-- hidden input for associated user id -->
         <input id="uid" name="uid" type="text" hidden
               value="${args.user ? args.user.luid : ''}">
@@ -204,7 +213,17 @@ function validateJobForm(theJobFormId, altSubmitFun) {
     }
   }
 
-  if (isFilled && dateValid) {
+  // additional file input 2097152,test
+  let pdfInput = document.getElementById('pdf_attachment')
+  let [pdfOk, pdfMessage] = cmxClt.uform.checkBlob(pdfInput, {
+    maxSize: 2097152,
+    expectedFileExt: 'pdf'
+  })
+
+  // in our case an empty pdf is acceptable, but not a failed file
+  let pdfAcceptable = pdfOk || (pdfMessage == 'no file')
+
+  if (isFilled && dateValid && pdfAcceptable) {
       theJobForm.elMainMessage.innerHTML = "<span class='green glyphicon glyphicon-check glyphicon-float-left' style='float:left;'></span><p>OK thank you!</p>"
 
       if (altSubmitFun
@@ -230,6 +249,10 @@ function validateJobForm(theJobFormId, altSubmitFun) {
       if (! dateValid) {
         theJobForm.elMainMessage.innerHTML += '<br><p>The <a class="minilabel orange" onclick="return cmxClt.uform.gotoField(\'job_valid_date\')">date</a> needs to be<br>in YYYY/MM/DD format!</p>'
         dateLabel.style.backgroundColor = cmxClt.colorOrange
+      }
+      if (! pdfAcceptable) {
+        theJobForm.elMainMessage.innerHTML += `<br><p>Problem with <a class="minilabel orange" onclick="return cmxClt.uform.gotoField('pdf_attachment')">your pdf file</a>: ${pdfMessage}</p>`
+        document.querySelector('label[for=pdf_attachment]').style.backgroundColor = cmxClt.colorOrange
       }
 
       theJobForm.elMainMessage.classList.remove('faded')

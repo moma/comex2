@@ -670,7 +670,9 @@ var cmxClt = (function() {
     // ===================================================================
 
     // exposed functions and vars
+    cC.uform.checkBlob
     cC.uform.checkShowPic
+    cC.uform.showPic
     cC.uform.createInitials
     cC.uform.checkJobDateStatus
     cC.uform.fName = document.getElementById('first_name')
@@ -717,9 +719,61 @@ var cmxClt = (function() {
         // possible re-adjust outerbox ?
     }
 
+    // checkBlob: a generic onchange checker for file inputs
+    // ---------
+    // returns a couple [successBool, message]
+    //
+    // optional args:
+    //  args.maxSize
+    //  args.expectedMime
+    //  args.expectedFileExt
+    cC.uform.checkBlob = function (aFileInput, args) {
+      if (! args)     args = {}
+      // 2MB default maxSize for pdf
+      let maxSize = 2097152
+      if (args.maxSize)    maxSize = args.maxSize
+
+      let theFile = aFileInput.files[0]
+      if (!theFile) {
+        return [false, 'no file']
+      }
+      else {
+        // check size
+        if (theFile.size > maxSize) {
+          // human-readable values for message
+          let kBMax = parseInt(maxSize/1024)
+          let kBReal = parseInt(theFile.size/1024)
+          return [false, `file too big (max=${kBMax}kB, actual=${kBReal}kB)`]
+        }
+
+        // optional check mime
+        if (args.expectedMime) {
+          if (theFile.type != args.expectedMime) {
+            return [false, `file needs correct mimetype "${args.expectedMime}"`]
+          }
+        }
+
+        // optional check extension
+        if (args.expectedFileExt) {
+          let extMatch = theFile.name.match(/\.([^.]{1,6})$/)
+          if (!extMatch) {
+            return [false, `filename has no extension (expected: "${args.expectedFileExt}")`]
+          }
+          else {
+            let ext = extMatch[1]
+            if (ext != args.expectedFileExt) {
+              return [false, `file needs correct extension ${args.expectedFileExt}`]
+            }
+          }
+        }
+        return [true, "file OK"]
+      }
+    }
+
+    // POSSible use smaller functions: checkBlob + file read + GUI effects
     cC.uform.checkShowPic = function (aForm, doHighlight) {
         // TEMPORARY initial size already 500 kB, user has to do it himself
-        var max_size = 512000
+        var max_size = 524288
 
         // TODO  max source image size before resizing
         //       see libs or stackoverflow.com/a/24015367
