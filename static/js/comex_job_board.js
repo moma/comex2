@@ -50,14 +50,14 @@ let gridFields = [
      name: "mission_text",
      title:"Mission",
      type: "text",
-     width: 110,
+     width: 100,
      css:"mission"
    },
    {
      name: "keywords",
      title:"Keywords",
      type: "text",
-     width: 80,
+     width: 75,
      align: "center",
      css:"keywords",
      itemTemplate: function(value) {
@@ -96,6 +96,22 @@ let gridFields = [
      width: 40,
      align: "center",
      css:"jobdate"
+   },
+   {
+     name: "pdf_fname",
+     title:"PDF",
+     type: "text",
+     width: 15,
+     align: "center",
+     css:"pdf_fname",
+     itemTemplate: function(value) {
+       if (value) {
+         return `<a class="norowclick"
+                    href="/data/shared_user_files/${value}" target="_blank">
+                  <span class="glyphicon glyphicon-file norowclick"></span>
+                </a>`
+       }
+     }
    }
 ]
 
@@ -162,7 +178,6 @@ jsGrid.ControlField.prototype._createEditButton = function(item) {
     });
 }
 
-
 let jobGrid = $("#jobsgrid").jsGrid({
     width: "80%",
     height: "700px",
@@ -183,9 +198,13 @@ let jobGrid = $("#jobsgrid").jsGrid({
     fields: gridFields,
 
     // open full form instead of inline editing
-    rowClick: function(rowargs){
-      console.log("rowClick item", rowargs.item)
-      editJob(rowargs.item)
+    rowClick: function(rowargs) {
+      if (rowargs && rowargs.event && rowargs.event.target) {
+        let tgt = rowargs.event.target
+        if (! tgt.classList.contains("norowclick")) {
+          editJob(rowargs.item)
+        }
+      }
     }
 })
 

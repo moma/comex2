@@ -204,24 +204,10 @@ CREATE TABLE jobs (
     recruiter_org_text   varchar(2400) not null,
     email                varchar(255) not null,
     job_valid_date       date,
+    pdf_fname            varchar(120),   -- locally saved pdf (basename)
 
     -- NB: should the job be deleted when scholar is deleted ?
     FOREIGN KEY (uid)  REFERENCES scholars(luid)
-) ;
-
-
--- current jobs table
-CREATE TABLE jobs (
-    jobid                int(15) not null auto_increment unique primary key,
-    -- creator user (one to many: no need for mapping table)
-    uid                  int(15) not null,
-    last_modified        timestamp,
-    mission_text         varchar(2400) not null,
-    recruiter_org_text   varchar(2400) not null,
-    email                varchar(255) not null,
-    job_valid_date       date,
-
-    FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;
 
 -- relationship jobs <n=n> keywords

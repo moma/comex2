@@ -124,7 +124,11 @@ JOB_FIELDS = [
          ("mission_text",           True,        None),
          ("recruiter_org_text",     True,        None),
          ("email",                  True,        None),
-         ("job_valid_date",         True,       "sdate")
+         ("job_valid_date",         True,       "sdate"),
+         ("pdf_attachment",         True,       "sblob", "pdf", "pdf_fname"), # saved separately
+         # => for *jobs* table
+
+         ("keywords",               True,        None)
          # => for *keywords* table (after split str)
       ]
 
@@ -796,6 +800,7 @@ def addjob():
         # exemple clean_records
         # {'uid': '4206', 'job_valid_date': '2017/09/30', 'mission_text': 'In the town where I was born Lived a man who sailed the sea', 'email': 'romain.loth@truc.org', 'recruiter_org_text': 'We all live in a yellow submarine'}
 
+        mlog("DEBUG", 'job record contents:', clean_records)
         jobid = dbcrud.save_job( clean_records )
 
         # save associated keywords
@@ -871,6 +876,10 @@ def myjobs():
 @fresh_login_required
 @app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['POST', 'DELETE'])
 def api_job():
+    # check if login ok
+    if not hasattr(current_user, 'uid'):
+        return unauthorized()
+
     # testing if cookie user is the same as payload data user
     if request.method == 'POST':
         jobid = request.form.get('jobid')
@@ -888,8 +897,19 @@ def api_job():
             if 'jobid' in request.form:
                 new_data = read_record_from_request(request, JOB_FIELDS)
                 try:
+                    # compare with previous pdf
+                    # and remove from filesystem if changed
+                    if 'pdf_fname' in new_data:
+                        old_pdf_fname = dbcrud.find_jobs_pdf(jobid)
+                        if (old_pdf_fname and new_data['pdf_fname'] != old_pdf_fname):
+                            remove(path.join(
+                                *tools.BLOB_SAVING_POINT,
+                                old_pdf_fname
+                            ))
+
                     # update job
                     dbcrud.save_job(new_data, jobid)
+
                     # update associated keywords
                     dbcrud.delete_pairs_fkey_tok(jobid, map_table = "job_kw")
                     kwids = dbcrud.get_or_create_tokitems(new_data['keywords'])
@@ -913,6 +933,12 @@ def api_job():
             mlog("DEBUG",
                  'received api delete job:', jobid, job_author_uid)
             try:
+                # remove pdf if any
+                old_pdf_fname = dbcrud.find_jobs_pdf(jobid)
+                if old_pdf_fname:
+                    remove(path.join(*tools.BLOB_SAVING_POINT, old_pdf_fname))
+
+                # remove job itself
                 deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
             except Exception as dberr:
                 return Response(
@@ -1157,7 +1183,7 @@ def read_record_from_request(request, optional_fields = None):
 
         Custom made for comex registration forms
             - request.form fields: sanitization + string normalization as needed
-            - request.files blobs: save to fs + keep ref in filename col
+            - request.files blob: save to fs + keep ref in filename col
     """
     # init var
     clean_records = {}
@@ -1190,6 +1216,7 @@ def read_record_from_request(request, optional_fields = None):
         # these ones have a blob treatment: saved + replaced by filename
         elif (hasattr(request, "files")
               and field in request.files
+              and request.files[field]     # <= to test if file not empty
               and spec_type == "sblob"):
             # read 2 additional attributes: fileext and tgt dbfield
             file_type = field_info[3]

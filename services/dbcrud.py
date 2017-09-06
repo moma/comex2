@@ -67,7 +67,8 @@ JOB_COLS = [
          ("mission_text",       True,    2400,    False),
          ("recruiter_org_text", True,    2400,    False),
          ("email",               True,    255,    False),  # job contact mail
-         ("job_valid_date",      True,   None,    False)
+         ("job_valid_date",      True,   None,    False),
+         ("pdf_fname",          False,    120,    False)
          # 'last_modified'       timestamp added by DB itself
     ]
 
@@ -922,7 +923,6 @@ def save_job(job_infos, optional_job_id_to_update = None):
 
 
 def get_jobs(author_uid = None):
-
     constraints = ['job_valid_date >= CURDATE()']
     if author_uid:
         constraints.append('uid = "%s"' % author_uid)
@@ -945,6 +945,17 @@ def get_jobs(author_uid = None):
     job_rows = db_c.fetchall()
     db.close()
     return job_rows
+
+def find_jobs_pdf(job_id):
+    """
+    returns None or a basename like d8f5e73cc0b9409aae699cccf3588f8e.pdf
+    """
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+    db_c.execute("SELECT pdf_fname FROM jobs WHERE jobid = %s" % job_id)
+    res = db_c.fetchone()
+    db.close()
+    return res["pdf_fname"]
 
 def delete_job(jobid = None, author_uid = None):
     if not jobid or not author_uid:

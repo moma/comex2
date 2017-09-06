@@ -193,6 +193,7 @@ CREATE TABLE legacy_temp_rettoks (
     INDEX rettok_index_ltempt (rettok)
 ) ;
 
+
 -- current jobs table
 CREATE TABLE jobs (
     jobid                int(15) not null auto_increment unique primary key,
@@ -203,6 +204,7 @@ CREATE TABLE jobs (
     recruiter_org_text   varchar(2400) not null,
     email                varchar(255) not null,
     job_valid_date       date,
+    pdf_fname            varchar(120),   -- locally saved pdf (basename)
 
     FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;

@@ -57,6 +57,36 @@ function createJobForm(containerId, args) {
         `
   }
 
+  let pdfSection = ''
+  // previous pdf => add link to it
+  if (args.job && args.job.pdf_fname && args.job.pdf_fname.length) {
+    pdfSection = `
+    <div class="question">
+      <p id="previous-pdf" class="mega-legend">
+        <span class="glyphicon glyphicon-file"></span>
+        Consult the
+        <a href="/data/shared_user_files/${args.job.pdf_fname}" target="_blank">
+          provided job description
+        </a> (pdf).
+      </p>
+    </div>
+    `
+  }
+  // can edit => add pdf file input
+  if (args.can_edit) {
+    pdfSection += `
+        <div class="question">
+          <div class="input-group">
+            <label for="pdf_attachment" class="smlabel input-group-addon"><small>Job description (PDF)</small></label>
+            <input id="pdf_attachment" name="pdf_attachment" maxlength="10" ${rw}
+                   type="file" class="form-control" onchange="customOnChangePdf()">
+          </div>
+          <p class="legend">
+            You can ${(args.job && args.job.pdf_fname && args.job.pdf_fname.length) ? "<b>replace</b> the pdf" : "add an optional pdf"} document here.
+          </p>
+        </div>`
+  }
+
   let jobHtml = `
     <form id="comex_job_form" enctype="multipart/form-data"
           method="post" onsubmit="console.info('submitted')">
@@ -130,14 +160,7 @@ function createJobForm(containerId, args) {
           <p class="legend">You can always remove the job manually before this date.</p>
         </div>
 
-        <div class="question">
-          <div class="input-group">
-            <label for="pdf_attachment" class="smlabel input-group-addon"><small>Job description (PDF)</small></label>
-            <input id="pdf_attachment" name="pdf_attachment" maxlength="10" ${rw}
-                   type="file" class="form-control">
-          </div>
-          <p class="legend">You can add an optional pdf document here.</p>
-        </div>
+        ${pdfSection}
 
         <!-- hidden input for associated user id -->
         <input id="uid" name="uid" type="text" hidden
@@ -177,6 +200,19 @@ function createJobForm(containerId, args) {
   remoteAutocompleteInit('keywords')
 
   return jobadForm
+}
+
+
+// custom eye candy: strikeout previous pdf if new one
+function customOnChangePdf() {
+  let fileEl = document.getElementById('pdf_attachment')
+  let todoEl = document.getElementById('previous-pdf')
+  if (todoEl && fileEl) {
+    if (fileEl.files[0])
+      todoEl.classList.add('strikeout')
+    else
+      todoEl.classList.remove('strikeout')
+  }
 }
 
 // validate and submit function

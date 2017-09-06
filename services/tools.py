@@ -283,7 +283,7 @@ def save_blob_and_get_filename(blob, blobtype):
         fileext = what(blob.stream)
     else:
         path_elts=list(BLOB_SAVING_POINT)
-        fileext = extension
+        fileext = blobtype
 
     fbasename = str(filename)+'.'+str(fileext)
     path_elts.append(fbasename)
