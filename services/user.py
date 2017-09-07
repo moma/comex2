@@ -77,7 +77,8 @@ class User(object):
             else:
                 self.uid = luid
                 self.info = scholar
-                self.json_info = dumps(prejsonize(scholar))
+                self.info['affiliation'] = self.get_compact_affiliation()
+                self.json_info = dumps(prejsonize(self.info))
                 self.doors_uid = self.info['doors_uid']
                 self.empty = False
 
@@ -119,6 +120,51 @@ class User(object):
         else:
             raise ValueError("No IDs for this user flask-login won't refind it")
         return mixedid
+
+    def get_compact_affiliation(self):
+        """
+        Provides a single affiliation string (possibly empty for legacy users)
+
+        Context: comex structure allows multiple affiliations of 2 different types (labs and institutions), but external apps like doors need only one string to resume it all.
+
+        NB: this implementation only uses the first lab and first inst
+            all users should have always one lab entry, except for new doors users
+            however legacy users have their lab entry set to name:_NULL
+        """
+        compact_lab = ''
+        compact_inst = ''
+
+        if "labs" in self.info and len(self.info['labs']):
+            lab = self.info['labs'][0]
+            # we skip legacy _NULL values
+            if lab['name'] != '_NULL':
+                # label is name and acronym
+                compact_lab += lab['label']
+
+                # these optional slots have normal None values when empty
+                if lab['lab_code']:
+                    compact_lab += " [%s]" % lab['lab_code']
+                if lab['locname']:
+                    compact_lab += " - %s" % lab['locname']
+
+        if "insts" in self.info and len(self.info['insts']):
+            inst = self.info['insts'][0]
+
+            # label is always there
+            compact_inst = inst['label']
+
+            if inst['locname']:
+                compact_lab += " - %s" % inst['locname']
+
+        aff_str = ''
+        if len(compact_lab) and not len(compact_inst):
+            aff_str = compact_lab
+        elif not len(compact_lab) and len(compact_inst):
+            aff_str = compact_inst
+        elif len(compact_lab) and len(compact_inst):
+            aff_str = "%s / %s" % (compact_lab, compact_inst)
+
+        return aff_str
 
 
     @property
@@ -240,12 +286,20 @@ def doors_login(email, password, config=REALCONFIG):
 
     return uid
 
-def doors_register(email, password, name, config=REALCONFIG):
+def doors_register(email, password, last_name, first_name="", affiliation="", config=REALCONFIG):
     """
     Remote query to Doors API to register a user
     """
+    if not len(email) or not len(password) or not len(last_name):
+        mlog("ERROR", "can't proceed with doors registration (invalid args)")
+        return None
+
     uid = None
-    sentdata = {'login':email.lower(), 'password':password, 'name':name}
+    sentdata = {
+        'login':email.lower(), 'password':password,
+        'firstName': first_name, 'lastName':last_name,
+        'affiliation': affiliation
+        }
 
     http_scheme = "https:"
 

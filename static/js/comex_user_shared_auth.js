@@ -275,7 +275,7 @@ cmxClt = (function(cC) {
 
           cC.uauth.callDoors(
               "userExists",
-              [emailValue],
+              {'login': emailValue},
               function(doorsResp) {
                   var doorsUid = doorsResp[0]
                   var doorsMsg = doorsResp[1]
@@ -538,7 +538,9 @@ cmxClt = (function(cC) {
     *     apiAction:  'register' or 'user' or 'userExists' => route to doors api
     *                  if unknown type, default action is login via doors/api/user
     *
-    *     data:       3-uple with mail, pass, name
+    *     sendData:   key-value as required by doors specification
+    *                 (this function only casts to string and
+    *                  checks if mandatory values are here)
     *
     *     callback:   function that will be called after success AND after error
     *                 with the return couple
@@ -569,23 +571,14 @@ cmxClt = (function(cC) {
     *       }
     *     }
     */
-    cC.uauth.callDoors = function(apiAction, data, callback) {
+    cC.uauth.callDoors = function(apiAction, sendData, callback) {
 
         // console.warn("=====> CORS  <=====")
-        // console.log("data",data)
+        // console.log("sendData",sendData)
         // console.log("apiAction",apiAction)
 
         var doorsUid = null
         var doorsMsg = null
-
-        // all mandatory params for doors
-        var mailStr = data[0]
-        var passStr = data[1]
-        var nameStr = data[2]
-
-        if (mailStr && typeof mailStr == 'string') {
-          mailStr = mailStr.toLowerCase()
-        }
 
         // test params and set defaults
         if (typeof apiAction != 'string'
@@ -597,28 +590,39 @@ cmxClt = (function(cC) {
             callback = function(retval) { return retval }
         }
 
-        var ok = (
-                    (apiAction == 'userExists'
-                        && typeof mailStr == 'string' && mailStr)
-                 || (apiAction == 'user'
-                        && typeof mailStr == 'string' && mailStr
-                        && typeof passStr == 'string' && passStr)
 
-                 || (apiAction == 'register'
-                        && typeof mailStr == 'string' && mailStr
-                        && typeof passStr == 'string' && passStr
-                        && typeof nameStr == 'string' && nameStr)
-               )
+        // required args per action ['propertyName', NEED_NOT_EMPTY]
+        let reqProps = {
+          'userExists': [['login', 1]],
+          'user':       [['login', 1], ['password', 1]],
+          'register':   [['login', 1], ['password', 1],
+                        ['firstName', 0], ['lastName', 1], ['affiliation', 0]]
+        }
+
+        // cast all to string and test if ok
+        let strData = {}
+        let ok = true
+        let wrongArgs = []
+        for (var [prop, needNotEmpty] of reqProps[apiAction]) {
+          let thisOk = false
+          if (sendData[prop])
+            strData[prop] = sendData[prop].toString()
+          else {
+            ok = ok && (!needNotEmpty)
+            if (needNotEmpty)
+              wrongArgs.push(prop)
+            else
+              strData[prop] = ''
+          }
+        }
+
         if (!ok) {
-            doorsMsg = "Invalid parameters in input data (arg #1)"
-            console.warn('DBG callDoors() internal validation failed before ajax')
+          doorsMsg = `Invalid parameters in input data (empty args: ${wrongArgs.join(',')})`
+          console.warn('DBG callDoors() internal validation failed before ajax')
         }
         else {
-            var sendData = {
-                    "login":    mailStr,
-                    "password": passStr,
-                    "name":     nameStr
-                }
+            // doors <=> always lowercase
+            strData.login = strData.login.toLowerCase()
 
             var htscheme = cC.uauth.doorsParam.htscheme || 'https:'
 
@@ -627,7 +631,7 @@ cmxClt = (function(cC) {
                 dataType: 'json',
 
                 url: htscheme+"//"+cC.uauth.doorsParam.connect+"/api/" + apiAction,
-                data: sendData,
+                data: strData,
                 type: 'POST',
                 success: function(data) {
 

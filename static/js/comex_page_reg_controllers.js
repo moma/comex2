@@ -77,20 +77,29 @@ function registerDoorsAndSubmit(){
     // all values from the form have now been validated
     var emailValue = regfo.elEmail.value
     var passValue = regfo.elPass.value
-    var wholenameValue = ""
+    var firstNameValue = ""
+    var affiliationValue = ""
 
-    if (cmxClt.uform.mName.value != "") {
-        wholenameValue = cmxClt.uform.lName.value + ', ' + cmxClt.uform.fName.value + ' ' + cmxClt.uform.mName.value
-    }
-    else {
-        wholenameValue = cmxClt.uform.lName.value + ', ' + cmxClt.uform.fName.value
-    }
+    if (cmxClt.uform.mName.value != "")
+      firstNameValue = cmxClt.uform.fName.value + ' ' + cmxClt.uform.mName.value
+    else
+      firstNameValue = cmxClt.uform.fName.value
+
+    let lab = regfo.elForm.querySelector('#lab_label')
+    if (lab)
+      affiliationValue = lab.value
 
     // /!\ async
     // POSS: could now be invoked via regfo object
     cmxClt.uauth.callDoors(
         "register",
-        [emailValue, passValue, wholenameValue],
+        {
+          'login': emailValue,
+          'password': passValue,
+          'firstName': firstNameValue,
+          'lastName': cmxClt.uform.lName.value, // always there by construction
+          'affiliation': affiliationValue,
+      },
 
         // callback: send to DB -------------------
         function(doorsResp) {

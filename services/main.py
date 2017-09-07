@@ -644,15 +644,16 @@ def claim_profile():
         pwd = request.form['password']
         luid = request.form['return_user_luid']
 
+        # get back the legacy values
         return_user = User(luid)
         info = return_user.info
-        name = info['last_name']+', '+info['first_name']
+        doors_first_name = info['first_name']
         if info['middle_name']:
-            name += ' '+info['middle_name']
+            doors_first_name += ' '+info['middle_name']
 
         # we do our doors request here server-side to avoid MiM attack on result
         try:
-            doors_uid = doors_register(email, pwd, name, config)
+            doors_uid = doors_register(email, pwd, info['last_name'], doors_first_name, info['affiliation'], config)
         except Exception as err:
             mlog("ERROR", "error in doors_register remote request")
             raise (err)
