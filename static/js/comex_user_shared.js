@@ -391,27 +391,28 @@ var cmxClt = (function() {
                 )
             }
 
+            let mtiCollect = function(field) {
+              return function() {
+                let exitStatus = true
+                let errMsg = ''
+
+                if (myUform.mti[field].stock.length < myUform.mti[field].minEntries) {
+                  let exitStatus = false
+                  let label = document.querySelectorAll(`label[for=${field}]`) || field
+                  errMsg = `Please provide at least ${myUform.mti[field].minEntries} entries for the field ${label}`
+                }
+                document.getElementById(field).value =  myUform.mti[field].stock.join(',')
+                console.debug(`  mti collected field "${field}"
+                                 new value = ${document.getElementById(field).value}`)
+
+                console.log('collecting multiTextinputs status:', exitStatus)
+                return {'ok': exitStatus, 'errMsg': errMsg}
+              }
+            }
+
             // mti collectors: a function per multiTextinput to check out values
             for (var field in myUform.mti) {
-              myUform.preSubmitActions.push(
-                function() {
-                   let exitStatus = true
-                   let errMsg = ''
-
-                   if (myUform.mti[field].stock.length < myUform.mti[field].minEntries) {
-                     let exitStatus = false
-                     let label = document.querySelectorAll(`label[for=${field}]`) || field
-                     errMsg = `Please provide at least ${myUform.mti[field].minEntries} entries for the field ${label}`
-                   }
-                   document.getElementById(field).value =  myUform.mti[field].stock.join(',')
-                   // console.debug("  mti collected field '"+field+"',
-                   //                  new value =" +
-                   //                  document.getElementById(field).value)
-
-                   console.log('collecting multiTextinputs status:', exitStatus)
-                   return {'ok': exitStatus, 'errMsg': errMsg}
-               }
-              )
+              myUform.preSubmitActions.push( mtiCollect(field) )
             }
 
             // Here we overload the submit() function with preSubmitActions

@@ -198,8 +198,7 @@ function submitAndModal() {
     var formdat = theUForm.asFormData();
     var postUrl = "/services/user/profile/"
 
-    // if (window.fetch) {
-    if (false) {
+    if (window.fetch) {
         fetch(postUrl, {
             method: 'POST',
             headers: {'X-Requested-With': 'MyFetchRequest'},
