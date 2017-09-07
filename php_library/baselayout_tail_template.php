@@ -1,8 +1,8 @@
 <?php
 
-$init_uinfo_js = '';
+$init_uinfo_js = 'var uinfo = null';
 if ($comex_user_id) {
-  $init_uinfo_js = "uinfo = {'luid': $comex_user_id}";
+  $init_uinfo_js = "var uinfo = {'luid': '$comex_user_id'}";
 }
 
 $html_tail_imports = "
