@@ -764,13 +764,14 @@ class BipartiteExtractor:
         # print(termsMatrix)
         # ------- /debug ------------------------------
 
-        # TODO restore job snippet 1
-        # sql='select login from jobs';
-        # for res in self.cursor.execute(sql):
-        #     if res['login'].strip() in self.scholars_colors:
-        #         self.scholars_colors[res['login'].strip()]+=1;
-
-        query = "SELECT kwstr,kwid,occs FROM keywords WHERE kwid IN "
+        query = """SELECT kwstr,keywords.kwid,occs,nbjobs FROM keywords
+                   LEFT JOIN (
+                        SELECT kwid, count(kwid) AS nbjobs
+                        FROM job_kw
+                        GROUP BY kwid
+                        ) AS jobcounts
+                   ON jobcounts.kwid = keywords.kwid
+                   WHERE keywords.kwid IN """
         conditions = ' (' + ','.join(sorted(list(termsMatrix))) + ')'
 
         # debug
@@ -788,16 +789,19 @@ class BipartiteExtractor:
             info['occurrences'] = res['occs']
             info['kwstr'] = res['kwstr']
             self.terms_dict[str(idT)] = info
+
+            # job counter: how many times a term in cited in job ads
+            info['nbjobs'] = res['nbjobs'] if res['nbjobs'] else 0
+
         count=1
 
         for term in self.terms_dict:
             self.terms_colors[term]=0
-
-        # TODO restore job snippet 2
-        # sql='select term_id from jobs2terms'
-        # for row in self.cursor.execute(sql):
-        #     if row['term_id'] in self.terms_colors:
-        #         self.terms_colors[row['term_id']]+=1
+            # TODO restore job snippet 2  => couleur des termes
+            # sql='select term_id from jobs2terms'
+            # for row in self.cursor.execute(sql):
+            #     if row['term_id'] in self.terms_colors:
+            #         self.terms_colors[row['term_id']]+=1
 
         cont=0
         for term_id in self.terms_dict:
@@ -868,12 +872,12 @@ class BipartiteExtractor:
                         weight=neighbors[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
 
                         # detailed debug
-                        if neighbors[neigh] != 1:
-                            mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
-                            mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
-                            mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
-                            mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
-                            mlog("DEBUG", "edge w", weight)
+                        # if neighbors[neigh] != 1:
+                        #     mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
+                        #     mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
+                        #     mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
+                        #     mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
+                        #     mlog("DEBUG", "edge w", weight)
 
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
 
