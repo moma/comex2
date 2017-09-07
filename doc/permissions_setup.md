@@ -22,11 +22,16 @@ For the `data` directory:
 ```
 # data must be writeable
 chmod 774 data
+sudo chown :www-data data
 
 # mysql data more restrictive
 find data/shared_mysql_data/ -type d -exec chmod 750 {} +
 find data/shared_mysql_data/ -type f -exec chmod 640 {} +
 
 # and accessible by docker user
-sudo chown -R 999:999 data/shared_mysql_data
+sudo chown -R 999:www-data data/shared_mysql_data
+
+# data also contains shared user dirs
+sudo chown -R :www-data data/shared_user_img
+sudo chown -R :www-data data/shared_user_files
 ```
