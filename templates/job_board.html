@@ -20,12 +20,46 @@
       <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
       <div class="my-centering-box col-lg-8 col-md-10 col-sm-12">
           <div id="intro">
-              <h2 class="oldstyle">Jobs</h2>
-              <div class="message-hero">
-                {{ message | safe }}
-              </div>
+            <h2 class="oldstyle">Job market</h2>
+            <div class="message-hero">
+              {{ message | safe }}
+            </div>
+            {% if can_edit %}
+              <p class="mini-hero" style="clear:both">
+                <ul>
+                  <li>You can post a new job openings <a href="/services/addjob" target="addjob"> here</a>.</li>
+                  <li>If you will be looking for a job in the next 12 months, you can mention it <a href="/services/user/profile/#job_looking" target="profile"> in your profile</a>.</li>
+                  <li>All the posted jobs are visible to the public on <a href="/services/jobboard" target="jobboard">the main job market page</a>.</li>
+                </ul>
+              </p>
+            {% else %}
+              <p class="mini-hero" style="clear:both">
+                <ul>
+                  <li>You can post a new job openings <a href="/services/addjob" target="addjob"> here</a> (login required).</li>
+                  <li>If you will be looking for a job in the next 12 months, you can mention it <a href="/services/user/profile/#job_looking" target="profile"> in your profile</a> (login required).</li>
+                </ul>
+              </p>
+              <p class="mini-hero">
+                To foster employment within the community, information about job opening and forthcoming
+                availability of scholars is also displayed in the maps:
+                <br/>
+                <br/>
+                  <img style="margin: 7px 15px 10px 0px; float:left" src="{{ url_for('static', filename='img/JobScholars.png') }}" width="250px">
+                    <br/><i>In the community maps: </i> people who are currently offering a job opening are
+                    highlighted with a light blue, scholars that will be looking for a job in the next 12 months
+                    are highlighted in darkred.<br/>
+                    <br/>
+                    <br/>
+                    <br/>
+                  <img style="margin: 7px 15px 10px 0px; float:left" src="{{ url_for('static', filename='img/JobSem.png') }}" width="250px">
+                    <br/><i>In the semantic maps: </i> keywords on which there is a job offer are highlighted in
+                        orange and red according to the density of job offers
+                    <br/>
+              </p>
+              {% endif %}
           </div>
       </div>
+
     </div>
     <div class="row">
       <div id="jobsgrid"><!--filled by comex_job_board.js--></div>

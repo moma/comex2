@@ -863,9 +863,7 @@ def myjobs():
     return render_template(
                 "job_board.html",
                 message = """
-                This is the list of jobs you entered.
-                They are available to all from <a href="/services/jobboard/">the open job-board</a> page.
-                You are the admin of this list and can add, edit or remove items.
+                This is the list of jobs you entered. You are the admin of this list and can add, edit or remove items.
                 """,
                 jobs_table = json_rows,
                 can_edit = 1
@@ -966,6 +964,11 @@ def api_job():
 @app.route('/about/privacy')
 def show_privacy():
     return render_template("privacy.html")
+
+# /about/tips
+@app.route('/about/tips')
+def show_tips():
+    return render_template("tips.html")
 
 
 ########### SUBS ###########

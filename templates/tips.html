@@ -1,0 +1,71 @@
+{% extends "base_layout.html" %}
+
+{% block headers %}
+  <title>Complex Systems Community Explorer</title>
+  <meta name="description" content="Community Explorer User Information Message">
+  <meta name="keywords" content="information page, complex systems, community">
+  <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex_index.css') }}">
+{% endblock %}
+
+<!-- ======================================================================= -->
+
+{% block main_content %}
+      <div class="row">
+          <div class="spacer col-lg-1 col-md-1 hidden-sm-down">&nbsp;</div>
+          <div class="col-lg-6 col-md-5 col-sm-12">
+             <h2 class="oldstyle maintitle">What you can do:</h2>
+              <p class="mini-hero">
+                The community explorer is designed to provide a multi-level insight of the complex systems
+                community.<br/><br/>  You can map the network of scholars that share interest with you or
+                explore global views:<br/>
+              </p>
+              <div class="sub-hero">
+                <p>See how the field evolves, get an idea of sub-communities, find a job or find experts:</p>
+                <ul>
+                    <li>Geographically focused map : select a country and map,</li>
+                    <li>Semantically focused map : enter keyword(s) (comma separated) and
+                        map the associated community. For example, enter <i>soci,geog</i> to
+                        display the community related to social sciences and geography (match is not strict,
+                        a comma makes a 'OR' connector).</li>
+                    <li>Scholars that <a href="/services/jobboard/" target="addjob">have posted a job offer</a> are highlighted in light blue
+                          , those who will be on the <a href="/services/jobboard/">job market</a> within 12 months are highlighted in dark blue, keywords on which there is a job offer are highlighted in red.<br/>
+                    </li>
+                    <li>When you have a map, your can export it in gexf to further processing with softwares
+                        like <a href="http://gephi.org">Gephi</a> or display it on your website with
+                        <a href="https://github.com/moma/ProjectExplorer">TinawebJS</a> with exactly the same exploration functionnalities.
+                        Click on the gexf button of the mapping interface and save
+                        the pop up window with a '.gexf' extention.
+                    </li>
+                </ul>
+
+                <p>You can print the directory associated to any map :</p>
+                <ul>
+                    <li>Print your personalized directory to find potential collaborators,</li>
+                    <li>Print directory at the level of a country, an institution or a lab.</li>
+                </ul>
+
+            </div>
+          </div>
+
+          <div class="spacer col-lg-1 col-md-1 hidden-sm-down">&nbsp;</div>
+          <!-- ### ( 1 small column for news and announcements ) ### -->
+          <div class="col-lg-3 col-md-3 col-sm-12">
+              <h2 class="oldstyle" style="font-size:1.2em">
+                You are organizing an event related to complex
+                   systems ?
+              </h2>
+              <p>
+               <!-- POSS: readd a page listing all tags to link from #tags -->
+                  With the #tags given in scholars profile, map the community associated to any
+                  event and print its directory. Ask participants to add your #tag in their
+                  <a href="/services/user/profile" target="profile">profile</a> and you will accelerate
+                  the process of networking while having your event directory for free.
+              <p/>
+              <div class="center" style="margin-top:30px;margin-left:-20px;">
+                <strong>View our video tutorial</strong>
+                <iframe src="https://player.vimeo.com/video/38383946" width="350" height="201" frameborder="0" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
+               </div>
+          </div>
+          <div class="spacer col-lg-1 col-md-1 hidden-sm-down">&nbsp;</div>
+      </div>
+{% endblock %}
