@@ -274,8 +274,13 @@
 
   </div>
 
-
-
+  <script type="text/javascript">
+      //               ---------
+      // a copy of the user info in json: available to all templates except bare
+      //               ---------
+      var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
+      Object.freeze(uinfo)
+  </script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap-native-1.1.min.js') }}"></script>
 
   <!--  our js for auth and login: to be able to login via popup anywhere -->
@@ -283,18 +288,15 @@
   <script src="{{ url_for('static', filename='js/comex_user_shared_auth.js') }}"></script>
   <script src="{{ url_for('static', filename='js/comex_lib_elts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/comex_menubar_login_controllers.js') }}"></script>
-
-  <!--  for our other js: end-of-page javascript imports -->
-  {% block last_imports %}
-  {% endblock %}
-
   <script type="text/javascript">
       // shown once: a cookie warning
       if (! localStorage['comex_cookie_warning_done']) {
           cmxClt.elts.box.addCookieBox()
       }
-
   </script>
 
+  <!--  for our other js: end-of-page javascript imports -->
+  {% block last_imports %}
+  {% endblock %}
 </body>
 </html>

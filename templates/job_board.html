@@ -79,9 +79,6 @@
     <script src="{{ url_for('static', filename='js/comex_jobad_elements.js') }}"></script>
     <script src="{{ url_for('static', filename='js/jsgrid/jsgrid.js') }}"></script>
     <script type="text/javascript">
-      var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
-      Object.freeze(uinfo)
-
       // a frozen copy of our params: can_edit flag and all jobs info in json
       var params = {
         'jobsTable': {{ jobs_table | safe }},

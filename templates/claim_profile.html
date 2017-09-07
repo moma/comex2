@@ -170,13 +170,6 @@
 <!-- ======================================================================= -->
 
 {% block last_imports %}
-    <script type="text/javascript">
-        //               ---------
-        // a copy of the user info in json
-        //               ---------
-        var uinfo = {{return_user.json_info|safe}};
-    </script>
-
     <!--  our js  -->
     <script src="{{ url_for('static', filename='js/comex_page_claim_profile_controllers.js') }}"></script>
 {% endblock %}

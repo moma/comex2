@@ -160,11 +160,4 @@
 <!-- ======================================================================= -->
 
 {% block last_imports %}
-    <script type="text/javascript">
-        //               ---------
-        // a copy of the user info in json
-        //               ---------
-        var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
-    </script>
-
 {% endblock %}

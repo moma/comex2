@@ -44,7 +44,6 @@
     <script src="{{ url_for('static', filename='js/comex_user_autocompletes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/comex_jobad_elements.js') }}"></script>
     <script>
-      let uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
       let jobadForm = createJobForm(
         'new-job-container',
         {'user': uinfo, 'can_edit': true}
