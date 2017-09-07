@@ -1,14 +1,24 @@
 <?php
 
-$html_tail_imports = '
-<script type="text/javascript" src="/static/js/bootstrap-native-1.1.min.js"></script>
+$init_uinfo_js = '';
+if ($comex_user_id) {
+  $init_uinfo_js = "uinfo = {'luid': $comex_user_id}";
+}
+
+$html_tail_imports = "
+<script type=\"text/javascript\" src=\"/static/js/bootstrap-native-1.1.min.js\"></script>
+<script type=\"text/javascript\" src=\"/static/js/whoswho.js\"></script>
 
 <!--  our js for auth and login: to be able to login via popup anywhere -->
-<script src="/static/js/comex_user_shared.js"></script>
-<script src="/static/js/comex_user_shared_auth.js"></script>
-<script src="/static/js/comex_lib_elts.js"></script>
-<script src="/static/js/comex_menubar_login_controllers.js"></script>
-';
+<script src=\"/static/js/comex_user_shared.js\"></script>
+<script src=\"/static/js/comex_user_shared_auth.js\"></script>
+<script src=\"/static/js/comex_lib_elts.js\"></script>
+<script src=\"/static/js/comex_menubar_login_controllers.js\"></script>
+<script type=\"text/javascript\">
+  cmxClt.elts.topbar.create({$comex_user_id})
+  $init_uinfo_js  // <= if user logged in, init uinfo for whoswho
+</script>
+";
 
 
 $footer = '<footer>

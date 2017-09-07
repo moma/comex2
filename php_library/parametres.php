@@ -2,6 +2,11 @@
 
 /* liste de parametres */
 
+$comex_user_id = '';
+if (isset($_GET['user'])) {
+  $comex_user_id = $_GET['user'];
+}
+
 $min_num_friends=0;// nombre minimal de voisin que doit avoir un scholar pour être affiché
 // $compress='No';
 

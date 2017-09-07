@@ -15,9 +15,9 @@
 
 
 // initialize and export cmxClt module
-var cmxClt = (function() {
+var cmxClt = (function(cC) {
 
-    let cC = {}
+    if (!cC)  cC = {}
 
     // cf corresponding css classes
     cC.colorWhite = '#fff'
@@ -951,6 +951,6 @@ var cmxClt = (function() {
     // ========= end of advanced form controls ===========
 
     return cC
-}()) ;
+}(cmxClt)) ;
 
 console.log("user shared load OK")

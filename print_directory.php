@@ -3,7 +3,6 @@ include ("php_library/comex_library.php");
 include ("php_library/parametres.php");
 include ("php_library/normalize.php");
 include ("php_library/baselayout_head_template.php");
-include ("php_library/baselayout_topbar_template.php");
 include ("php_library/baselayout_tail_template.php");
 
 $meta = $html_head_inner;
@@ -436,8 +435,7 @@ echo $stats;
 echo '</head>';
 echo '<body>';
 echo $doors_connect_params;
-echo $topbar;
-echo '<div class="container full-directory">';
+echo '<div class="page container full-directory">';
 // echo '<div class="hero-unit">';
 echo $header;
 echo '';

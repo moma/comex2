@@ -21,7 +21,6 @@ $html_head_inner = '
   <link type="text/css" href="https://fonts.googleapis.com/css?family=Droid%20Sans" rel="stylesheet">
 
   <!-- ## JS ## -->
-
   <!--   libs   -->
   <script type="text/javascript" src="/static/js/jquery/jquery-3.1.1.min.js"></script>
   <script type="text/javascript" src="/static/js/jquery-ui-1.12.1/jquery-ui.min.js"></script>
@@ -29,7 +28,6 @@ $html_head_inner = '
   <script type="text/javascript" src="/static/js/utils.js"></script>
   <script type="text/javascript" src="/static/js/misc/underscore.min.js"></script>
   <script type="text/javascript" src="/static/js/jquery/jquery.highlight-3.js"></script>
-  <script type="text/javascript" src="/static/js/whoswho.js"></script>
   <script type="text/javascript" src="static/js/highcharts-5.0.js"></script>
   <!-- realperson
        factorized here in base layout because menubar login has captcha -->
@@ -71,5 +69,18 @@ $html_head_inner = '
   <!-- here possible highcharts block include -->
 ';
 
+
+$doors_connect = $app_params['DOORS_HOST'].':'.$app_params['DOORS_PORT'];
+$doors_scheme = 'https:';
+if ($app_params['DOORS_NOSSL']) {
+  $doors_scheme = 'http:';
+}
+$doors_connect_params = "
+<!-- needed if login -->
+<form>
+<input id=doors_connect name=doors_connect type=text hidden value=\"$doors_connect\">
+<input id=doors_scheme  name=doors_scheme  type=text hidden value=\"$doors_scheme\">
+</form>
+";
 
 ?>
