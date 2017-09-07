@@ -517,7 +517,7 @@ def update_scholar_cols(selected_safe_recs, cmx_db, where_luid=None):
             db_qstrvals.append(quotedstrval)
 
     cmx_db_c = cmx_db.cursor()
-    set_full_str = key_val_expr(db_tgtcols, db_vals_str)
+    set_full_str = key_val_expr(db_tgtcols, db_qstrvals)
 
     # UPDATE: full_statement with formated values
     full_statmt = 'UPDATE scholars SET %s WHERE luid = "%s"' % (
