@@ -1,6 +1,17 @@
 <?php
 
-$doors_connect_params = '<form><input id="doors_connect" name="doors_connect" type="text" hidden="" value="doors.iscpif.fr"></form>';
+$doors_connect = $app_params['DOORS_HOST'].':'.$app_params['DOORS_PORT'];
+$doors_scheme = 'https:';
+if ($app_params['DOORS_NOSSL']) {
+  $doors_scheme = 'http:';
+}
+$doors_connect_params = "
+<!-- needed if login -->
+<form>
+<input id=doors_connect name=doors_connect type=text hidden value=\"$doors_connect\">
+<input id=doors_scheme  name=doors_scheme  type=text hidden value=\"$doors_scheme\">
+</form>
+";
 
 $topbar = '
 <div class="topbar" style="opacity: 0.9;">

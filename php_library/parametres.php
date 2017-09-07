@@ -5,43 +5,58 @@
 $min_num_friends=0;// nombre minimal de voisin que doit avoir un scholar pour être affiché
 // $compress='No';
 
-/* reading external param for SQL config
-   =====================================
+/* reading external app params
+   ===========================
 
-    We attempt in order:
-      1 - retrieve SQL_HOST from bash ENV (set by docker-compose or admin)
-      2 - otherwise retrieve from INI file
-      3 - otherwise try 172.17.0.2 (first docker IP)
+   The params we want:
+   - SQL_HOST
+   - DOORS_HOST
+   - DOORS_PORT
+   - DOORS_NOSSL
 
-    POSSIBLE: use same behavior for the other sql vars (port, db, user & pass)
-              ...but not absolutely necessary because they seldom change
+    The values are by priority:
+      1 - retrieved from bash ENV (set by docker-compose or admin)
+      2 - otherwise retrieved from the INI file "config/parametres_comex.ini"
+      3 - otherwise hard-coded defaults
 */
-# 1 - ENV read
-$sql_host = getenv("SQL_HOST");
 
-$dbglog = "<p>from ENV got \$sql_host=$sql_host</p>";
+// we initialize with the defaults
+$app_params = array(
+  'SQL_HOST' =>  '172.17.0.2', // (first docker IP)
+  'DOORS_HOST' => 'doors.iscpif.fr',
+  'DOORS_PORT' => '443',
+  'DOORS_NOSSL' => false
+);
 
-# 2 - INI file read
-if (empty($sql_host)) {
-    $params = parse_ini_file("config/parametres_comex.ini");
-    $sql_host = $params['SQL_HOST'] ;
-    $dbglog .= "<p>from INI got \$sql_host=$sql_host</p>";
+// prepare INI file read
+$ini_params = parse_ini_file("config/parametres_comex.ini");
+
+foreach ($app_params as $key => $param) {
+  # 1 - ENV read
+  if (getenv($key)) {
+    $app_params[$key] = getenv($key);
+  }
+  # 2 - INI read
+  elseif (array_key_exists($key, $ini_params)) {
+    $app_params[$key] = $ini_params[$key];
+  }
 }
 
-# 3 - default val
-if (empty($sql_host)) {
-    $sql_host = "172.17.0.2" ;
-    $dbglog .= "<p>from DEF got \$sql_host=$sql_host</p>";
-}
+// echodump("finalized params", $app_params);
 
-# other sql vars
+$dbglog = "<p>got sql_host={$app_params['SQL_HOST']}</p>";
+
+/* initializing SQL connection
+   ===========================
+ */
+# other sql vars never change
 $db   = 'comex_shared';
 $user = 'root';
 $pass = 'very-safe-pass';
 $charset = 'utf8';
 
 /* final MySQL config: will be used for all php db connections */
-$dsn = "mysql:host=$sql_host;dbname=$db;charset=$charset";
+$dsn = "mysql:host={$app_params['SQL_HOST']};dbname=$db;charset=$charset";
 $opt = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
