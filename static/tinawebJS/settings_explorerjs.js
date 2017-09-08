@@ -28,16 +28,16 @@ TW.conf = (function(TW){
   // Related documents (topPapers) data source
   // -----------------------------------------
 
-  TWConf.getRelatedDocs = false
+  TWConf.getRelatedDocs = false           // TURNED OFF FOR COMEX
   TWConf.relatedDocsMax = 10
 
   // fallback type (if no detailed source-by-source conf from db.json)
-  TWConf.relatedDocsType = "csv"          // accepted: "twitter" | "csv" | "CortextDB"
+  TWConf.relatedDocsType = "twitter"      // accepted: "twitter" | "csv" | "CortextDB"
                                           // POSSible: "elastic"
 
   // routes by corresponding type
   TWConf.relatedDocsAPIS = {
-    "twitter": "http://134.158.74.111/twitter_search",
+    "twitter": "http://127.0.0.1:5000/twitter_search",
     "CortextDB": "twbackends/phpAPI",
     "csv": "twbackends/phpAPI"
   }
@@ -116,13 +116,13 @@ TW.conf = (function(TW){
    'nbjobs':{
                          'col':"heatmap" ,
                          'binmode': 'samerange',
-                         'n': 5,
+                         'n': 3,
                          'menutransl': 'Number of related job ads'
                        },
    'total_occurrences':{
                          'col':"heatmap" ,
-                         'binmode': 'samepop',
-                         'n': 5,
+                         'binmode': 'samerange',
+                         'n': 4,
                          'menutransl': 'Total occurrences'
                        },
 
@@ -241,7 +241,7 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=5000;    // duration of auto-run
+    TWConf.fa2Milliseconds=10000;    // duration of auto-run
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
 
 
@@ -333,6 +333,7 @@ TW.conf = (function(TW){
   TWConf.sizeMult = [];
   TWConf.sizeMult[0] = 1.0;      // ie for node type 0 (<=> sem)
   TWConf.sizeMult[1] = 8.0;     // ie for node type 1 (<=> soc)
+
 
   // ===========
   // DEBUG FLAGS
