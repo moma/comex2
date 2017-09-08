@@ -294,6 +294,9 @@ class BipartiteExtractor:
                                      neighboors
     """
 
+    # class var: last terms_colors max
+    terms_color_max = 1
+
     def __init__(self,dbhost):
         self.connection=connect(
             host=dbhost, db="comex_shared",
@@ -788,22 +791,26 @@ class BipartiteExtractor:
             info['kwid'] = idT
             info['occurrences'] = res['occs']
             info['kwstr'] = res['kwstr']
-            self.terms_dict[str(idT)] = info
 
             # job counter: how many times a term in cited in job ads
-            info['nbjobs'] = res['nbjobs'] if res['nbjobs'] else 0
+            if res['nbjobs']:
+                info['nbjobs'] = int(res['nbjobs'])
+                # mlog("DEBUG", "nbjobs", info['kwstr'], int(res['nbjobs']))
+            else:
+                info['nbjobs'] = 0
 
-        count=1
+            # save
+            self.terms_dict[str(idT)] = info
 
+        # set the colors factor and max
+        # will affect red and green level of default color (cf. colorRed, colorGreen)
         for term in self.terms_dict:
-            self.terms_colors[term]=0
-            # TODO restore job snippet 2  => couleur des termes
-            # sql='select term_id from jobs2terms'
-            # for row in self.cursor.execute(sql):
-            #     if row['term_id'] in self.terms_colors:
-            #         self.terms_colors[row['term_id']]+=1
+            self.terms_colors[term] = self.terms_dict[term]['nbjobs']
+            # if (self.terms_colors[term] != 0):
+                # mlog("DEBUG", "self.terms_colors[term]", term, self.terms_colors[term])
+            if self.terms_colors[term] > BipartiteExtractor.terms_color_max:
+                BipartiteExtractor.terms_color_max = self.terms_colors[term]
 
-        cont=0
         for term_id in self.terms_dict:
             sql="SELECT uid, initials FROM sch_kw JOIN scholars ON uid=luid WHERE kwid=%s" % term_id
             term_scholars=[]
@@ -837,6 +844,10 @@ class BipartiteExtractor:
                                 # eg matrix entry for scholar k
                                 # 'D::SK/04047': {'occ': 1, 'cooc': {'D::SL/02223': 1}}
             nodeId = "N::"+str(term)
+
+            # TODO here add some node properties
+
+
             self.Graph.add_node(nodeId)
 
         for scholar in self.scholars:
@@ -952,27 +963,36 @@ class BipartiteExtractor:
         for idNode in graph.nodes_iter():
             if idNode[0]=="N":#If it is NGram
 
-                # debug
-                # mlog("DEBUG", "terms idNode:", idNode)
-
                 kwid=idNode.split("::")[1]
                 try:
                     nodeLabel= self.terms_dict[kwid]['kwstr'].replace("&"," and ")
-                    colorg=max(0,180-(100*self.terms_colors[kwid]))
+                    ratio = self.terms_colors[kwid]/BipartiteExtractor.terms_color_max
+                    colorRed=int(180+75*ratio)
+                    colorGreen=int(180-140*ratio)
 
                     term_occ = self.terms_dict[kwid]['occurrences']
+
+                    # debug
+                    # mlog("DEBUG", "coloring terms idNode:", colorRed, colorGreen)
 
                 except KeyError:
                     mlog("WARNING", "couldn't find label and meta for term " + kwid)
                     nodeLabel = "UNKNOWN"
-                    colorg = 0
+                    colorRed = 180
+                    colorGreen = 180
                     term_occ = 1
 
                 node = {}
                 node["type"] = "NGram"
                 node["label"] = nodeLabel
-                node["color"] = "19,"+str(colorg)+",244"
+                node["color"] = str(colorRed)+","+str(colorGreen)+",25"
                 node["term_occ"] = term_occ
+
+                # new tina: any parsable attributes directly become facets
+                node["attributes"] = {
+                    "total_occurrences": term_occ,
+                    "nbjobs": self.terms_dict[kwid]['nbjobs'],
+                }
                 if coordsRAW: node["x"] = str(coords[idNode]['x'])
                 if coordsRAW: node["y"] = str(coords[idNode]['y'])
 
