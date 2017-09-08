@@ -55,9 +55,6 @@ TW.conf = (function(TW){
   // create facets ?
   TWConf.scanClusters = true
 
-  // use a facet for default color
-  TWConf.defaultColoring = "clust_louvain"
-
   // facetOptions: choose here the visual result of your node attributes
   // -------------------------------------------------------------------
   // 3 possible coloring functions
@@ -206,7 +203,7 @@ TW.conf = (function(TW){
   // flag name is div class to be removed if false
   //        *and* subdirectory of modules path to import if true
   // see also activateModules()
-  TWConf.ModulesFlags["histogramModule"] = true ;
+  TWConf.ModulesFlags["histogramModule"] = false ;
   TWConf.ModulesFlags["histogramDailyVariantModule"] = false ;
   // TODO more generic module integrating the variants cf. experiments/histogramModule_STUB_GENERIQUE
   TWConf.ModulesFlags["crowdsourcingModule"] = false ;
@@ -245,7 +242,7 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=10000;    // duration of auto-run
+    TWConf.fa2Milliseconds=8000;    // duration of auto-run
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
 
 
