@@ -229,7 +229,7 @@ $org_id_to_label = array();
 // MAIN HTML CONTENT
 $content='';
 
-error_log("=======> WHERE filters {$f}");
+// error_log("=======> WHERE filters {$f}");
 
 // filtered query
 if (strlen($f)>0) {
@@ -268,7 +268,7 @@ foreach ($base->query($sql) as $row) {
     // retrieved from secondary table and GROUP_CONCATenated
     // $info['keywords_ids'] = explode(',', $row['keywords_ids']);
     $info['nb_keywords'] = $row['keywords_nb'];
-    $info['keywords'] = split_join_keywords_for_html($row['keywords_list']);
+    $info['keywords'] = $row['keywords_list'];
 
 
     // $info['status'] = $row['status'];
@@ -414,10 +414,21 @@ Contributions and ideas are welcome to improve this directory.
     </div>
     <div class="row chart-row">
         <div class="col-lg-12 col-md-12 col-sm-12">
-            <!-- conditional display (idem) -->
-            <div id="labs_div" class="directory-piechart"></div>
+
         </div>
     </div>
+    <div class="row chart-row">
+        <div class="col-lg-5 col-md-5 col-sm-12">
+          <!-- new: tagcloud -->
+          <h3 class=centered><i class="icon-tags"></i>&nbsp;Main keywords for this listing</h3>
+          <div id="kw_tagcloud_div" class="directory-piechart"></div>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-12">
+          <!-- conditional display (idem) -->
+          <div id="labs_div" class="directory-piechart"></div>
+        </div>
+    </div>
+    <div class="row smallspacerrow">&nbsp;</div>
 </div>
 
 <br/>
@@ -444,6 +455,7 @@ echo $footer;
 // echo '</div>';
 echo '</div>';
 echo $html_tail_imports;
+echo tagcloud_snippet($kw_counts_as_sorted_couples_array);
 echo $rm_ads_snippet;
 echo $auto_popfilters_snippet;
 echo '</body>

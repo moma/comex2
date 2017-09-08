@@ -75,15 +75,16 @@ function split_join_keywords_for_html($str_value) {
     $mod_arr = [];
 
     foreach ($arr as $kw) {
-        $kw = esc_html($kw);
-        if (strlen(str_replace(' ', '', $kw))) {
-            $mod_kw = str_replace(' ', '&nbsp;', $kw) ;
-            array_push($mod_arr, $mod_kw);
-        }
-
+        $mod_kw = keywordsToHtml($kw);
+        array_push($mod_arr, $mod_kw);
     }
 
     return join(', ', $mod_arr);
+}
+
+function keywordsToHtml($kw_str) {
+  $clean_kw_str = str_replace(' ', '&nbsp;', esc_html(trim($kw_str))) ;
+  return $clean_kw_str ;
 }
 
 function shorter_html_label($label) {

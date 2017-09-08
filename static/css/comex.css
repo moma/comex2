@@ -134,7 +134,25 @@ div.my-centering-box > * {
     margin: 0;
 }
 
-
+/* similar to tina, but green and with no link, for print_directory.php */
+.tagcloud-item{
+    display:inline-block;
+    border:solid 1px;
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+    -khtml-border-radius: 6px;
+    border-color:#BDBDBD;
+    padding:3px 4px 3px 4px;
+    margin:1px 0px 1px 0px;
+    font-family: "Droid Sans", sans-serif;
+    font-weight: bold;
+    background-color: #161;
+    color: #eee ;
+}
+#kw_tagcloud_div {
+    margin: 0;
+    padding: 0;
+}
 
 /* self-made modals */
 .modal.self-made {
@@ -308,6 +326,12 @@ h2.oldstyle {
   font-size: 24px;
   font-family: Ubuntu, sans-serif;
   font-weight: bold;
+}
+
+h3.centered {
+  font-size: 15px;
+  font-family: Ubuntu, sans-serif;
+  text-align: center;
 }
 
 
