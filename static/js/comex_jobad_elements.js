@@ -25,6 +25,11 @@ jobCols = [
    ]
 
 
+// recreates newlines for display inside html <input> values
+function recreateNewlines(aStr) {
+  return aStr.replace(/\n/g, '&#10;')
+}
+
 // args has 4 optional slots:
 //   'user': a uinfo object
 //   'job': a job as jsgrid item
@@ -42,6 +47,13 @@ function createJobForm(containerId, args) {
   console.log("createJobForm args:", args)
 
   let optionalSubmit = ''
+
+  // pre process the re-injected values (POSS: add this to tools.prejsonize ?)
+  if (args.job) {
+    for (multilineField of ['mission_text', 'recruiter_org_text']) {
+      args.job[multilineField] = recreateNewlines(args.job[multilineField])
+    }
+  }
 
   if (args.can_edit && ! args.alt_submit) {
     optionalSubmit = `
@@ -307,6 +319,9 @@ function validateJobForm(theJobFormId, altSubmitFun) {
       if (! pdfAcceptable) {
         theJobForm.elMainMessage.innerHTML += `<br><p>Problem with <a class="minilabel orange" onclick="return cmxClt.uform.gotoField('pdf_attachment')">your pdf file</a>: ${pdfMessage}</p>`
         document.querySelector('label[for=pdf_attachment]').style.backgroundColor = cmxClt.colorOrange
+      }
+      else {
+        document.querySelector('label[for=pdf_attachment]').style.backgroundColor = ""
       }
 
       theJobForm.elMainMessage.classList.remove('faded')

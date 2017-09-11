@@ -7,7 +7,7 @@
  * @copyright ISCPIF-CNRS 2017
  * @author romain.loth@iscpif.fr
  *
- * @requires jsgrid.js
+ * @requires jsgrid.js, comex_jobad_elements.js
  */
 
 let myController = {
@@ -58,7 +58,10 @@ let gridFields = [
      title:"Mission",
      type: "text",
      width: 70,
-     css:"mission"
+     css:"mission",
+     itemTemplate: function(value) {
+       return value.replace(/\n/g, '<br>')
+     }
    },
    {
      name: "keywords",
@@ -86,13 +89,16 @@ let gridFields = [
      type: "text",
      width: 70,
      align: "center",
-     css:"recr-org"
+     css:"recr-org",
+     itemTemplate: function(value) {
+       return value.replace(/\n/g, '<br>')
+     }
    },
    {
      name: "email",
      title:"Contact",
      type: "text",
-     width: 50,
+     width: 55,
      align: "center",
      css:"email"
    },
