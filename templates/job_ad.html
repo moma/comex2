@@ -1,7 +1,11 @@
 {% extends "base_layout.html" %}
 
 {% block headers %}
-  <title>Formulaire Community Explorer : nouvelle offre d'emploi</title>
+  {% if not existing_jobinfo %}
+  <title>Community Explorer: new job ad form</title>
+  {% else %}
+  <title>Community Explorer: job ad</title>
+  {% endif %}
   <meta name="description" content="Formulaire d'ajout d'offre d'emploi sur la plateforme Community Explorer (ISCPIF CNRS UPS 3611)">
   <meta name="keywords" content="complex systems, community, job ads, job-board">
 {% endblock %}
@@ -16,14 +20,16 @@
       <!-- INTRODUCTION TEXT -->
       <div id="intro">
         <h2 class="oldstyle">Job Ad</h2>
+            {% if not existing_jobinfo %}
             <p class="mini-hero">
                 Fill this <strong>job ad creation form</strong> to add a job ad to the <a href="/services/jobboard">Community Explorer Job-board</a>.
                 <br> (All fields are mandatory, except the pdf attachment.)
             </p>
+            {% endif %}
       </div>
 
       <!-- job form: filled by js -->
-      <div id="new-job-container" class="uform-white">
+      <div id="job-container" class="uform-white">
       </div>
 
     </div>
@@ -43,10 +49,24 @@
     <!--  our js  -->
     <script src="{{ url_for('static', filename='js/comex_user_autocompletes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/comex_jobad_elements.js') }}"></script>
+    {% if not existing_jobinfo %}
     <script>
       let jobadForm = createJobForm(
-        'new-job-container',
+        'job-container',
         {'user': uinfo, 'can_edit': true}
       )
     </script>
+    {% else %}
+    <script type="text/javascript">
+      // a frozen copy of a possible preexisting job
+      var existingJobinfo = {{ existing_jobinfo | safe }}
+      Object.freeze(existingJobinfo)
+      let jobadForm = createJobForm(
+        'job-container', {
+          'user': uinfo,
+          'job': existingJobinfo,
+          'can_edit': false
+      })
+    </script>
+    {% endif %}
 {% endblock %}

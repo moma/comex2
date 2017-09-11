@@ -782,6 +782,31 @@ def register():
             """ % {'luid': luid })
 
 
+# /services/job/
+@app.route(config['PREFIX'] + '/job/<string:provided_job_id>', methods=['GET'])
+def seejob(provided_job_id):
+    err_msg = ''
+    if provided_job_id:
+        jobs = dbcrud.get_jobs(job_id = provided_job_id)
+        mlog("DEBUG", "got request with provided_job_id", provided_job_id,
+                      "dbcrud retrieved jobs:", jobs)
+        if len(jobs) == 1:
+            return render_template("job_ad.html", existing_jobinfo=dumps(tools.prejsonize(jobs[0])))
+        else:
+            err_msg = 'No matching jobs for id=%s.' % provided_job_id
+    else:
+        err_msg = 'You need to provide a job id to consult the job.'
+
+    return render_template(
+        "message.html",
+        message = """
+            We couldn't find the corresponding job.<br>
+            %s <br>
+            Please refer to <a href="/services/jobboard/"> the job-market </a> for a complete list of available jobs.
+            """ % err_msg
+    )
+
+
 # /services/addjob/
 @app.route(config['PREFIX'] + '/addjob/', methods=['GET','POST'])
 @fresh_login_required
@@ -792,7 +817,7 @@ def addjob():
 
     # show form
     if request.method == 'GET':
-        return render_template("job_new.html")
+        return render_template("job_ad.html", existing_jobinfo=False)
 
     # save form
     elif request.method == 'POST':

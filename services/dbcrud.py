@@ -923,25 +923,30 @@ def save_job(job_infos, optional_job_id_to_update = None):
     return job_id
 
 
-def get_jobs(author_uid = None):
+def get_jobs(author_uid = None, job_id = None):
     constraints = ['job_valid_date >= CURDATE()']
     if author_uid:
-        constraints.append('uid = "%s"' % author_uid)
+        constraints.append('jobs.uid = "%s"' % author_uid)
+
+    if job_id:
+        constraints.append('jobs.jobid = "%s"' % job_id)
 
     db = connect_db()
     db_c = db.cursor(DictCursor)
 
-    db_c.execute(
-        """SELECT jobs.*,
-                  COUNT(job_kw.kwid) AS kwid_nb,
-                  GROUP_CONCAT(keywords.kwstr) AS keywords
-           FROM jobs
-           LEFT JOIN job_kw ON jobs.jobid = job_kw.jobid
-           LEFT JOIN keywords ON keywords.kwid = job_kw.kwid
-           WHERE %s
-           GROUP BY jobs.jobid;
-        """ % " AND ".join(constraints)
-    )
+    sql_q = """SELECT jobs.*,
+              COUNT(job_kw.kwid) AS kwid_nb,
+              GROUP_CONCAT(keywords.kwstr) AS keywords
+       FROM jobs
+       LEFT JOIN job_kw ON jobs.jobid = job_kw.jobid
+       LEFT JOIN keywords ON keywords.kwid = job_kw.kwid
+       WHERE %s
+       GROUP BY jobs.jobid;
+    """ % " AND ".join(constraints)
+
+    mlog("DEBUGSQL", "get_jobs", sql_q)
+
+    db_c.execute(sql_q)
 
     job_rows = db_c.fetchall()
     db.close()

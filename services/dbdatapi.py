@@ -609,13 +609,28 @@ class BipartiteExtractor:
                     ) AS labs_list
                 FROM (
                     SELECT
-                        scholars.*,
+                        scholars_and_jobs.*,
                         GROUP_CONCAT(
                           JSON_ARRAY(insts.name, insts.acro, insts.locname)
                         ) AS insts_list
                     FROM
-                        scholars
-                        LEFT JOIN sch_org ON luid = sch_org.uid
+                        (
+                        SELECT scholars.*,
+                               IFNULL(jobs_count.nb_proposed_jobs, 0) AS nb_proposed_jobs,
+                               jobs_count.job_ids,
+                               jobs_count.job_titles
+                        FROM scholars
+                        LEFT JOIN (
+                            SELECT uid,
+                            count(jobid) AS nb_proposed_jobs,
+                            GROUP_CONCAT(jobid) AS job_ids,
+                            GROUP_CONCAT(JSON_QUOTE(jtitle)) AS job_titles
+                            FROM jobs
+                            WHERE job_valid_date >= CURDATE()
+                            GROUP BY uid
+                            ) AS jobs_count ON jobs_count.uid = scholars.luid
+                        ) AS scholars_and_jobs
+                        LEFT JOIN sch_org ON scholars_and_jobs.luid = sch_org.uid
                         LEFT JOIN (
                             SELECT * FROM orgs WHERE class = 'inst'
                         ) AS insts ON sch_org.orgid = insts.orgid
@@ -640,6 +655,8 @@ class BipartiteExtractor:
 
         # debug
         mlog("DEBUG", "db.extract: sql3="+sql3)
+
+        ide = None
 
         try:
             self.cursor.execute(sql3)
@@ -668,6 +685,10 @@ class BipartiteExtractor:
                         lambda arr: Org(arr, org_class='insts'),
                         loads('['+res3['insts_list']+']')
                 ))
+
+                # POSSIBLE: in the future (SQL VERSION >= 8) USE JSON_ARRAYAGG
+                # https://dev.mysql.com/doc/refman/8.0/en/group-by-functions.html#function_json-arrayagg
+
                 # mlog("DEBUGSQL", "res main lab:", labs[0].label)
                 # mlog("DEBUGSQL", "res main inst:", insts[0].label)
 
@@ -689,6 +710,9 @@ class BipartiteExtractor:
                 info['home_url'] = res3['home_url'];
                 info['team_lab'] = labs[0].label;
                 info['org'] = insts[0].label;
+                info['nb_proposed_jobs'] = res3['nb_proposed_jobs'];
+                info['job_ids'] = res3['job_ids'].split(',') if res3['job_ids'] else [];
+                info['job_titles'] = loads('['+res3['job_titles']+']') if res3['job_titles'] else [];
 
                 if len(labs) > 1:
                     info['lab2'] = labs[1].label
@@ -704,8 +728,9 @@ class BipartiteExtractor:
 
         except Exception as error:
             mlog("ERROR", "=====  extract ERROR ====")
-            mlog("ERROR", "extract on scholar no %s" % str(scholar_id))
-            if sql3 != None:
+            if ide:
+                mlog("ERROR", "extract on scholar no %s" % str(ide))
+            elif sql3 != None:
                 mlog("ERROR", "extract attempted SQL query:\t"+sql3)
             mlog("ERROR", repr(error) + "("+error.__doc__+")")
             mlog("ERROR", "stack (\n\t"+"\t".join(format_tb(error.__traceback__))+"\n)")
@@ -844,10 +869,6 @@ class BipartiteExtractor:
                                 # eg matrix entry for scholar k
                                 # 'D::SK/04047': {'occ': 1, 'cooc': {'D::SL/02223': 1}}
             nodeId = "N::"+str(term)
-
-            # TODO here add some node properties
-
-
             self.Graph.add_node(nodeId)
 
         for scholar in self.scholars:
@@ -855,7 +876,7 @@ class BipartiteExtractor:
                 if len(scholarsMatrix[scholar]['cooc']) >= self.min_num_friends:
                     scholarsIncluded += 1;
                     nodeId = str(scholar);
-                    self.Graph.add_node(nodeId, weight=3)
+                    self.Graph.add_node(nodeId, weight=3, attributes={"a": 25})
 
         edgeid = 0
         for scholar in self.scholars:
@@ -1002,15 +1023,17 @@ class BipartiteExtractor:
 
                 nodesB+=1
 
+            # adding here node properties
             if idNode[0]=='D':#If it is Document (or scholar)
 
                 nodeLabel= self.scholars[idNode]['hon_title']+" "+self.scholars[idNode]['first_name']+" "+self.scholars[idNode]['mid_initial']+" "+self.scholars[idNode]['last_name']
                 color=""
                 if self.scholars_colors[self.scholars[idNode]['email']]==1:
                     color='243,183,19'
-
                 elif self.scholars[idNode]['job_looking']:
                     color = '139,28,28'
+                elif self.scholars[idNode]['nb_proposed_jobs'] > 0:
+                    color = '41,189,243'
                 else:
                     color = '78,193,127'
 
@@ -1079,7 +1102,24 @@ class BipartiteExtractor:
                         content += '[ <a href=' +self.scholars[idNode]['home_url'].replace("&"," and ")+ ' target=blank > View homepage </a >]<br/>'
 
 
-                content += '</p></div>'
+                content += '</p>'
+
+                # also add pointers to jobs
+                if self.scholars[idNode]['nb_proposed_jobs'] > 0:
+                    # mlog("DEBUG", "adding jobs for", idNode, "nb_proposed_jobs", self.scholars[idNode]['nb_proposed_jobs'])
+                    content += """
+                        <hr>
+                        <div class=information-others>
+                        <h5> Related jobs </h5>
+                        <ul class=infoitems>
+                        """
+                    for j, jobid in enumerate(self.scholars[idNode]['job_ids']):
+                        content += "<li>"
+                        content += "<a href=\"/services/job/"+jobid+"\" target=\"_blank\">"+ self.scholars[idNode]['job_titles'][j]
+                        content += "</a></li>"
+                    content += '</ul></div>'
+
+                content += '</div>'
 
                 node = {}
                 node["type"] = "Document"
