@@ -121,6 +121,7 @@ SOURCE_FIELDS = [
 JOB_FIELDS = [
 #             NAME,              SANITIZE?    sanitizing specificity
          ("uid",                   False,        None),
+         ("jtitle",                 True,        None),
          ("mission_text",           True,        None),
          ("recruiter_org_text",     True,        None),
          ("email",                  True,        None),

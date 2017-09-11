@@ -64,6 +64,7 @@ ORG_COLS = [
 #          NAME,          NOT NULL,  MAXCHARS  KEY elt
 JOB_COLS = [
          ("uid",                True,      15,    False),  # author of the ad
+         ("jtitle",             True,      80,    False),
          ("mission_text",       True,    2400,    False),
          ("recruiter_org_text", True,    2400,    False),
          ("email",               True,    255,    False),  # job contact mail

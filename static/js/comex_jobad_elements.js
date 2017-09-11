@@ -16,6 +16,7 @@
 
 
 jobCols = [
+     ["jtitle",              true,       "plsfill", "t",     null    ],
      ["mission_text",           true,       "plsfill", "t",     null    ],
      ["keywords",               true,       "plsfill", "at",    null    ],
      ["recruiter_org_text",     true,       "plsfill", "t",     null    ],
@@ -91,6 +92,23 @@ function createJobForm(containerId, args) {
     <form id="comex_job_form" enctype="multipart/form-data"
           method="post" onsubmit="console.info('submitted')">
 
+        <!-- TITLE OF THE JOB (which is usually a jobtitle + other info) -->
+        <h3 class="formcat">Position</h3>
+        <div class="question">
+         <div class="input-group">
+           <label for="jtitle" class="smlabel input-group-addon">
+             Short Title
+           </label>
+           <input id="jtitle" name="jtitle" maxlength="80"
+                  type="text" class="form-control" ${rw}
+                  value="${args.job ? args.job.jtitle : ''}"
+                  placeholder="Name here the position type and possibly the field of research or location"
+                  >
+          </div>
+          <p class="legend">(80 chars max)</p>
+        </div>
+
+
         <!-- MISSION & KEYWORDS -->
         <h3 class="formcat">Missions and keywords</h3>
 
@@ -102,7 +120,7 @@ function createJobForm(containerId, args) {
 
            <textarea id="mission_text" name="mission_text" maxlength="2400"
                      rows="7" style="resize:none"
-                     class="form-control" placeholder="Describe the job here, along with main mission or tasks and required skills"
+                     class="form-control" placeholder="Describe the job here in detail, along with main mission or tasks and required skills"
                      onblur="cmxClt.makeBold(this)" onfocus="cmxClt.makeNormal(this)" ${rw}
                      >${args.job ? args.job.mission_text : ''}</textarea>
          </div>

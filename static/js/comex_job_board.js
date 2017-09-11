@@ -47,17 +47,24 @@ let myController = {
 
 let gridFields = [
    {
+     name: "jtitle",
+     title:"Title",
+     type: "text",
+     width: 80,
+     css:"jtitle"
+   },
+   {
      name: "mission_text",
      title:"Mission",
      type: "text",
-     width: 100,
+     width: 70,
      css:"mission"
    },
    {
      name: "keywords",
      title:"Keywords",
      type: "text",
-     width: 75,
+     width: 65,
      align: "center",
      css:"keywords",
      itemTemplate: function(value) {
@@ -77,7 +84,7 @@ let gridFields = [
      name: "recruiter_org_text",
      title:"Organization",
      type: "text",
-     width: 80,
+     width: 70,
      align: "center",
      css:"recr-org"
    },
@@ -85,7 +92,7 @@ let gridFields = [
      name: "email",
      title:"Contact",
      type: "text",
-     width: 60,
+     width: 50,
      align: "center",
      css:"email"
    },
@@ -93,7 +100,7 @@ let gridFields = [
      name: "job_valid_date",
      title:"Until",
      type: "text",
-     width: 40,
+     width: 30,
      align: "center",
      css:"jobdate"
    },

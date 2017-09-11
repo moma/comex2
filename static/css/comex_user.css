@@ -346,6 +346,14 @@ input.is-realperson {
     border: .5px solid #6BB0E3 !important;
 }
 
+
+/* within jsgrid */
+.jsgrid-cell.jtitle {
+  font-weight: bold ;
+  text-align: center ;
+  background-color: grey ;
+}
+
 }
 
 

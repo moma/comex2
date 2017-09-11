@@ -205,6 +205,7 @@ CREATE TABLE jobs (
     email                varchar(255) not null,
     job_valid_date       date,
     pdf_fname            varchar(120),   -- locally saved pdf (basename)
+    jtitle               varchar(80) not null,
 
     FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;
