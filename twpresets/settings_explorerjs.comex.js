@@ -20,9 +20,10 @@ TW.conf = (function(TW){
   TWConf.sourcemode = "api"   // accepted: "api" | "serverfile" | "servermenu" | "localfile"
 
   // ...or remote bridge to default source api ajax queries
-  TWConf.sourceAPI={};
-  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph";
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph";
+  TWConf.sourceAPI={}
+  TWConf.sourceAPI["nodetypes"] = {"node0": "NGram", "node1": "Document" }
+  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
 
   // Related documents (topPapers) data source
@@ -54,6 +55,9 @@ TW.conf = (function(TW){
 
   // create facets ?
   TWConf.scanClusters = true
+
+  // use a facet for default color
+  TWConf.defaultColoring = null
 
   // facetOptions: choose here the visual result of your node attributes
   // -------------------------------------------------------------------
@@ -189,11 +193,11 @@ TW.conf = (function(TW){
   // ------------
   TWConf.paths = {
     'ourlibs':   'static/tinawebJS/twlibs',
-    'templates': 'static/tinawebJS/twlibs/hit_templates',
-    'modules':   'twmodules',
+    'modules':   'static/tinawebJS/twmodules',
+    'templates': 'static/tinawebJS/twlibs/default_hit_templates',
 
-    'sourceFile': "",           // server-side .gexf|.json default source
-    'sourceMenu': "db.json"     // ...or server-side gexf default source list
+    'sourceFile': null,              // server: 1 default gexf|json graph source
+    'sourceMenu': "static/tinawebJS/server_menu.json" // ...or server: a gexf|json sources list
   }
   Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
 
@@ -203,9 +207,12 @@ TW.conf = (function(TW){
   // flag name is div class to be removed if false
   //        *and* subdirectory of modules path to import if true
   // see also activateModules()
-  TWConf.ModulesFlags["histogramModule"] = false ;
-  TWConf.ModulesFlags["histogramDailyVariantModule"] = false ;
-  // TODO more generic module integrating the variants cf. experiments/histogramModule_STUB_GENERIQUE
+  TWConf.ModulesFlags["multivacV1HistogramModule"] = false ;
+
+  // cf. twmodules/multivacV2HistogramModule/multivacV2Settings.js for settings
+  TWConf.ModulesFlags["multivacV2HistogramModule"] = false ;
+
+  // cf. twmodules/crowdsourcingModule/README.md to initialize the associated db
   TWConf.ModulesFlags["crowdsourcingModule"] = false ;
 
   // Other GUI options
