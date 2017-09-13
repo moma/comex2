@@ -876,7 +876,7 @@ class BipartiteExtractor:
                 if len(scholarsMatrix[scholar]['cooc']) >= self.min_num_friends:
                     scholarsIncluded += 1;
                     nodeId = str(scholar);
-                    self.Graph.add_node(nodeId, weight=3, attributes={"a": 25})
+                    self.Graph.add_node(nodeId, weight=3)
 
         edgeid = 0
         for scholar in self.scholars:
