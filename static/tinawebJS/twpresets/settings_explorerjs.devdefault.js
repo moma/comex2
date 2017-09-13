@@ -7,7 +7,7 @@ TW.conf = (function(TW){
   let TWConf = {}
 
   TWConf.branding = 'ProjectExplorer'  // <--- name displayed in upper left
-  TWConf.brandingLink = 'https://github.com/moma/ProjectExplorer'   // <--- link to "home"
+  TWConf.brandingLink = 'http://iscpif.fr'   // <--- link to "home"
 
 
   // ==========================
@@ -20,9 +20,10 @@ TW.conf = (function(TW){
   TWConf.sourcemode = "servermenu"   // accepted: "api" | "serverfile" | "servermenu" | "localfile"
 
   // ...or remote bridge to default source api ajax queries
-  TWConf.sourceAPI={};
-  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph";
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph";
+  TWConf.sourceAPI={}
+  TWConf.sourceAPI["nodetypes"] = {"node0": "NGram", "node1": "Document" }
+  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
 
   // Related documents (topPapers) data source
@@ -192,11 +193,11 @@ TW.conf = (function(TW){
   // ------------
   TWConf.paths = {
     'ourlibs':   'twlibs',
-    'templates': 'twlibs/hit_templates',
     'modules':   'twmodules',
+    'templates': 'twlibs/default_hit_templates',   // some default templates
 
-    'sourceFile': "",           // server-side .gexf|.json default source
-    'sourceMenu': "db.json"     // ...or server-side gexf default source list
+    'sourceFile': null,              // server: 1 default gexf|json graph source
+    'sourceMenu': "server_menu.json" // ...or server: a gexf|json sources list
   }
   Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
 
@@ -206,10 +207,13 @@ TW.conf = (function(TW){
   // flag name is div class to be removed if false
   //        *and* subdirectory of modules path to import if true
   // see also activateModules()
-  TWConf.ModulesFlags["histogramModule"] = true ;
-  TWConf.ModulesFlags["histogramDailyVariantModule"] = false ;
-  // TODO more generic module integrating the variants cf. experiments/histogramModule_STUB_GENERIQUE
-  TWConf.ModulesFlags["crowdsourcingModule"] = false ;
+  TWConf.ModulesFlags["multivacV1HistogramModule"] = false ;
+
+  // cf. twmodules/multivacV2HistogramModule/multivacV2Settings.js for settings
+  TWConf.ModulesFlags["multivacV2HistogramModule"] = true ;
+
+  // cf. twmodules/crowdsourcingModule/README.md to initialize the associated db
+  TWConf.ModulesFlags["crowdsourcingModule"] = true ;
 
   // Other GUI options
   // ------------------

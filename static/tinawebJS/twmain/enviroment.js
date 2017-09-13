@@ -204,6 +204,10 @@ function alertCheckBox(eventCheck){
     }
 }
 
+
+// fileChooser: added to the environment when user opens explorer as local file
+// -----------
+// TODO: because source files now get a project_conf.md, find a way to open it too if it exists
 function createFilechooserEl () {
 
   var inputComment = document.createElement("p")
@@ -218,6 +222,8 @@ function createFilechooserEl () {
   graphFileInput.classList.add('centered')
 
   // NB file input will trigger mainStartGraph() when the user chooses something
+
+
   graphFileInput.onchange = function() {
     if (this.files && this.files[0]) {
 
@@ -248,7 +254,7 @@ function createFilechooserEl () {
           TW.resetGraph()
 
           // run
-          mainStartGraph(theFormat, rdr.result, null, TW.instance)
+          mainStartGraph(theFormat, rdr.result, TW.instance)
 
           // NB 3rd arg null = we got no additional conf for this "unknown" file
 
@@ -1163,7 +1169,7 @@ activateRDTab = function(elTgt) {
 }
 
 
-// set up tabs for a given activetypes state and db.json entry
+// set up tabs for a given activetypes state and project_conf.json relDB entry
 function resetTabs(activetypes, dbconf) {
   let ul = document.getElementById('reldocs-tabs')
   let divs = document.getElementById('reldocs-boxes')
@@ -1178,22 +1184,20 @@ function resetTabs(activetypes, dbconf) {
     return
   }
 
-  // console.log("dbconf for this source", dbconf)
-
   // for all active nodetypes
   for (let nodetypeId in activetypes) {
     if (activetypes[nodetypeId]) {
-      let additionalConf = dbconf[nodetypeId]
-
-      if (TW.conf.debug.logSettings)
-          console.log ("additionalConf for this source", additionalConf)
-
       let possibleAPIs = []
-      if (additionalConf.reldbs) {
-        possibleAPIs = additionalConf.reldbs
 
-        // 3 vars to know which one to activate
-        let nAPIs = Object.keys(possibleAPIs).length
+      if (dbconf[nodetypeId]) {
+        if (TW.conf.debug.logSettings)
+          console.log ("additional db conf for this source", dbconf[nodetypeId])
+        possibleAPIs = dbconf[nodetypeId]
+      }
+
+      let nAPIs = Object.keys(possibleAPIs).length
+      if (nAPIs > 0) {
+        // some more vars to know which one to activate
         let iAPI = 0
         let didActiveFlag = false
 
@@ -1266,7 +1270,7 @@ function openGraph(graphPath){
     TW.resetGraph()
 
     TW.File = graphPath
-    mainStartGraph(newDataRes["format"], newDataRes["data"], TW.File, TW.instance)
+    mainStartGraph(newDataRes["format"], newDataRes["data"], TW.instance)
     writeLabel(graphPathToLabel(graphPath))
 }
 //============================= </OTHER ACTIONS > =============================//
