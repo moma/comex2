@@ -59,7 +59,7 @@ TW.conf = (function(TW){
   TWConf.scanAttributes = true
 
   // use a facet for default color
-  TWConf.defaultColoring = null
+  TWConf.defaultColoring = "clust_louvain"
 
   // facetOptions: choose here the default visual result of your node attributes
   // ---------------------------------------------------------------------------
@@ -253,7 +253,7 @@ TW.conf = (function(TW){
       // not selected <=> (1-greyness)
       twNodesGreyOpacity: .4,                       // smaller value: more grey
       twBorderGreyColor: "rgba(100, 100, 100, 0.5)",
-      twEdgeGreyColor: "rgba(100, 100, 100, 0.05)",
+      twEdgeGreyColor: "rgba(100, 100, 100, 0.25)",
   };
   // NB: sigmaJsDrawingProperties are available as 'settings' in all renderers
   // cf. https://github.com/jacomyal/sigma.js/wiki/Settings#renderers-settings
