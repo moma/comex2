@@ -59,10 +59,10 @@ function tagcloud_snippet($sorted_key_val_array) {
           resHtml = "No related items."
         }
         else {
-          let limit = 42
+          let limit = 50
 
-          let tagcloudFontsizeMin = .4
-          let tagcloudFontsizeMax = 2.3
+          let tagcloudFontsizeMin = .7
+          let tagcloudFontsizeMax = 2.5
 
           let fontSize   // <-- normalized for display
 

@@ -142,12 +142,10 @@ div.my-centering-box > * {
     -webkit-border-radius: 6px;
     -khtml-border-radius: 6px;
     border-color:#BDBDBD;
-    padding:3px 4px 3px 4px;
+    padding:5px 4px 3px 4px;
     margin:1px 0px 1px 0px;
     font-family: "Droid Sans", sans-serif;
     font-weight: bold;
-    background-color: #161;
-    color: #eee ;
 }
 #kw_tagcloud_div {
     margin: 0;
