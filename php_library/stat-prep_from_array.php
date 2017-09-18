@@ -459,55 +459,7 @@ $(document).ready(function() {
          '}]
 	});
 
-    var MIN_DISTINCT_LABS = parseInt('.$MIN_DISTINCT_LABS.')
-    var MIN_DISTINCT_LABS_SCHOLARS_SHARE = parseFloat('.$MIN_DISTINCT_LABS_SCHOLARS_SHARE.')
 
-    if (
-        parseInt('.$n_shown_labs.') >= MIN_DISTINCT_LABS
-        && parseFloat('.$share_of_shown_labs.') >= MIN_DISTINCT_LABS_SCHOLARS_SHARE
-        ) {
-
-        labs= new Highcharts.Chart({
-    		chart: {
-    			renderTo: "labs_div",
-    			plotBackgroundColor: null,
-    			plotBorderWidth: null,
-    			plotShadow: false,
-                colors: '.$COLOR_SCHEME.'
-    		},
-    		title: {
-    			text: "Labs"
-    		},
-    		tooltip: {
-    			formatter: function() {
-    				return "<b>"+ this.point.name +"</b>: "+ Math.floor(10*this.percentage)/10 +" %";
-    			},
-                useHTML: true
-    		},
-    		plotOptions: {
-    			pie: {
-    				allowPointSelect: true,
-    				cursor: "pointer",
-                    size: "45%",
-    				dataLabels: {
-    					enabled: true,
-    					color: "#000000",
-    					connectorColor: "#000000",
-    					formatter: function() {
-    						return "<b>"+ this.point.name +"</b>: "+ Math.floor(10*this.percentage)/10 +" %";
-    					}
-    				},
-                    useHTML: true
-    			}
-    		},
-    		series: [{
-    			type: "pie",
-    			name: "Lab Affiliations",' . $labs_data . '}]
-    	});
-    }
-    else {
-        document.getElementById("labs_div").style.display = "none"
-    }
 
     var MIN_DISTINCT_INSTS = parseInt('.$MIN_DISTINCT_INSTS.')
     var MIN_DISTINCT_INSTS_SCHOLARS_SHARE = parseFloat('.$MIN_DISTINCT_INSTS_SCHOLARS_SHARE.')
