@@ -6,6 +6,10 @@ $html_declaration = '<!DOCTYPE html5>
 
 $html_head_inner = '
   <meta charset="utf-8">
+
+  <!-- our CNRS icon -->
+  <link type="image/x-icon" rel="shortcut icon" href="/static/img/favicon.ico">
+
   <!-- ## CSS ## -->
   <link type=text/css rel=stylesheet href="/static/css/bootstrap.min.css">
   <link type=text/css rel=stylesheet href="/static/js/jquery-ui-1.12.1/jquery-ui.min.css">
