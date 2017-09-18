@@ -90,8 +90,10 @@ else {
 
     $base = $csv_search_base[0];
     $postings = $csv_search_base[1];
+    $idfvals = $csv_search_base[2];
     // echodump("postings", $postings);
     // echodump("base", $base);
+    // echodump("idfvals", $idfvals);
 
 
     // DO THE SEARCH
@@ -99,7 +101,7 @@ else {
     $searchcols = $my_conf["node".$ntid][$dbtype]['qcols'];
 
     // a - split the query
-    $qtokens = preg_split('/\W/', $_GET["query"]);
+    $qtokens = preg_split('/[\p{Z}\p{P}\p{C}]+/u', $_GET["query"]);
 
     // b - compute freq similarity per doc
     $sims = array();
@@ -130,16 +132,16 @@ else {
           // matches
           $matching_docs = $searchable[$tok];
 
-          foreach ($matching_docs as $doc_id => $freq) {
+          foreach ($matching_docs as $doc_id => $tf) {
 
-            // echodump("tok freq in this doc", $freq);
+            // echodump("tok freq in this doc", $tf);
 
             // cumulated freq of tokens per doc
             if (array_key_exists($doc_id, $sims)) {
-              $sims[$doc_id]++;
+              $sims[$doc_id] += $tf * $idfvals[$tok];
             }
             else {
-              $sims[$doc_id] = 1;
+              $sims[$doc_id] = $tf * $idfvals[$tok];
             }
           }
         }

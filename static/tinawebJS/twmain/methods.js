@@ -17,6 +17,8 @@ TW.pushGUIState = function( args ) {
     // counter à toutes fins utiles
     newState.id ++
 
+    // console.log("pushGUIState:", newState.id)
+
     // 2) we update it with provided args
     if (!isUndef(args.activetypes))    newState.activetypes = args.activetypes
     if (!isUndef(args.activereltypes)) newState.activereltypes = args.activereltypes
@@ -105,6 +107,9 @@ TW.resetGraph = function() {
   TW.gui.checkBox=false
   TW.gui.lastFilters = {}
 
+  // forget the states
+  TW.states = [TW.initialSystemState]
+
   // remaining global vars will be reset by new graph mainStartGraph
 }
 
@@ -162,12 +167,10 @@ function readMenu(infofile) {
   return [serverMenu, firstProject]
 }
 
-// read project_conf.json files in the project for this file
+// read project_conf.json files in the project dir for this file
 function readProjectConf(projectPath, filePath) {
   let declaredNodetypes
   let declaredDBConf
-
-  // ££TODO declaredFacetOptions
 
   let projectConfFile = projectPath + '/project_conf.json'
 
@@ -242,6 +245,42 @@ function readProjectConf(projectPath, filePath) {
   return [declaredNodetypes, declaredDBConf]
 }
 
+
+
+// read optional legends.json file in the project dir for this file
+function readProjectFacetsConf(projectPath, filePath) {
+  let declaredFacetsConf
+
+  let legendConfFile = projectPath + '/legends.json'
+
+  if (! linkCheck(legendConfFile)) {
+    console.log (`no legend.json next to the file, ${filePath},
+                   will try using default facet options`)
+  }
+  else {
+    if (TW.conf.debug.logFetchers)
+      console.info(`attempting to load legends conf ${legendConfFile}`)
+
+    var legconfRes = AjaxSync({ url: legendConfFile, datatype:"json" });
+
+    if (TW.conf.debug.logFetchers)
+      console.log('legends conf AjaxSync result legconfRes', legconfRes)
+
+    if (! legconfRes['OK']
+       || ! legconfRes.data) {
+       console.warn (`legends.json in ${projectPath} is not valid json: skipped`)
+    }
+    else {
+      // load attributes params as they are
+      declaredFacetsConf = legconfRes.data
+      // (each coloring function has own fallbacks and checks on these params)
+    }
+  }
+  return declaredFacetsConf
+}
+
+
+
 // settings: {norender: Bool}
 function cancelSelection (fromTagCloud, settings) {
     if (TW.conf.debug.logSelections) { console.log("\t***in cancelSelection"); }
@@ -273,7 +312,8 @@ function cancelSelection (fromTagCloud, settings) {
         $("#information").html("");
         $("#searchinput").val("");
         $("#unselectbutton").hide();
-        $("#lefttopbox").hide();
+        $("#lefttopbox").hide();           // <= main selection list cf namesDIV
+        $("#names").html("");              // <= contained by #lefttopbox
     }
 
     // send "eraseNodeSet" event
@@ -294,18 +334,19 @@ function cancelSelection (fromTagCloud, settings) {
 //   - that all typenames have a mapping to cat[0] (terms) or cat[1] (contexts)
 //   - that currentState.activetypes is an array of 2 bools for the currently displayed cat(s)
 function getActivetypesNames() {
-  let currentTypes = []
-  let currentTypeIdx
+  let currentTypeNames = []
 
-  for (var possType in TW.catDict) {
-    currentTypeIdx = TW.catDict[possType]
-    if (TW.SystemState().activetypes[currentTypeIdx]) {
-      currentTypes.push(possType)
+  // for instance [true, false] if type0 is active
+  let activeFlags = TW.SystemState().activetypes
+
+  for (var i = 0 ; i < TW.categories.length ; i++) {
+    if (activeFlags[i]) {
+      currentTypeNames.push(TW.categories[i])
     }
   }
 
   // ex: ['Document'] or ['Ngrams'] or ['Document','Ngrams']
-  return currentTypes
+  return currentTypeNames
 }
 
 function getActiverelsKey(someState) {
@@ -324,7 +365,15 @@ function getNActive(someState) {
   return TW.SystemState().activetypes.filter(function(bool){return bool}).length
 }
 
-// changes attributes of nodes and edges to remove active, highlight and activeEdge flags
+
+
+// deselectNodes
+// -------------
+// works only on the sigma part:
+// changes attributes of nodes and edges to remove:
+//  - active flags
+//  - highlight flags
+//  - and activeEdge flags
 
 // NB: "low-level" <=> by design, does NOT change the state, gui nor global flag
 //                     but ought to be called by "scenario" functions that do

@@ -662,10 +662,19 @@ function gradientColoring(daclass) {
 
     TW.gui.handpickedcolor = true
 
+    // value getter
+    let getVal
+    if (daclass in TW.sigmaAttributes) {
+      getVal = TW.sigmaAttributes[daclass](TW.partialGraph)
+    }
+    else {
+      getVal = function (nd) { return nd.attributes[daclass]}
+    }
+
     var min_pow = 0;
     for(var nid in TW.Nodes) {
         var the_node = TW.Nodes[ nid ]
-        var attval = the_node.attributes[daclass];
+        var attval = getVal(the_node);
         if( !isNaN(parseFloat(attval)) ) { //is float
             while(true) {
                 var themult = Math.pow(10,min_pow);
@@ -685,7 +694,8 @@ function gradientColoring(daclass) {
 
     for(var nid in TW.Nodes) {
         var the_node = TW.Nodes[ nid ]
-        var attval = the_node.attributes[daclass];
+        var attval = getVal(the_node)
+
         var attnumber = Number(attval);
         if (isNaN(attnumber)) {
           continue;
@@ -720,15 +730,16 @@ function gradientColoring(daclass) {
 
         let n = TW.partialGraph.graph.nodes(nid)
         if (n && !n.hidden) {
-          n.color = hex_color
           n.customAttrs.alt_color = hex_color
 
           // also recalculating the "unselected" color for next renders
           n.customAttrs.altgrey_color = "rgba("+(hex2rgba(hex_color).slice(0,3).join(','))+",0.4)"
 
-          // £TODO SETTING SIZE HERE SHOULD BE OPTIONAL
-          var newval_size = Math.round( ( Min_size+(NodeID_Val[nid]["round"]-real_min)*((Max_size-Min_size)/(real_max-real_min)) ) );
-          n.size = newval_size;
+          // optionally changing size
+          if (TW.facetOptions[daclass] && TW.facetOptions[daclass].setsize) {
+            var newval_size = Math.round( ( Min_size+(NodeID_Val[nid]["round"]-real_min)*((Max_size-Min_size)/(real_max-real_min)) ) );
+            n.size = newval_size;
+          }
 
           n.label = "("+NodeID_Val[nid]["real"].toFixed(min_pow)+") "+TW.Nodes[nid].label
         }
@@ -742,7 +753,7 @@ function gradientColoring(daclass) {
     repaintEdges()
 
     // remember in clusters
-    let bins = TW.Clusters[getActivetypesNames()[0]][daclass]
+    let bins = TW.Facets[getActivetypesNames()[0]][daclass]
     if (bins && bins.invIdx) {
       for (var i in bins.invIdx) {
         if (bins.invIdx[i].labl != '_non_numeric_') {
@@ -750,16 +761,16 @@ function gradientColoring(daclass) {
           if (nidList.length) {
             // we take first non null exemplar from last in the range
             // (possible skip due to changeLevel or filters)
-            for (var k = nidList.length-1 ; k-- ; k >= 0) {
+            for (var k = nidList.length-1 ; k >= 0 ; k--) {
               let nd = TW.partialGraph.graph.nodes(nidList[k])
               if (nd) {
-                bins.invIdx[i].col = nd.color
+                bins.invIdx[i].col = nd.customAttrs.alt_color
                 break
               }
             }
           }
           else {
-            bins.invIdx[i].col = "#111" // empty bin
+            bins.invIdx[i].col = "#777" // empty bin
           }
         }
         else {
@@ -769,7 +780,7 @@ function gradientColoring(daclass) {
     }
 
     // NB legend will group different possible values using
-    //    precomputed ticks from TW.Clusters.terms[daclass]
+    //    precomputed ticks from TW.Facets.terms[daclass]
     set_ClustersLegend ( daclass)
 
     TW.partialGraph.render();
@@ -795,8 +806,16 @@ function repaintEdges() {
 
 
           if (src && tgt) {
-            let src_color = src.customAttrs.alt_color || src.color || '#555'
-            let tgt_color = tgt.customAttrs.alt_color || tgt.color || '#555'
+            let src_color
+            let tgt_color
+            if (TW.gui.handpickedcolor) {
+              src_color = src.customAttrs.alt_color || '#555'
+              tgt_color = tgt.customAttrs.alt_color || '#555'
+            }
+            else {
+              src_color = src.color || '#555'
+              tgt_color = tgt.color || '#555'
+            }
             e.customAttrs.alt_rgb = sigmaTools.edgeRGB(src_color,tgt_color)
             // we don't set e.color because opacity may vary if selected or not
           }
@@ -809,8 +828,8 @@ function repaintEdges() {
 
 // heatmap from cold to warm with middle white
 //         (good for values centered around a neutral zone)
-// NB - binning is done at parseCustom (cf. TW.Clusters)
-//    - number of bins can be specified by attribute name in TW.conf.facetOptions[daclass]["n"]
+// NB - binning is done at parseCustom (cf. TW.Facets)
+//    - number of bins can be specified by attribute name in TW.facetOptions[daclass]["n"]
 function heatmapColoring(daclass) {
   var binColors
   var doModifyLabel = false
@@ -820,9 +839,9 @@ function heatmapColoring(daclass) {
   let nColors = TW.conf.legendsBins || 5
 
   // possible user value
-  if (TW.conf.facetOptions[daclass]) {
-    if (TW.conf.facetOptions[daclass]["n"] != 0) {
-      nColors = TW.conf.facetOptions[daclass]["n"]
+  if (TW.facetOptions[daclass]) {
+    if (TW.facetOptions[daclass]["n"] != 0) {
+      nColors = TW.facetOptions[daclass]["n"]
     }
     else {
       console.warn(`Can't use user-specified number of bins value 0 for attribute ${at}, using TW.conf.legendsBins ${TW.conf.legendsBins} instead`)
@@ -837,11 +856,11 @@ function heatmapColoring(daclass) {
   var ty = actypes[0]
 
   // our binning
-  var tickThresholds = TW.Clusters[ty][daclass].invIdx
+  var tickThresholds = TW.Facets[ty][daclass].invIdx
 
   // verifications
   if (tickThresholds.length - 1 != nColors) {
-    console.warn (`heatmapColoring setup mismatch: TW.Clusters ticks ${tickThresholds.length} - 1 non_numeric from scanClusters should == nColors ${nColors}`)
+    console.warn (`heatmapColoring setup mismatch: TW.Facets ticks ${tickThresholds.length} - 1 non_numeric from scanAttributes should == nColors ${nColors}`)
     nColors = tickThresholds.length - 1
   }
 
@@ -946,7 +965,7 @@ function clusterColoring(daclass) {
       let nColors = TW.gui.colorList.length
 
 
-      let facets = TW.Clusters[getActivetypesNames()[0]][daclass]
+      let facets = TW.Facets[getActivetypesNames()[0]][daclass]
       if (facets && facets.invIdx) {
         for (var i in facets.invIdx) {
           let valGroup = facets.invIdx[i]
@@ -978,11 +997,11 @@ function clusterColoring(daclass) {
             }
           }
 
-          // remember in TW.Clusters
+          // remember in TW.Facets
           valGroup.col = theColor
         }
       }
-      // fallback on old, slower strategy if scanClusters inactive
+      // fallback on old, slower strategy if scanAttributes inactive
       else {
         for(var nid in TW.Nodes) {
             var the_node = TW.partialGraph.graph.nodes(nid)
@@ -1067,7 +1086,7 @@ function mobileAdaptConf() {
     TW.conf.sigmaJsDrawingProperties.mouseZoomDuration = 0
     // TW.conf.sigmaJsDrawingProperties.defaultEdgeType = 'line'
 
-    // TW.conf.scanClusters = false
+    // TW.conf.scanAttributes = false
     // TW.conf.twRendering = false
 
     // £TODO better CSS for histogram on mobile

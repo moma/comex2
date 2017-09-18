@@ -23,6 +23,10 @@ TW.states = [TW.initialSystemState]
 // SystemState() returns the current situation
 TW.SystemState = function() { return TW.states.slice(-1)[0] }
 
+// options for facetting the data attributes
+// (project conf values will override these global conf defaults)
+TW.facetOptions = TW.conf.defaultFacetOptions
+
 // gracefully degrade our most costly settings if the user agent is mobile
 if (/mobile/i.test(navigator.userAgent))   mobileAdaptConf()
 
@@ -59,19 +63,24 @@ if (window.location.protocol == 'file:' || TW.sourcemode == 'localfile') {
   let inputDiv = document.getElementById('localInput')
   inputDiv.style.display = 'block'
 
+  // user can open a gexf or json from his fs
+  var graphFileInput = createFilechooserEl()
+  inputDiv.appendChild(graphFileInput)
+
   if (window.location.protocol == 'file:') {
     var remark = document.createElement("p")
-    remark.innerHTML = `You're running project explorer as a local html file (no syncing).`
+    remark.innerHTML = `<h5>/!\\ Running project explorer as a local html file /!\\<br>(<a id="localfile-warning" data-toggle="popover" data-content="<p>In localfile mode, it is impossible to load some interface elements: <ul><li>modules (histograms, suggestions)</li><li>related docs search engine</li><li>any custom project conf</li></ul></p><p><b>You can still explore your graph and its data attributes with our default settings</b>.</p><p>For more information, check out the <a href=https://github.com/moma/ProjectExplorer/blob/master/README.md#usage-on-a-web-server target=_blank>documentation</a>.</p>">no syncing</a>)</h5>`
     remark.classList.add('comment')
     remark.classList.add('centered')
     inputDiv.appendChild(remark)
     inputDiv.style.height = "auto";
     inputDiv.style.padding = "10px";
-  }
 
-  // user can open a gexf or json from his fs
-  var graphFileInput = createFilechooserEl()
-  inputDiv.appendChild(graphFileInput)
+    new Popover(
+      document.getElementById('localfile-warning'),
+      {"placement": 'left', "delay": 1000}
+    )
+  }
 }
 // traditional cases: remote read from API or prepared server-side file
 else {
@@ -311,7 +320,10 @@ function mainStartGraph(inFormat, inData, twInstance) {
   TW.Edges = [];
   TW.ByType = {}          // node ids sorted by nodetype id   (0, 1)
   TW.Relations = {}       // edges sorted by source/target type id ("00", "11")
-  TW.Clusters = [];       // "by value" facet index built in parseCustom
+  TW.Facets = [];         // "by value" facet index built in parseCustom
+
+  TW.Project = null
+  TW.currentRelDocsDBs = {}
 
   TW.partialGraph = null  // will contain the sigma visible graph instance
 
@@ -327,6 +339,7 @@ function mainStartGraph(inFormat, inData, twInstance) {
   else {
       let optNodeTypes = null
       let optRelDBs = null
+      let optProjectFacets = null
 
       if (TW.sourcemode == "api") {
         optNodeTypes = TW.conf.sourceAPI.nodetypes
@@ -343,13 +356,21 @@ function mainStartGraph(inFormat, inData, twInstance) {
           let srcDirname = pathsplit[1] ;
           let srcBasename = pathsplit[2] ;
 
-          // try and retrieve associated conf
+          // try and retrieve associated project_conf.json
           [optNodeTypes, optRelDBs] = readProjectConf(srcDirname, srcBasename)
 
           // export to globals for getTopPapers and makeRendererFromTemplate
           if (optRelDBs) {
             TW.currentRelDocsDBs = optRelDBs
             TW.Project = srcDirname
+          }
+
+          // try and retrieve associated legends.json
+          optProjectFacets = readProjectFacetsConf(srcDirname, srcBasename)
+
+          // export to globals for facet options (merge with previous defaults)
+          if (optProjectFacets) {
+            TW.facetOptions = Object.assign(TW.facetOptions, optProjectFacets)
           }
         }
       }
@@ -396,7 +417,7 @@ function mainStartGraph(inFormat, inData, twInstance) {
       prepareNodesRenderingProperties(TW.Nodes)
       prepareEdgesRenderingProperties(TW.Edges, TW.Nodes)
 
-      if (inData.clusters) TW.Clusters = inData.clusters
+      if (inData.clusters) TW.Facets = inData.clusters
 
       // main console info
       // ===================
@@ -480,7 +501,7 @@ function mainStartGraph(inFormat, inData, twInstance) {
       });
       // ==================================================================
 
-      // a new state
+      // a new GUI state (updates sliders and menus)
       TW.pushGUIState({
         'activetypes': initialActivetypes,
         'activereltypes': initialActivereltypes
@@ -497,7 +518,13 @@ function mainStartGraph(inFormat, inData, twInstance) {
       // NB : camera positions are fix if the node is fixed => they only depend on layout
       //      renderer position depend on viewpoint/zoom (like ~ html absolute positions of the node in the div)
 
-      // now that we have a sigma instance let's adapt the environment and bind our click handlers to it
+      // prepare the colors/clusters menu until next changeType/changeLevel
+      // (and update TW.Facets)
+      updateDynamicFacets()
+      changeGraphAppearanceByFacets()
+
+      // now that we have a sigma instance and TW.Facets
+      // let's adapt the environment and bind our click handlers to it
       twInstance.initSigmaListeners(
         TW.partialGraph,
         initialActivetypes,      // to init node sliders and .class gui elements
@@ -557,10 +584,6 @@ function mainStartGraph(inFormat, inData, twInstance) {
 
       // will run fa2 if enough nodes and TW.conf.fa2Enabled == true
       sigma_utils.smartForceAtlas()
-
-      // should prepare the colors/clusters menu once and for all
-      // (previously, needed to be called after changeType/changeLevel)
-      changeGraphAppearanceByFacets()
   }
 
 }

@@ -1,16 +1,23 @@
 ## Project Configuration
 
-The directories under `data/` are called project directories and should contain:
+The directories under `data/` on the app's server are called *project directories* and should contain:
   - a graph file (ending in `.gexf` or `.json`)
-  - a `project_conf.json` to declare nodetypes and optionally link DBs to each graph file.
-  - optionally the said associated database of documents
+  - a `project_conf.json` to declare
+    - types of nodes in the input graph
+    - optionally linked DBs of documents for each graph file
+  - optionally the associated DBs of documents themselves
 
 See for example `data/test/project_conf.json` in the project dir `test`.
+
+Remarks:
+  - The `localfile` input mode can **not** open project directories nor project-specific configurations (but the user can open a graph file and visualize it with default configuration)
+  - ProjectExplorer also allows another conf file in the project directory for data attributes preprocessing settings. The file is called `legends.json` and has a  separate documentation under [data facets and legends](https://github.com/moma/ProjectExplorer/blob/master/00.DOCUMENTATION/C-advanced/data_facets_and_legends.md)).
+
 
 ------------------------------------------------------
 #### Minimal Config
 
-One minimal entry contains for each graph file of the project dir : a list of expected node types starting by 'node0' (**the nodetypes**)
+One minimal exemple of `project_conf.json` contains for each graph file of the project dir : a list of expected node types starting by 'node0' (**the nodetypes**)
 
 ```json
 {
