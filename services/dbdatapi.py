@@ -1031,7 +1031,7 @@ class BipartiteExtractor:
                 if self.scholars_colors[self.scholars[idNode]['email']]==1:
                     color='243,183,19'
                 elif self.scholars[idNode]['job_looking']:
-                    color = '139,28,28'
+                    color = '43,44,141'
                 elif self.scholars[idNode]['nb_proposed_jobs'] > 0:
                     color = '41,189,243'
                 else:
