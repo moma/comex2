@@ -516,7 +516,9 @@ function changeType(optionaltypeFlag) {
 
     // update the gui (POSS could be handled by TW.pushGUIState)
     TW.gui.handpickedcolor = false
+    updateDynamicFacets()
     changeGraphAppearanceByFacets( getActivetypesNames() )
+
     if (typeFlag != 'all') {
       graphResetLabelsAndSizes()
     }
@@ -573,18 +575,29 @@ function getNeighbors(sourceNids, relKey) {
 //                         v
 //                   local selection SysSt = {level: false, activetypes:XY}
 //
-//  POSS: rewrite using .hidden instead of add/remove
-//
+//  optional args:
+//    @optionalTgtState: in rare cases we already have it (like CTRL+Z)
+//                       (=> avoid redoing property computations and state push)
+//    POSS: rewrite using .hidden instead of add/remove
 function changeLevel(optionalTgtState) {
+
     // show waiting cursor
     TW.gui.elHtml.classList.add('waiting');
 
     // let the waiting cursor appear
     setTimeout(function() {
-      var present = TW.SystemState(); // Last
 
       // array of nids [144, 384, 543]
-      let sels = optionalTgtState ? optionalTgtState.selectionNids : present.selectionNids
+      var sels
+
+      if (optionalTgtState) {
+        sels = optionalTgtState.selectionNids
+      }
+      else {
+        var present = TW.SystemState(); // Last
+        sels = present.selectionNids
+        deselectNodes()
+      }
 
       let selsChecker = {}
       for (let i in sels) {
@@ -597,8 +610,14 @@ function changeLevel(optionalTgtState) {
       // types eg [true]          <=> '1'
       //          [true, true]    <=> '1|1'
 
-      var activetypes = present.activetypes;
-      var activereltypes = present.activereltypes
+      if (optionalTgtState) {
+        activetypes = optionalTgtState.activetypes
+        activereltypes = optionalTgtState.activereltypes
+      }
+      else {
+        activetypes = present.activetypes;
+        activereltypes = present.activereltypes;
+      }
 
       TW.partialGraph.graph.clear();
 
@@ -675,15 +694,22 @@ function changeLevel(optionalTgtState) {
           // console.log("returning to global took:", t1-t0)
       }
 
-      // sels and activereltypes unchanged, no need to call MultipleSelection2
+      // Selection is unchanged, but all the nodes are new
+      // so we call MultipleSelection2 to set up node attributes
+      TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
 
-      TW.pushGUIState({
-          level: futurelevel,
-          sels: sels
-      })
+      // if caller already had the state, he may or may not want to push it
+      if (! optionalTgtState) {
+        TW.pushGUIState({
+            level: futurelevel
+        })
+      }
 
       TW.partialGraph.camera.goTo({x:0, y:0, ratio:1.2, angle: 0})
       TW.partialGraph.refresh()
+
+      updateDynamicFacets()
+      changeGraphAppearanceByFacets( getActivetypesNames() )
 
       // recreate FA2 nodes array after you change the nodes
       reInitFa2({
@@ -1003,7 +1029,11 @@ function NodeWeightFilter( sliderDivID , tgtNodeKey) {
     // ids per weight level
     // we use live index from prepareSigmaCustomIndices
     let nodesByTypeNSize = TW.partialGraph.graph.getNodesBySize(tgtNodeKey)
-    var sortedSizes = Object.keys(nodesByTypeNSize).sort(function(a,b){return a-b})
+
+    var sortedSizes = []
+    if (nodesByTypeNSize)
+      sortedSizes = Object.keys(nodesByTypeNSize).sort(function(a,b){return a-b})
+
 
     var stepToIdsArr = []
 
