@@ -150,7 +150,7 @@ div.my-centering-box > * {
 #kw_tagcloud_div {
     margin: 0;
     padding: 5px;
-    overflow-y: scroll;
+    overflow-y: auto;
     cursor: default;
 }
 
