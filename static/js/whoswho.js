@@ -95,7 +95,7 @@ whoswho = (function(ww) {
         })
 
         $("" + id1).hide();
-        show("#" + id1);
+        $("#" + id1).show();
         $("#" + id2).focus();
         whoswho.shiftPage()
         return false;
@@ -139,15 +139,15 @@ whoswho = (function(ww) {
 
 $(document).ready(function() {
   var cache, closeBox, collectFilters, loadGraph;
-  log("document ready.. installing whoswho");
+  console.log("document ready.. installing whoswho");
   loadGraph = function(g) {
     gexf = g;
-    log("url query: " + g);
-    log("injecting applet");
+    console.log("url query: " + g);
+    console.log("injecting applet");
     if ($('#frame').length === 0) {
       return $("#visualization").html("<iframe src=\"tinaframe.html" + (location.search != null ? location.search : '') + "\" class=\"frame\" border=\"0\" frameborder=\"0\" scrolling=\"no\" id=\"frame\" name=\"frame\"></iframe>");
     } else {
-      return log("applet already exists");
+      return console.log("applet already exists");
     }
   };
 
@@ -158,7 +158,7 @@ $(document).ready(function() {
   }), function() {
     return $(this).css("cursor", "auto");
   });
-  hide("#search-form");
+  $("#search-form").hide();
   $(".topbar").hover((function() {
     return $(this).stop().animate({
       opacity: 0.98
@@ -256,7 +256,7 @@ $(document).ready(function() {
     collect = function(k) {
       var t;
       t = [];
-      log("collecting .filter:" + k);
+      console.log("collecting .filter:" + k);
       $(".filter" + k).each(function(i, e) {
         var value;
 
@@ -265,18 +265,18 @@ $(document).ready(function() {
 
         value = $(e).val();
         if (value != null && value != "") {
-          log("got: " + value);
+          console.log("got: " + value);
           value = $.trim(value);
-          log("sanitized: " + value);
+          console.log("sanitized: " + value);
           if (value !== " " || value !== "") {
-            log("keeping " + value);
+            console.log("keeping " + value);
             return t.push(value);
           }
         }
       });
       return t;
     };
-    log("reading filters forms..");
+    console.log("reading filters forms..");
 
 
     query = {
@@ -299,8 +299,8 @@ $(document).ready(function() {
         }
     }
 
-    log("raw query: ");
-    log(query);
+    console.log("raw query: ");
+    console.log(query);
 
     query = encodeURIComponent(JSON.stringify(query));
 
@@ -349,7 +349,7 @@ $(document).ready(function() {
       }
     });
   });
-  hide("#loading");
+  $("#loading").hide();
   cache = {};
   return xhrs = {};
 });

@@ -30,6 +30,7 @@ var cmxClt = (function(cC) {
     // a topbar creation function from template
     //   ------
     cC.elts.topbar = {}
+    cC.elts.topbar.prepare
     cC.elts.topbar.create
 
     // an optional modal box for login/register credentials
@@ -41,7 +42,8 @@ var cmxClt = (function(cC) {
     cC.elts.box.postAuthBox
     cC.elts.box.authBox = null
 
-    cC.elts.topbar.create = function(luid, empty) {
+    // generate html content for a new topbar
+    cC.elts.topbar.prepare = function(luid, empty) {
       let baseMenus = ''
 
       // for active users that are not empty
@@ -225,6 +227,13 @@ var cmxClt = (function(cC) {
             </div>
         </div>
       `
+
+      return topbarHtml
+    }
+
+    // create in dom
+    cC.elts.topbar.create = function(luid, empty) {
+      let topbarHtml = cmxClt.elts.topbar.prepare(luid, empty)
 
       // append as body's first child
       let topbar = document.createElement('div')
