@@ -57,10 +57,11 @@
                      </div>
 
                      <div class="question">
-                       <p class="legend">Please make your password difficult to predict.</p>
+                       <p class="legend">Requirements: 8 to 20 chars, with at least one special char (neither letter nor number).</p>
                        <div class="input-group">
                          <label for="password" class="smlabel input-group-addon">* Password</label>
-                         <input id="password" name="password" maxlength="30"
+                         <input id="password" name="password" maxlength="20" required
+                                title="8 to 20 chars, with at least one special char"
                                 type="password" class="form-control" placeholder="Create a password">
                        </div>
                      </div>
@@ -68,7 +69,8 @@
                      <div class="question">
                        <div class="input-group">
                          <label for="password2" class="smlabel input-group-addon">* Password</label>
-                         <input id="password2" name="password2" maxlength="30"
+                         <input id="password2" name="password2" maxlength="20" required
+                                title="8 to 20 chars, with at least one special char"
                                 type="password" class="form-control" placeholder="Repeat the password">
                        </div>
                        <p class="umessage legend red" style="font-weight:bold"></p>
