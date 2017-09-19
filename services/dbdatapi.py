@@ -1,5 +1,8 @@
 """
-DB data querying (mostly aggs + subset selections orginally made by Samuel)
+DB data querying:
+  - aggregations on almost any DB fields via FIELDS_FRONTEND_TO_SQL
+  - BipartiteExtractor subset selections originally made by Samuel
+  - soon multimatch subset selections
 """
 __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
@@ -58,7 +61,8 @@ FIELDS_FRONTEND_TO_SQL = {
                       'class': "lab",               #  <= idem
                       'type': "LIKE_relation",
                       'grouped': "orgs_list"},
-    # TODO use
+
+    # NB: used for jobs locname as well (POSS: use locs.locname to group them)
     "cities":        {'col':"orgs.locname",
                       'type': "LIKE_relation",
                       'grouped': "locnames_list",

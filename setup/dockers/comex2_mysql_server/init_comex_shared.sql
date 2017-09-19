@@ -2,7 +2,7 @@
 ** File: init_comex_shared.sql
 ** Desc: Creates comex tables
          => docker-entrypoint-initdb.d
-** Date: 2017-01-19
+** Date: 2017-09-19
 *******************************/
 
 CREATE DATABASE comex_shared CHARACTER SET utf8 COLLATE utf8_general_ci ;
@@ -39,7 +39,7 @@ CREATE TABLE scholars (
     INDEX vdate_index_sch (valid_date)
 ) ;
 
-
+-- not used yet but TODO should gather orgs locname and jobs locname together
 CREATE TABLE locs(
     locname             varchar(120),
     lat                 float(6,4),
@@ -204,9 +204,11 @@ CREATE TABLE jobs (
     recruiter_org_text   varchar(2400) not null,
     email                varchar(255) not null,
     job_valid_date       date,
+    locname              varchar(120),   -- POSS: connect this field to locs
     pdf_fname            varchar(120),   -- locally saved pdf (basename)
     jtitle               varchar(80) not null,
 
+    -- NB: job is deleted when scholar is deleted
     FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;
 

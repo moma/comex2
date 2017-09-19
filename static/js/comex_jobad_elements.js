@@ -16,11 +16,12 @@
 
 
 jobCols = [
-     ["jtitle",              true,       "plsfill", "t",     null    ],
+     ["jtitle",                 true,       "plsfill", "t",     null    ],
      ["mission_text",           true,       "plsfill", "t",     null    ],
      ["keywords",               true,       "plsfill", "at",    null    ],
      ["recruiter_org_text",     true,       "plsfill", "t",     null    ],
      ["email",                  true,       "plsfill", "t",     null    ],
+     ["locname",                true,         "pref",  "t",     null    ],
      ["job_valid_date",         true,       "plsfill", "d",     null    ]
    ]
 
@@ -170,6 +171,18 @@ function createJobForm(containerId, args) {
 
         <div class="question">
          <div class="input-group">
+           <label for="locname" class="smlabel input-group-addon">
+             Location
+           </label>
+           <input id="locname" name="locname" maxlength="255"
+                  type="text" class="form-control autocomp" ${rw}
+                  value="${args.job && args.job.locname ? args.job.locname : ''}">
+          </div>
+          <p class="legend">The main location of the job (eg. "Paris, France").</p>
+        </div>
+
+        <div class="question">
+         <div class="input-group">
            <label for="email" class="smlabel input-group-addon">
              Contact Email
            </label>
@@ -226,8 +239,11 @@ function createJobForm(containerId, args) {
     jobadForm.elSubmitBtn.disabled = false
   }
 
-  // initialize autocomplete on keywords
+  // initialize autocomplete on keywords and location
   remoteAutocompleteInit('keywords')
+  remoteAutocompleteInit('locname', 2, 'cities')
+  // POSS: API could work with "locs" but not filled systematically yet
+  // remoteAutocompleteInit('locname', 2, 'locs')
 
   return jobadForm
 }

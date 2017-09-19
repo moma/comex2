@@ -98,9 +98,17 @@ let gridFields = [
      name: "email",
      title:"Contact",
      type: "text",
-     width: 55,
+     width: 50,
      align: "center",
      css:"email"
+   },
+   {
+     name: "locname",
+     title:"Location",
+     type: "text",
+     width: 45,
+     align: "center",
+     css:"locname"
    },
    {
      name: "job_valid_date",

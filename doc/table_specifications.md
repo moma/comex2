@@ -77,16 +77,23 @@ CREATE TABLE orgs(
     -- address...          (...)      -- address elements POSS NOT IMPLEMENTED
     reserved            varchar(30),
 
-    -- tostring: generated column
-    -- ex "Instituto de Fisica de Cantabria (IFCA), Santander, Spain"
+
+    -- 1 generated columns for common uses as label
+    -- ex "Instituto de Fisica de Cantabria (IFCA)"
     -- searchable + human readable, often useful for autocompletes etc
-    tostring            varchar(800)
+    label              varchar(800)
         AS (CONCAT_WS( '',
                        CONCAT(name, ' '),
-                       CONCAT('(',acro,')'),
-                       CONCAT(', ', locname)) ),
+                       CONCAT('(',acro,')')) ),
+
+    -- 1 generated column for serialize
+    toarray            varchar(800)
+        AS (JSON_ARRAY(name, acro, locname)),
+
     PRIMARY KEY (orgid),
-    UNIQUE KEY full_org (name, acro, locname)
+    INDEX class_index_orgs (class),
+    UNIQUE KEY full_org (class, name, acro, inst_type)
+    -- POSS add locname to UNIQUE KEY (but handle variants!!)
 
     -- POSS FOREIGN KEY locname REFERENCES locs(locname)
     --  (useful when we use the locs more in the app)
@@ -204,11 +211,12 @@ CREATE TABLE jobs (
     recruiter_org_text   varchar(2400) not null,
     email                varchar(255) not null,
     job_valid_date       date,
+    locname              varchar(120),   -- POSS: connect this field to locs
     pdf_fname            varchar(120),   -- locally saved pdf (basename)
     jtitle               varchar(80) not null,
 
-    -- NB: should the job be deleted when scholar is deleted ?
-    FOREIGN KEY (uid)  REFERENCES scholars(luid)
+    -- NB: job is deleted when scholar is deleted
+    FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
 ) ;
 
 -- relationship jobs <n=n> keywords
