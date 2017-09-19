@@ -421,7 +421,7 @@ Contributions and ideas are welcome to improve this directory.
         <div class="col-lg-12 col-md-12 col-sm-12">
           <!-- new: tagcloud -->
           <h3 class=centered><i class="icon-tags"></i>&nbsp;Main keywords for this listing</h3>
-          <div id="kw_tagcloud_div" class="directory-piechart"></div>
+          <div id="kw_tagcloud_div"></div>
         </div>
         <!--
         <div class="col-lg-6 col-md-6 col-sm-12">
