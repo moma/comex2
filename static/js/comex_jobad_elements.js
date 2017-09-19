@@ -241,9 +241,10 @@ function createJobForm(containerId, args) {
 
   // initialize autocomplete on keywords and location
   remoteAutocompleteInit('keywords')
-  remoteAutocompleteInit('locname', 2, 'cities')
+  remoteAutocompleteInit('locname', 0, 'jobcities', ["France", "Paris, France", "Lyon, France", "Grenoble, France", "Orsay, France", "Palaiseau, France", "Warwick, UK", "Evry, France", "London, UK", "Toulouse, France", "Barcelona, Spain", "Lisboa, Portugal", "Roma, Italy", "Milton Keynes, UK", "Budapest, Hungary", "Netherlands", "Torino, Italy", "Santa Fe, California, USA", "San Francisco, California, USA", "Los Angeles, California, USA", "New York, New York, USA", "Cancún, Mexico", "Göteborg, Sweden", "Rouen, France", "Bruxelles, Belgium", "Marseille, France", "Bologna, Italy", "Le Havre, France", "Amsterdam, Netherlands", "Namur, Belgique", "Australia", "Mexico, Mexico", "Leipzig, Germany", "Montpellier, France", "Istanbul, Turkey", "Rennes, France", "Nancy, France", "Nice, France", "Warsaw, Poland", "Bogotá, Colombia", "Cranfield, UK", "Italy", "Bristol, UK", "Birmingham, UK", "Dublin, Ireland", "Verona, Italy", "Lausanne, Switzerland", "Valparaiso, Chile", "Lorraine, France", "Zaragoza, Spain", "USA", "Strasbourg, France", "Boston, Massachusets, USA", "Bondy, France", "Oxford, UK", "Talinn, Estonia", "Cergy-Pontoise, France", "Palma de Mallorca, Spain", "Glasgow, UK", "Paderborn, Germany", "Lille, France", "Coimbra, Portugal", "Cambridge, UK", "Saint-Etienne, France", "Sweden", "Patras, Greece", "São Paulo, Brazil", "Bochum, Germany", "Créteil, France", "UK", "Stellenbosch, South Africa", "Firenze, Italy", "Haifa, Israël", "Southampton, UK", "Versailles, France", "Milano, Italy", "Brisbane, Australia", "Alès, France", "Newcastle, UK", "Spain", "Leuven, Belgium", "Trieste, Italy", "Clermont-Ferrand, France", "Bordeaux, France", "Leicester, UK", "Nanterre, France"])
+
   // POSS: API could work with "locs" but not filled systematically yet
-  // remoteAutocompleteInit('locname', 2, 'locs')
+  // remoteAutocompleteInit('locname', 0, 'locs')
 
   return jobadForm
 }

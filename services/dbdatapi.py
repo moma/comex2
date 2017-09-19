@@ -62,11 +62,15 @@ FIELDS_FRONTEND_TO_SQL = {
                       'type': "LIKE_relation",
                       'grouped': "orgs_list"},
 
-    # NB: used for jobs locname as well (POSS: use locs.locname to group them)
-    "cities":        {'col':"orgs.locname",
+    # (POSS: locs.locname to factorize orgs.locname, jobs.locname at write time)
+    "cities":       {'col':"orgs.locname",
                       'type': "LIKE_relation",
                       'grouped': "locnames_list",
                       'class': "*"},
+
+    "jobcities":    {'col':"jobs.locname",
+                      'type': "LIKE_relation",
+                      'grouped': "locnames_list"},
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
@@ -217,6 +221,17 @@ def get_field_aggs(a_field,
                 ) AS allcounts
                 %(post_filter)s
                 ORDER BY occs DESC
+            """ % {'col': sql_col, 'post_filter': post_where}
+
+        elif sql_tab == 'jobs':
+            stmt = """
+                SELECT x, n FROM (
+                    SELECT %(col)s AS x, COUNT(*) AS n
+                    FROM jobs
+                    GROUP BY %(col)s
+                ) AS allcounts
+                %(post_filter)s
+                ORDER BY n DESC
             """ % {'col': sql_col, 'post_filter': post_where}
 
         mlog("DEBUGSQL", "get_field_aggs STATEMENT:\n-- SQL\n%s\n-- /SQL" % stmt)
