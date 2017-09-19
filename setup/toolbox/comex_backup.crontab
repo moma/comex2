@@ -1,0 +1,5 @@
+# /etc/cron.d/comex_backup: crontab entry to backup comex data
+#                           (everyday at 05:00 GMT)
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+0 5 * * * root sudo /bin/tar czf /home/ubuntu/backups/comex2_data_backup_$(/bin/date -I).tgz /home/ubuntu/active_webapps/APP_comex2/data
