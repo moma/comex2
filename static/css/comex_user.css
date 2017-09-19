@@ -58,11 +58,11 @@ div.uform-white .ccsection-uform-body {
     border-right: 1px solid #ccc;;
 }
 
-button.clean-btn
+button.clean-btn {}
 
-/* not used at present but could be useful for autompleted inputs */
-.autocomp {
-}
+/* high z-index to go above any modal (some bootstrap modals are at 1050) */
+.autocomp { z-index: 1051 ;}
+.ui-autocomplete { z-index: 1051 ;}
 
 /* a "subpage" container UNUSED */
 .subpage {

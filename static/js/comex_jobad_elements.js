@@ -16,11 +16,12 @@
 
 
 jobCols = [
-     ["jtitle",              true,       "plsfill", "t",     null    ],
+     ["jtitle",                 true,       "plsfill", "t",     null    ],
      ["mission_text",           true,       "plsfill", "t",     null    ],
      ["keywords",               true,       "plsfill", "at",    null    ],
      ["recruiter_org_text",     true,       "plsfill", "t",     null    ],
      ["email",                  true,       "plsfill", "t",     null    ],
+     ["locname",                true,         "pref",  "t",     null    ],
      ["job_valid_date",         true,       "plsfill", "d",     null    ]
    ]
 
@@ -170,6 +171,18 @@ function createJobForm(containerId, args) {
 
         <div class="question">
          <div class="input-group">
+           <label for="locname" class="smlabel input-group-addon">
+             Location
+           </label>
+           <input id="locname" name="locname" maxlength="255"
+                  type="text" class="form-control autocomp" ${rw}
+                  value="${args.job && args.job.locname ? args.job.locname : ''}">
+          </div>
+          <p class="legend">The main location of the job (eg. "Paris, France").</p>
+        </div>
+
+        <div class="question">
+         <div class="input-group">
            <label for="email" class="smlabel input-group-addon">
              Contact Email
            </label>
@@ -226,8 +239,12 @@ function createJobForm(containerId, args) {
     jobadForm.elSubmitBtn.disabled = false
   }
 
-  // initialize autocomplete on keywords
+  // initialize autocomplete on keywords and location
   remoteAutocompleteInit('keywords')
+  remoteAutocompleteInit('locname', 0, 'jobcities', ["France", "Paris, France", "Lyon, France", "Grenoble, France", "Orsay, France", "Palaiseau, France", "Warwick, UK", "Evry, France", "London, UK", "Toulouse, France", "Barcelona, Spain", "Lisboa, Portugal", "Roma, Italy", "Milton Keynes, UK", "Budapest, Hungary", "Netherlands", "Torino, Italy", "Santa Fe, California, USA", "San Francisco, California, USA", "Los Angeles, California, USA", "New York, New York, USA", "Cancún, Mexico", "Göteborg, Sweden", "Rouen, France", "Bruxelles, Belgium", "Marseille, France", "Bologna, Italy", "Le Havre, France", "Amsterdam, Netherlands", "Namur, Belgique", "Australia", "Mexico, Mexico", "Leipzig, Germany", "Montpellier, France", "Istanbul, Turkey", "Rennes, France", "Nancy, France", "Nice, France", "Warsaw, Poland", "Bogotá, Colombia", "Cranfield, UK", "Italy", "Bristol, UK", "Birmingham, UK", "Dublin, Ireland", "Verona, Italy", "Lausanne, Switzerland", "Valparaiso, Chile", "Lorraine, France", "Zaragoza, Spain", "USA", "Strasbourg, France", "Boston, Massachusets, USA", "Bondy, France", "Oxford, UK", "Talinn, Estonia", "Cergy-Pontoise, France", "Palma de Mallorca, Spain", "Glasgow, UK", "Paderborn, Germany", "Lille, France", "Coimbra, Portugal", "Cambridge, UK", "Saint-Etienne, France", "Sweden", "Patras, Greece", "São Paulo, Brazil", "Bochum, Germany", "Créteil, France", "UK", "Stellenbosch, South Africa", "Firenze, Italy", "Haifa, Israël", "Southampton, UK", "Versailles, France", "Milano, Italy", "Brisbane, Australia", "Alès, France", "Newcastle, UK", "Spain", "Leuven, Belgium", "Trieste, Italy", "Clermont-Ferrand, France", "Bordeaux, France", "Leicester, UK", "Nanterre, France"])
+
+  // POSS: API could work with "locs" but not filled systematically yet
+  // remoteAutocompleteInit('locname', 0, 'locs')
 
   return jobadForm
 }

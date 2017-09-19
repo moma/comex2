@@ -223,6 +223,7 @@ var cmxClt = (function(cC) {
                 var subValues = asIsValue.split(/,/)
                 for (var i in subValues) {
                     var newValue = subValues[i]
+                    if (newValue == "") continue
 
                     // "let" so that it's unique for each i
                     // (this unique pointer is useful in newBoxClose)

@@ -125,6 +125,7 @@ JOB_FIELDS = [
          ("mission_text",           True,        None),
          ("recruiter_org_text",     True,        None),
          ("email",                  True,        None),
+         ("locname",                True,        None),
          ("job_valid_date",         True,       "sdate"),
          ("pdf_attachment",         True,       "sblob", "pdf", "pdf_fname"), # saved separately
          # => for *jobs* table

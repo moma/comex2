@@ -1,5 +1,8 @@
 """
-DB data querying (mostly aggs + subset selections orginally made by Samuel)
+DB data querying:
+  - aggregations on almost any DB fields via FIELDS_FRONTEND_TO_SQL
+  - BipartiteExtractor subset selections originally made by Samuel
+  - soon multimatch subset selections
 """
 __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
@@ -58,11 +61,16 @@ FIELDS_FRONTEND_TO_SQL = {
                       'class': "lab",               #  <= idem
                       'type': "LIKE_relation",
                       'grouped': "orgs_list"},
-    # TODO use
-    "cities":        {'col':"orgs.locname",
+
+    # (POSS: locs.locname to factorize orgs.locname, jobs.locname at write time)
+    "cities":       {'col':"orgs.locname",
                       'type': "LIKE_relation",
                       'grouped': "locnames_list",
                       'class': "*"},
+
+    "jobcities":    {'col':"jobs.locname",
+                      'type': "LIKE_relation",
+                      'grouped': "locnames_list"},
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
@@ -213,6 +221,17 @@ def get_field_aggs(a_field,
                 ) AS allcounts
                 %(post_filter)s
                 ORDER BY occs DESC
+            """ % {'col': sql_col, 'post_filter': post_where}
+
+        elif sql_tab == 'jobs':
+            stmt = """
+                SELECT x, n FROM (
+                    SELECT %(col)s AS x, COUNT(*) AS n
+                    FROM jobs
+                    GROUP BY %(col)s
+                ) AS allcounts
+                %(post_filter)s
+                ORDER BY n DESC
             """ % {'col': sql_col, 'post_filter': post_where}
 
         mlog("DEBUGSQL", "get_field_aggs STATEMENT:\n-- SQL\n%s\n-- /SQL" % stmt)
