@@ -246,6 +246,7 @@ SELECT * FROM (
     $sql_full_scholar_select
 ) AS full_scholars_info
     {$filter}
+ORDER BY full_scholars_info.last_name
 END_QUERY;
 
 // debug
