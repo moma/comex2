@@ -25,7 +25,7 @@ $footer = '<footer>
     <!-- This directory is maintained by the <a href="http://cssociety.org" target="blank">Complex Systems Society</a>
          and the <a href="http://iscpif.fr" target="blank">Complex Systems Institute of Paris Ile-de-France</a>.<br/>-->
     <center>
-        <a href="/about.html"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
+        <a href="https://iscpif.fr/projects/community-explorer/" target="_blank"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
         <!-- <a href="http://moma.csregistry.org/feedback" target="BLANK"><span class="glyphicon glyphicon-repeat"></span> Feedback</a> - -->
         <a href="/about/privacy"> <span class="glyphicon glyphicon-list-alt"></span> Privacy</a>
         <br>
