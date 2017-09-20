@@ -248,6 +248,7 @@ def doors_register(email, password, name, config=REALCONFIG):
     sentdata = {'login':email.lower(), 'password':password, 'name':name}
 
     http_scheme = "https:"
+    ssl_verify = True
 
     if config['DOORS_NOSSL']:
         # /!\ unsafe param: only useful for local tests /!\
