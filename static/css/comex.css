@@ -205,18 +205,17 @@ div.my-centering-box > * {
 }
 
 .browser-warning-panel {
-    bottom: 0;
+    top: 0;
     width: 100%;
-    min-height: 100px;
     position: fixed;
     margin-bottom: 0;
-    padding-top: 1em;
     display: block;
     opacity: 1;
-    -webkit-transition: opacity .2s ease-out;
-    z-index: 7;
+    z-index: 11;
     border: 3px solid #910;
     background-color: #ddd;
+    padding-top: 1em;
+    -webkit-transition: opacity .2s ease-out;
 }
 
 .framed-text {

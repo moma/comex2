@@ -294,7 +294,7 @@
     // warning in a new div
     if (oldBrowserFlag) {
       var myDiv = document.createElement('div');
-      myDiv.innerHTML = '<div id="browser-warning-panel" class="panel panel-success browser-warning-panel" role="dialog"><div class="panel-body"><p class="center red"><a href="https://www.mozilla.org/en-US/firefox/all/"><img src="/static/img/firefox_logo.png"></a>&nbsp;&nbsp;&nbsp;For a better user experience, it is recommended to use a recent browser like Firefox or Chrome.<br/>Pour une meilleure expérience utilisateur, il est recommandé d\'utiliser un navigateur récent tel que Firefox ou Chrome.</p><p class="center"><button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById(\'browser-warning-panel\').parentNode.removeChild(document.getElementById(\'browser-warning-panel\'))">OK</button></p></div></div>';
+      myDiv.innerHTML = '<div id="browser-warning-panel" class="panel panel-success browser-warning-panel" role="dialog"><div class="panel-body"><p class="center red"><a href="https://www.mozilla.org/en-US/firefox/all/"><img src="/static/img/firefox_logo.png"></a>&nbsp;&nbsp;&nbsp;For a better user experience, it is recommended to use a recent browser like Firefox or Chrome.<br/>Pour une meilleure expérience utilisateur, il est recommandé d\'utiliser un navigateur récent tel que Firefox ou Chrome.<button type="button" class="btn btn-sm btn-primary" style="float:right;" onclick="document.getElementById(\'browser-warning-panel\').parentNode.removeChild(document.getElementById(\'browser-warning-panel\'))">OK</button></p></div></div>';
       document.body.insertBefore(myDiv, document.body.lastChild);
     }
   </script>
