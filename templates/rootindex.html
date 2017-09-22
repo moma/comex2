@@ -155,9 +155,38 @@
       <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
     </div>
 
+
+    <div class="row smallspacerrow">&nbsp;</div>
+
+    <!-- 2 x tagclouds row -->
+    <div class="row">
+      <div class="spacer col-lg-1 col-md-1 hidden-sm-down">&nbsp;</div>
+      <div class="my-centering-box col-lg-10 col-md-10 col-sm-12">
+           <h3 class="centered green">Keywords from the database</h3>
+           <div id="front-kws-tagcloud"></div>
+      </div>
+      <div class="spacer col-lg-1 col-md-1 hidden-sm-down">&nbsp;</div>
+    </div>
+    <div class="row mediumspacerrow">&nbsp;</div>
+    <div class="row">
+      <div class="spacer col-lg-2 col-md-2 hidden-sm-down">&nbsp;</div>
+      <div class="my-centering-box col-lg-8 col-md-8 col-sm-12">
+           <h3 class="centered blue">Community tags from the database</h3>
+           <div id="front-hts-tagcloud"></div>
+      </div>
+      <div class="spacer col-lg-2 col-md-2 hidden-sm-down">&nbsp;</div>
+    </div>
+
+    <div class="row smallspacerrow">&nbsp;</div>
+
 {% endblock %}
 
 <!-- ======================================================================= -->
 
 {% block last_imports %}
+<!-- generate 2 x tagclouds -->
+<script type="text/javascript">
+  cmxClt.elts.tagcloud.update("front-kws-tagcloud", "keywords")
+  cmxClt.elts.tagcloud.update("front-hts-tagcloud", "hashtags")
+</script>
 {% endblock %}

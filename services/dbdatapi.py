@@ -121,7 +121,7 @@ def get_field_aggs(a_field,
         sql_col = FIELDS_FRONTEND_TO_SQL[a_field]['col']
         sql_tab = sql_col.split('.')[0]
 
-        mlog('INFO', "AGG API sql_col", sql_col)
+        mlog('DEBUG', "AGG API sql_col", sql_col)
 
         db = connect_db()
         db_c = db.cursor(DictCursor)

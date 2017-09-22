@@ -134,13 +134,11 @@ div.my-centering-box > * {
     margin: 0;
 }
 
-/* similar to tina, but green and with no link, for print_directory.php */
+/* similar to tina, but with no link, for print_directory.php */
 .tagcloud-item{
     display:inline-block;
     border:solid 1px;
-    -moz-border-radius: 6px;
-    -webkit-border-radius: 6px;
-    -khtml-border-radius: 6px;
+    border-radius: 6px;
     border-color:#BDBDBD;
     padding:5px 4px 3px 4px;
     margin:1px 0px 1px 0px;
@@ -152,6 +150,22 @@ div.my-centering-box > * {
     padding: 5px;
     overflow-y: auto;
     cursor: default;
+}
+
+/* same but proportional padding and no borders, for frontpage rootindex.html */
+.tagcloud-item-front{
+    display:inline-block;
+    margin:1px 0px 1px 0px;
+    font-family: "Droid Sans", sans-serif;
+    font-weight: bold;
+    cursor:pointer;
+}
+#front-kws-tagcloud, #front-hts-tagcloud {
+  min-height: 150px;
+  border-radius: 100px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 
 /* self-made modals */

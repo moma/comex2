@@ -32,6 +32,12 @@ var cmxClt = (function(cC) {
     cC.elts.topbar = {}
     cC.elts.topbar.create
 
+    // a tagcloud-like div with proportional labels
+    //   ------
+    cC.elts.tagcloud = {}
+    cC.elts.tagcloud.xhrSync
+    cC.elts.tagcloud.prepare
+
     // an optional modal box for login/register credentials
     //            -----------
     cC.elts.box = {}
@@ -234,6 +240,86 @@ var cmxClt = (function(cC) {
       // initialize the 2 not-automatic dropdowns (refine is self-contained)
       new Dropdown( document.getElementById('user-dropdown') );
       new Dropdown( document.getElementById('jobs-dropdown') );
+    }
+
+
+    cC.elts.tagcloud.xhrSync = function(fieldName, theCallback) {
+      let thresh = 0
+      $.ajax({
+          type: 'GET',
+          dataType: 'json',
+          url: "/services/api/aggs?field="+fieldName+"&hapax="+thresh,
+          success: theCallback,
+          error: function(result) {
+              console.warn('tagcloud.xhrSync ('+fieldName+'): jquery ajax error with result', result)
+          }
+      });
+    }
+
+    cC.elts.tagcloud.update = function(tgtDivId, aggFieldName) {
+
+      let tgtDiv = document.getElementById(tgtDivId)
+      if (! tgtDiv) return false
+
+      cmxClt.elts.tagcloud.xhrSync( aggFieldName,
+
+        // cb inspired from ProjectExplorer htmlProportionalLabels
+        function(elems){
+          if(elems.length==0){
+            tgtDiv.innerHTML = ""
+            return false;
+          }
+          let resHtml=[]
+
+          let limit = 200
+          let tagcloudFontsizeMin = .5
+          let tagcloudFontsizeMax = 5
+
+          let fontSize   // <-- normalized for display
+
+          // we assume already sorted, and we skip 0 which is null
+          let frecMax = elems[1].occs
+          let frecMin = elems.slice(-1)[0].occs
+
+          let sourceRange = frecMax - frecMin
+          let targetRange = tagcloudFontsizeMax - tagcloudFontsizeMin
+
+          for(var i in elems){
+              if(i==limit)
+                  break
+              let labl=elems[i].x
+              let frec=elems[i].occs
+              if (! labl)
+                continue
+
+              if (sourceRange) {
+                fontSize = ((frec - frecMin) * (targetRange) / (sourceRange)) + tagcloudFontsizeMin
+                fontSize = parseInt(100000 * fontSize)/100000
+              }
+              else {
+                // 1em when all elements have the same freq
+                fontSize = 1
+              }
+
+              // debug
+              // console.log('htmlfied_tagcloud (',labl') freq',frec,' fontSize', fontSize)
+
+              if(typeof labl == "string"){
+                  let explorerParam = (aggFieldName == "hashtags") ? "tags" : aggFieldName
+                  let explorerFilter = {}
+                  explorerFilter[explorerParam] = [labl]
+                  let encodedFilter = escape(encodeURIComponent(JSON.stringify(explorerFilter)))
+                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&nodeidparam=\"" + encodedFilter +"\"')"
+
+                  // using em instead of px to allow global x% resize at css box level
+                  let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; padding:'+3.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';
+                  resHtml.push(htmlLabel)
+              }
+          }
+
+          tgtDiv.innerHTML = resHtml
+          return true;
+        })
     }
 
 
