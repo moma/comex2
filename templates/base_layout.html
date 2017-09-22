@@ -283,13 +283,9 @@
     var oldBrowserFlag = false;
     try {
       // test ECMA6 support on 3 basic functionalities: for..of, let, backticks
-      var a = [];
-      eval("for (var x of [1,2]){a.push(x)};");
-      oldBrowserFlag = (a.length == 0);
+      eval("for (var x of [1,2]);");
       eval("let b = 1;");
-      oldBrowserFlag = oldBrowserFlag || (typeof b == "undefined");
-      eval("let st = `a`;");
-      oldBrowserFlag = oldBrowserFlag || (typeof st != "string");
+      eval("var st = `a`;");
     }
     catch(e) {
       oldBrowserFlag = true;
