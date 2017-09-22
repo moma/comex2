@@ -256,10 +256,16 @@ var cmxClt = (function(cC) {
       });
     }
 
-    cC.elts.tagcloud.update = function(tgtDivId, aggFieldName) {
+    cC.elts.tagcloud.update = function(tgtDivId, aggFieldName, args) {
 
       let tgtDiv = document.getElementById(tgtDivId)
       if (! tgtDiv) return false
+
+      if (! args)   args = {}
+
+      var limit = args.limit || 200
+      var tagcloudFontsizeMin = args.fontMin ||  1
+      var tagcloudFontsizeMax = args.fontMax || 4
 
       cmxClt.elts.tagcloud.xhrSync( aggFieldName,
 
@@ -270,10 +276,6 @@ var cmxClt = (function(cC) {
             return false;
           }
           let resHtml=[]
-
-          let limit = 200
-          let tagcloudFontsizeMin = .5
-          let tagcloudFontsizeMax = 5
 
           let fontSize   // <-- normalized for display
 
@@ -312,7 +314,7 @@ var cmxClt = (function(cC) {
                   let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&nodeidparam=\"" + encodedFilter +"\"')"
 
                   // using em instead of px to allow global x% resize at css box level
-                  let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; padding:'+3.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';
+                  let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; line-height:'+fontSize/6+'em; padding:'+2.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';
                   resHtml.push(htmlLabel)
               }
           }
