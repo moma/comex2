@@ -204,6 +204,21 @@ div.my-centering-box > * {
     /*overflow: visible;*/
 }
 
+.browser-warning-panel {
+    bottom: 0;
+    width: 100%;
+    min-height: 100px;
+    position: fixed;
+    margin-bottom: 0;
+    padding-top: 1em;
+    display: block;
+    opacity: 1;
+    -webkit-transition: opacity .2s ease-out;
+    z-index: 7;
+    border: 3px solid #910;
+    background-color: #ddd;
+}
+
 .framed-text {
     padding: 3px 3px 2px 3px;
     border: solid 1.25px #333;
