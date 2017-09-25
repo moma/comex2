@@ -134,8 +134,8 @@ TW.conf = (function(TW){
   // =============
 
   // Node typology: categories (resp. 0 and 1) will get these default labels
-  TWConf.catSem = "NGram";
-  TWConf.catSoc = "Document";
+  TWConf.catSem = "Keywords";
+  TWConf.catSoc = "Scholars";
   // NB: these labels may be superseded by:
   //   - the input data's node types values cf. sortNodeTypes()
   //   - in project_conf.md the node0 & node1 properties
@@ -251,7 +251,7 @@ TW.conf = (function(TW){
                                       // "default" for white background
 
       // not selected <=> (1-greyness)
-      twNodesGreyOpacity: .4,                       // smaller value: more grey
+      twNodesGreyOpacity: .5,                       // smaller value: more grey
       twBorderGreyColor: "rgba(100, 100, 100, 0.5)",
       twEdgeGreyColor: "rgba(100, 100, 100, 0.25)",
   };
