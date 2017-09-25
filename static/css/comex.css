@@ -32,7 +32,7 @@ body {
     vertical-align: middle;
     line-height: 2em;
     height: 2em;
-    margin-top: .2em;
+    margin-top: .3em;
 
     /* good for scaffolding
     border: 2px solid white;
@@ -140,6 +140,9 @@ div.my-centering-box > * {
     display:inline-block;
     border:solid 1px;
     border-radius: 6px;
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+    -khtml-border-radius: 6px;
     border-color:#BDBDBD;
     padding:5px 4px 3px 4px;
     margin:1px 0px 1px 0px;

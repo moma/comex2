@@ -49,11 +49,11 @@ var cmxClt = (function(cC) {
     cC.elts.box.authBox = null
 
     // generate html content for a new topbar
-    cC.elts.topbar.prepare = function(luid, empty) {
+    cC.elts.topbar.prepare = function(luid, args = {'empty': false}) {
       let baseMenus = ''
 
       // for active users that are not empty
-      if (luid && !empty) {
+      if (luid && !args.empty) {
         baseMenus = `
           <li class="comex-nav-item">
               <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="${luid}"'> Your Map </a>
@@ -103,14 +103,14 @@ var cmxClt = (function(cC) {
 
       let dropDownContent = ''
       if (luid) {
-        if (empty) {
+        if (args.empty) {
           // special case for returning users
           dropDownContent = `
             <li>
                 <a href="/services/user/profile"> Create your Profile !</a>
             </li>
             <li>
-                <a href='/services/user/logout/'> Logout </a>
+                <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
             </li>
           `
         }
@@ -121,28 +121,40 @@ var cmxClt = (function(cC) {
                 <a href="/services/user/profile"> Your Profile </a>
             </li>
             <li>
-                <a href='/services/user/logout/'> Logout </a>
+                <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
             </li>
           `
         }
       }
       // unlogged case
       else {
-        dropDownContent = `
-          <li>
-              <div class="dropdown-a-like" id="poplogin"
-                data-toggle="dropdown"
-                onclick="cmxClt.elts.box.toggleBox('auth_modal')">
-                Login </div>
-          </li>
-          <li>
-              <a href="/services/user/register"> Register </a>
-          </li>
-        `
+        if (args.classicLogin) {
+          dropDownContent = `
+            <li>
+                <a href="/services/user/login"> Login </a>
+            </li>
+            <li>
+                <a href="/services/user/register"> Register </a>
+            </li>
+          `
+        }
+        else {
+          dropDownContent = `
+            <li>
+                <div class="dropdown-a-like" id="poplogin"
+                  data-toggle="dropdown"
+                  onclick="cmxClt.elts.box.toggleBox('auth_modal')">
+                  Login </div>
+            </li>
+            <li>
+                <a href="/services/user/register"> Register </a>
+            </li>
+          `
+        }
       }
 
       let topbarHtml = `
-        <div class="topbar" style="opacity: 0.9;" id="helloworld">
+        <div class="topbar" style="opacity: 0.9;" id="comex-top">
             <div class="topbar-inner">
                 <div class="container-fluid">
                     <ul class="white nav navbar-nav navbar-left">
@@ -238,8 +250,8 @@ var cmxClt = (function(cC) {
     }
 
     // create in dom
-    cC.elts.topbar.create = function(luid, empty) {
-      let topbarHtml = cmxClt.elts.topbar.prepare(luid, empty)
+    cC.elts.topbar.create = function(luid, args) {
+      let topbarHtml = cmxClt.elts.topbar.prepare(luid, args)
 
       // append as body's first child
       let topbar = document.createElement('div')

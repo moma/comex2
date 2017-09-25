@@ -14,7 +14,6 @@
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/whoswho.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex_user.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
-  <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
 
   <!--   for topbar search/refine   -->
 
@@ -213,7 +212,7 @@
                           </li>
                           {% endif %}
                           <li>
-                              <a href='/services/user/logout/'> Logout </a>
+                              <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
                           </li>
                       {% else %}
                       <li>
@@ -305,6 +304,7 @@
       //               ---------
       var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
       Object.freeze(uinfo)
+      sessionStorage.uinfo = JSON.stringify(uinfo)
   </script>
 
   <!--  our js for auth and login: to be able to login via popup anywhere -->

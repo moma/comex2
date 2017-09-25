@@ -109,7 +109,12 @@ whoswho = (function(ww) {
           // start transition
           tgtBox.style.opacity = 0
           // remove box
-          setTimeout(function(){tgtBox.remove(); whoswho.shiftPage();}, 500)
+          setTimeout(function(){
+            tgtBox.remove(); whoswho.shiftPage();
+            // re-collect filters to update cache
+            whoswho.collectFilters()
+          }, 500)
+
           return true
       }
       else {
@@ -134,11 +139,78 @@ whoswho = (function(ww) {
       }
     }
 
+    // main form collect function
+    ww.collectFilters = function(cb) {
+      var collect, query;
+      collect = function(k) {
+        var t;
+        t = [];
+        // console.log("collecting .filter:" + k);
+        $(".filter" + k).each(function(i, e) {
+          var value;
+
+          // debug
+          // console.log('collecting (filter '+k+') from elt:' + e)
+
+          value = $(e).val();
+          if (value != null && value != "") {
+            // console.log("got: " + value);
+            value = $.trim(value);
+            // console.log("sanitized: " + value);
+            if (value !== " " || value !== "") {
+              // console.log("keeping " + value);
+              return t.push(value);
+            }
+          }
+        });
+        return t;
+      };
+      // console.log("reading filters forms..");
+
+
+      query = {
+
+      // TODO in the future multiple categories
+      // categorya: $.trim($("#categorya :selected").text()),
+      // categoryb: $.trim($("#categoryb :selected").text()),
+
+      // TODO in the future coloredby
+      // query.coloredby =  []
+
+      }
+
+      for (filterName of ["keywords", "countries", "laboratories", "tags", "institutions"]) {
+          var filterValuesArray = collect(filterName)
+
+          // we add only if something to add :)
+          if (filterValuesArray.length) {
+              query[filterName] = filterValuesArray
+          }
+      }
+
+      console.log("raw query: ", query);
+
+      query = JSON.stringify(query);
+
+      // cache
+      sessionStorage.setItem("whoswhoq", query)
+
+      if (cb && typeof cb == "function") {
+        // debug
+        // console.log("calling callback with encoded query:", query)
+        return cb(encodeURIComponent(query));
+      }
+      else {
+        return query
+      }
+
+    };
+
     return ww;
 })(whoswho);
 
 $(document).ready(function() {
-  var cache, closeBox, collectFilters, loadGraph;
+  var closeBox, loadGraph;
   console.log("document ready.. installing whoswho");
   loadGraph = function(g) {
     gexf = g;
@@ -250,72 +322,12 @@ $(document).ready(function() {
       }
   }
 
-  // main form collect function
-  collectFilters = function(cb) {
-    var collect, query;
-    collect = function(k) {
-      var t;
-      t = [];
-      console.log("collecting .filter:" + k);
-      $(".filter" + k).each(function(i, e) {
-        var value;
-
-        // debug
-        // console.log('collecting (filter '+k+') from elt:' + e)
-
-        value = $(e).val();
-        if (value != null && value != "") {
-          console.log("got: " + value);
-          value = $.trim(value);
-          console.log("sanitized: " + value);
-          if (value !== " " || value !== "") {
-            console.log("keeping " + value);
-            return t.push(value);
-          }
-        }
-      });
-      return t;
-    };
-    console.log("reading filters forms..");
-
-
-    query = {
-
-    // TODO in the future multiple categories
-    // categorya: $.trim($("#categorya :selected").text()),
-    // categoryb: $.trim($("#categoryb :selected").text()),
-
-    // TODO in the future coloredby
-    // query.coloredby =  []
-
-    }
-
-    for (filterName of ["keywords", "countries", "laboratories", "tags", "institutions"]) {
-        var filterValuesArray = collect(filterName)
-
-        // we add only if something to add :)
-        if (filterValuesArray.length) {
-            query[filterName] = filterValuesArray
-        }
-    }
-
-    console.log("raw query: ");
-    console.log(query);
-
-    query = encodeURIComponent(JSON.stringify(query));
-
-    // debug
-    // console.log("calling callback with encoded query:", query)
-
-    return cb(query);
-  };
-
 
   // refine filters => tinawebjs graphexplorer
   $("#generate").click(function() {
-    console.log("clicked on generate")
+    // console.log("clicked on generate")
     // console.log("initiating graphexplorer")
-    return collectFilters(function(query) {
+    return whoswho.collectFilters(function(query) {
       // debug
       // console.log("collected filters: " + query);
       // empty query => no map + warning
@@ -337,8 +349,8 @@ $(document).ready(function() {
     });
   });
   $("#print").click(function() {
-    console.log("clicked on print");
-    return collectFilters(function(query) {
+    // console.log("clicked on print");
+    return whoswho.collectFilters(function(query) {
       // debug
       // console.log("collected filters: " + query);
       if (uinfo && uinfo.luid) {
@@ -350,6 +362,27 @@ $(document).ready(function() {
     });
   });
   $("#loading").hide();
-  cache = {};
-  return xhrs = {};
+
+  // retrieve last whoswho query from cache
+  var whoswhoq = {}
+  if (sessionStorage.hasOwnProperty("whoswhoq")) {
+    try {
+      whoswhoq = JSON.parse(sessionStorage.whoswhoq)
+    }
+    catch(e) {
+      whoswhoq = {}
+    }
+  }
+  // console.log("whoswhoq", whoswhoq)
+
+  // reinstate any cached filters
+  for (var filterName in whoswhoq) {
+    for (var i in whoswhoq[filterName]) {
+      var filterVal = whoswhoq[filterName][i]
+      console.log("whoswho: pop from session cache", filterName, filterVal)
+      whoswho.popfilter(filterName, {'prefill':filterVal})
+    }
+  }
+
+  return;
 });
