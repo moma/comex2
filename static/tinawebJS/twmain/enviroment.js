@@ -23,11 +23,20 @@ TW.gui.checkBox=false;
 TW.gui.shiftKey=false;
 TW.gui.foldedSide=false;
 TW.gui.manuallyChecked = false;
-TW.gui.handpickedcolor = false;     // <= changes edge rendering strategy
-TW.gui.lastFilters = {}
+TW.gui.lastFilters = {}             // <= last values, by slider id
 TW.gui.reldocTabs = [{}, {}]        // <= by nodetype and then dbtype
 
 TW.gui.sizeRatios = [1,1]           // sizeRatios per nodetype
+TW.gui.handpickedcolors = {};        // <= changes rendering, by nodetype
+TW.gui.handpickedcolorsReset = function (forTypes = TW.categories) {
+  TW.gui.handpickedcolors = {}
+  for (var k in forTypes) {
+    TW.gui.handpickedcolors[forTypes[k]] = {
+      'alton': false,
+      'altattr': null
+    }
+  }
+}
 
 TW.gui.noverlapConf = {
   nodeMargin: .4,
@@ -158,7 +167,11 @@ function getHeatmapColors(nClasses) {
 
 
 function writeBrand (brandString, brandLink) {
-  document.getElementById('twbrand').innerHTML = brandString
+  let elTitle = document.getElementById('twbrand')
+  if (elTitle) {
+    elTitle.innerHTML = brandString
+  }
+
   let anchors = document.getElementsByClassName('twbrand-link')
   for (var k in anchors) {
     if (anchors[k] && anchors[k].href) {
@@ -513,15 +526,37 @@ function changeType(optionaltypeFlag) {
       updateSearchLabels(nid,allNodes[nid].label,allNodes[nid].type);
     }
 
-
-    // update the gui (POSS could be handled by TW.pushGUIState)
-    TW.gui.handpickedcolor = false
+    // update the gui (TODO handle by TW.pushGUIState) =========================
     updateDynamicFacets()
+
+    // console.log("outgoing.activetypes", outgoing.activetypes)
+    // console.log("newActivetypes", newActivetypes)
+
     changeGraphAppearanceByFacets( getActivetypesNames() )
 
-    if (typeFlag != 'all') {
-      graphResetLabelsAndSizes()
+    // turn off the altcolors for outgoing types
+    for (var tyId in TW.categories) {
+      let ty = TW.categories[tyId]
+      if (outgoing.activetypes[tyId] && ! newActivetypes[tyId]) {
+        if (TW.gui.handpickedcolors[ty].alton) {
+          clearColorLegend([ty])
+          TW.gui.handpickedcolors[ty].alton = false
+        }
+      }
+      else if (!outgoing.activetypes[tyId] && newActivetypes[tyId]) {
+        if (TW.gui.handpickedcolors[ty].altattr) {
+          TW.gui.handpickedcolors[ty].alton = true
+
+          // this re-coloring can be avoided if "hidden" was used in changeLevel and sliders
+          let recolorMethod = getColorFunction(TW.gui.handpickedcolors[ty].altattr)
+          window[recolorMethod](TW.gui.handpickedcolors[ty].altattr, [ty])
+
+          // without re-coloring step, we would only need to recreate legend box
+          // updateColorsLegend(TW.gui.handpickedcolors[ty].altattr, [ty])
+        }
+      }
     }
+
     TW.partialGraph.settings('labelThreshold', getSizeFactor())
     fillAttrsInForm('choose-attr')
     fillAttrsInForm('attr-titling-metric', 'num')
@@ -533,6 +568,8 @@ function changeType(optionaltypeFlag) {
         sigma_utils.smartForceAtlas()
       }
     })
+
+    // end update the gui ======================================================
 }
 
 
@@ -619,6 +656,13 @@ function changeLevel(optionalTgtState) {
         activereltypes = present.activereltypes;
       }
 
+      let activetypesDict = {}
+      for (var i in activetypes) {
+        if (activetypes[i]) {
+          activetypesDict[TW.categories[i]] = true
+        }
+      }
+
       TW.partialGraph.graph.clear();
 
       var voisinage = {}
@@ -679,9 +723,10 @@ function changeLevel(optionalTgtState) {
 
           // var t0 = performance.now()
           for(var nid in TW.Nodes) {
-              if(activetypes[TW.catDict[TW.Nodes[nid].type]])
-                  // we add 1 by 1
-                  add1Elem(nid)
+            if (activetypesDict[TW.Nodes[nid].type]) {
+              // we add 1 by 1 (POSS: use hidden instead)
+              add1Elem(nid)
+            }
           }
           for(var eid in TW.Edges) {
             for (var k in activereltypes) {
@@ -696,7 +741,8 @@ function changeLevel(optionalTgtState) {
 
       // Selection is unchanged, but all the nodes are new
       // so we call MultipleSelection2 to set up node attributes
-      TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
+      if (sels.length)
+        TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
 
       // if caller already had the state, he may or may not want to push it
       if (! optionalTgtState) {
@@ -710,6 +756,26 @@ function changeLevel(optionalTgtState) {
 
       updateDynamicFacets()
       changeGraphAppearanceByFacets( getActivetypesNames() )
+
+      // going back to global: recolor nodes that were out of scope
+      if(futurelevel) {
+        let todoCols = {}
+        for (var ty in activetypesDict) {
+          if (TW.gui.handpickedcolors[ty].alton) {
+            let attr = TW.gui.handpickedcolors[ty].altattr
+            if (!todoCols[attr]) todoCols[attr] = {'types':[], 'fun': null}
+            todoCols[attr].types.push(ty)
+            if (! todoCols[attr].fun) {
+              todoCols[attr].fun = getColorFunction(attr)
+            }
+          }
+        }
+        for (var attr in todoCols) {
+          let recolorMethod = todoCols[attr].fun
+          let forTypes = todoCols[attr].types
+          window[recolorMethod](attr, forTypes)
+        }
+      }
 
       // recreate FA2 nodes array after you change the nodes
       reInitFa2({

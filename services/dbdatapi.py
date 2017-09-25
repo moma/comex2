@@ -427,7 +427,7 @@ class BipartiteExtractor:
                     for row in results:
                         # mlog("DEBUG", "the row:", row)
                         node_uid = row['uid']
-                        node_shortid = "D::"+row['initials']+"/%05i"%int(node_uid);
+                        node_shortid = "S::"+row['initials']+"/%05i"%int(node_uid);
 
                         #    old way: candidate = ( integerID , realSize , #keywords )
                         #    new way: scholars_array[uid] = ( ID , occ size )
@@ -684,7 +684,7 @@ class BipartiteExtractor:
                 info = {};
 
                 # semantic short ID
-                # ex "D::JFK/00001"
+                # ex "S::JFK/00001"
 
                 if 'pic_fname' in res3 and res3['pic_fname']:
                     pic_src = '/data/shared_user_img/'+res3['pic_fname']
@@ -712,7 +712,7 @@ class BipartiteExtractor:
                 # mlog("DEBUGSQL", "res main inst:", insts[0].label)
 
                 # all detailed node data
-                ide="D::"+res3['initials']+("/%05i"%int(res3['luid']));
+                ide="S::"+res3['initials']+("/%05i"%int(res3['luid']));
                 info['id'] = ide;
                 info['luid'] = res3['luid'];
                 info['doors_uid'] = res3['doors_uid'];
@@ -861,7 +861,7 @@ class BipartiteExtractor:
             self.cursor.execute(sql)
             rows = self.cursor.fetchall()
             for row in rows:
-                term_scholars.append("D::"+row['initials']+"/%05i"%int(row['uid']))
+                term_scholars.append("S::"+row['initials']+"/%05i"%int(row['uid']))
 
             for k in range(len(term_scholars)):
                 if term_scholars[k] in scholarsMatrix:
@@ -886,8 +886,8 @@ class BipartiteExtractor:
                                 scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
 
                                 # eg matrix entry for scholar k
-                                # 'D::SK/04047': {'occ': 1, 'cooc': {'D::SL/02223': 1}}
-            nodeId = "N::"+str(term)
+                                # 'S::SK/04047': {'occ': 1, 'cooc': {'S::SL/02223': 1}}
+            nodeId = "K::"+str(term)
             self.Graph.add_node(nodeId)
 
         for scholar in self.scholars:
@@ -904,7 +904,7 @@ class BipartiteExtractor:
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
-                            target="N::"+str(keyword)
+                            target="K::"+str(keyword)
 
                             # term--scholar weight: constant / log(1+total keywords of scholar)
                             weight = bipaW / log1p(scholarsMatrix[scholar]['occ'])
@@ -916,8 +916,8 @@ class BipartiteExtractor:
                 neighbors = termsMatrix[str(nodeId1)]['cooc'];
                 for i, neigh in enumerate(neighbors):
                     if neigh != term:
-                        source="N::"+term
-                        target="N::"+neigh
+                        source="K::"+term
+                        target="K::"+neigh
 
                         # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
                         weight=neighbors[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
@@ -938,7 +938,7 @@ class BipartiteExtractor:
 
                 # weighted list of other scholars
                 neighbors=scholarsMatrix[str(nodeId1)]['cooc'];
-                # eg {'D::KW/03291': 1, 'D::WTB/04144': 3}
+                # eg {'S::KW/03291': 1, 'S::WTB/04144': 3}
 
 
                 for i, neigh in enumerate(neighbors):
@@ -957,14 +957,14 @@ class BipartiteExtractor:
         # print(scholarsMatrix)
 
         # exemple:
-        # {'D::PFC/00002': {'occ': 6,
-        #                   'cooc': {'D::PFC/00002': 6,
-        #                            'D::fl/00009': 1,
-        #                            'D::DC/00010': 1}
+        # {'S::PFC/00002': {'occ': 6,
+        #                   'cooc': {'S::PFC/00002': 6,
+        #                            'S::fl/00009': 1,
+        #                            'S::DC/00010': 1}
         #                   },
-        #   'D::fl/00009': {'occ': 9,
-        #                   'cooc': {'D::fl/00009': 9,
-        #                            'D::PFC/00002': 1}
+        #   'S::fl/00009': {'occ': 9,
+        #                   'cooc': {'S::fl/00009': 9,
+        #                            'S::PFC/00002': 1}
         #                  }
         # ------- /debug ------------------------------
 
@@ -1001,7 +1001,7 @@ class BipartiteExtractor:
             #mlog("DEBUG", coords)
 
         for idNode in graph.nodes_iter():
-            if idNode[0]=="N":#If it is NGram
+            if idNode[0]=="K": #If it is Keyword
 
                 kwid=idNode.split("::")[1]
                 try:
@@ -1023,7 +1023,7 @@ class BipartiteExtractor:
                     term_occ = 1
 
                 node = {}
-                node["type"] = "NGram"
+                node["type"] = "Keywords"
                 node["label"] = nodeLabel
                 node["color"] = str(colorRed)+","+str(colorGreen)+",25"
                 node["term_occ"] = term_occ
@@ -1043,7 +1043,7 @@ class BipartiteExtractor:
                 nodesB+=1
 
             # adding here node properties
-            if idNode[0]=='D':#If it is Document (or scholar)
+            if idNode[0]=='S':#If it is scholar
 
                 nodeLabel= self.scholars[idNode]['hon_title']+" "+self.scholars[idNode]['first_name']+" "+self.scholars[idNode]['mid_initial']+" "+self.scholars[idNode]['last_name']
                 color=""
@@ -1141,7 +1141,7 @@ class BipartiteExtractor:
                 content += '</div>'
 
                 node = {}
-                node["type"] = "Document"
+                node["type"] = "Scholars"
                 node["label"] = nodeLabel
                 node["color"] = color
 
@@ -1215,12 +1215,12 @@ class BipartiteExtractor:
             #if e%1000 == 0:
             #    mlog("INFO", e)
 #    for n in GG.nodes_iter():
-#        if nodes[n]["type"]=="NGram":
+#        if nodes[n]["type"]=="Keywords":
 #            concepto = nodes[n]["label"]
 #            nodes2 = []
 #            neigh = GG.neighbors(n)
 #            for i in neigh:
-#                if nodes[i]["type"]=="NGram":
+#                if nodes[i]["type"]=="Keywords":
 #                    nodes2.append(nodes[i]["label"])
 #            mlog("DEBUG", concepto,"\t",", ".join(nodes2))
 

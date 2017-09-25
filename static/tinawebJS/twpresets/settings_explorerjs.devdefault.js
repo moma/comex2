@@ -21,7 +21,7 @@ TW.conf = (function(TW){
 
   // ...or remote bridge to default source api ajax queries
   TWConf.sourceAPI={}
-  TWConf.sourceAPI["nodetypes"] = {"node0": "NGram", "node1": "Document" }
+  TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
   TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
@@ -73,12 +73,13 @@ TW.conf = (function(TW){
     'auto-outdegree'  : {'col': "heatmap",  'n': 7,  'binmode': 'samepop', 'legend': 'Auto OutDegree'},
     'cluster_index'   : {'col': "cluster" ,          'binmode': 'off'        },
     'clust_louvain'   : {'col': "cluster" ,          'binmode': 'off',
-                         'legend':'Louvain clustering'                       },
+                         'legend':'Louvain clustering', 'titlingMetric': 'auto-outdegree'},
     'country':{
                          'col':"cluster" ,
                          'binmode': 'off',
-                         'legend': 'Country'
-                       },
+                         'legend': 'Country',
+                         'titlingMetric': 'off'
+              },
     'total_occurrences':{
                          'col':"heatmap" ,
                          'binmode': 'samerange',
@@ -118,7 +119,7 @@ TW.conf = (function(TW){
   TWConf.catSoc = "Document";
   // NB: these labels may be superseded by:
   //   - the input data's node types values cf. sortNodeTypes()
-  //   - in servermenu mode, by the node0 & node1 properties
+  //   - in project_conf.md the node0 & node1 properties
 
   // Modules path
   // ------------
@@ -235,12 +236,12 @@ TW.conf = (function(TW){
 
       // selected nodes <=> special label
       twSelectedColor: "default",     // "node" for a label bg like the node color,
-                                   // "default" for note-like yellow
+                                      // "default" for white background
 
       // not selected <=> (1-greyness)
       twNodesGreyOpacity: .5,                       // smaller value: more grey
       twBorderGreyColor: "rgba(100, 100, 100, 0.5)",
-      twEdgeGreyColor: "rgba(100, 100, 100, 0.3)",
+      twEdgeGreyColor: "rgba(100, 100, 100, 0.25)",
   };
   // NB: sigmaJsDrawingProperties are available as 'settings' in all renderers
   // cf. https://github.com/jacomyal/sigma.js/wiki/Settings#renderers-settings

@@ -13,11 +13,10 @@ UPDATE scholars
 -- 2) preparing a batch of secret return tokens
 INSERT INTO legacy_temp_rettoks
     SELECT luid, UUID() FROM scholars
-    WHERE record_status = "legacy" AND valid_date > CURDATE();
-
+    WHERE record_status = "legacy" AND valid_date > CURDATE() ;
 
 -- 3) outputing all the links to send by mailing list
-SET @server_name = 'www.communityexplorer.org' ;
+SET @server_name = 'communityexplorer.org' ;
 SET @page_route = '/services/user/claim_profile/?token=' ;
 
 SELECT
