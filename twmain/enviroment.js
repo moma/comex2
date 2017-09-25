@@ -549,7 +549,7 @@ function changeType(optionaltypeFlag) {
 
           // this re-coloring can be avoided if "hidden" was used in changeLevel and sliders
           let recolorMethod = getColorFunction(TW.gui.handpickedcolors[ty].altattr)
-          window[recolorMethod](TW.gui.handpickedcolors[ty].altattr)
+          window[recolorMethod](TW.gui.handpickedcolors[ty].altattr, [ty])
 
           // without re-coloring step, we would only need to recreate legend box
           // updateColorsLegend(TW.gui.handpickedcolors[ty].altattr, [ty])
@@ -741,7 +741,8 @@ function changeLevel(optionalTgtState) {
 
       // Selection is unchanged, but all the nodes are new
       // so we call MultipleSelection2 to set up node attributes
-      TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
+      if (sels.length)
+        TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
 
       // if caller already had the state, he may or may not want to push it
       if (! optionalTgtState) {
@@ -758,11 +759,21 @@ function changeLevel(optionalTgtState) {
 
       // going back to global: recolor nodes that were out of scope
       if(futurelevel) {
+        let todoCols = {}
         for (var ty in activetypesDict) {
           if (TW.gui.handpickedcolors[ty].alton) {
-            let recolorMethod = getColorFunction(TW.gui.handpickedcolors[ty].altattr)
-            window[recolorMethod](TW.gui.handpickedcolors[ty].altattr)
+            let attr = TW.gui.handpickedcolors[ty].altattr
+            if (!todoCols[attr]) todoCols[attr] = {'types':[], 'fun': null}
+            todoCols[attr].types.push(ty)
+            if (! todoCols[attr].fun) {
+              todoCols[attr].fun = getColorFunction(attr)
+            }
           }
+        }
+        for (var attr in todoCols) {
+          let recolorMethod = todoCols[attr].fun
+          let forTypes = todoCols[attr].types
+          window[recolorMethod](attr, forTypes)
         }
       }
 
