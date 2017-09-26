@@ -15,8 +15,8 @@ BF	Burkina Faso
 BG	Bulgaria
 BI	Burundi
 BJ	Benin
-BN	Brunei Darussalam
-BO	Plurinational State of Bolivia
+BN	Brunei
+BO	Bolivia
 BR	Brazil
 BT	Bhutan
 BW	Botswana
@@ -74,7 +74,7 @@ IE	Ireland
 IL	Israel
 IN	India
 IQ	Iraq
-IR	Islamic Republic of Iran
+IR	Iran
 IS	Iceland
 IT	Italy
 JM	Jamaica
@@ -83,11 +83,11 @@ JP	Japan
 KE	Kenya
 KG	Kyrgyzstan
 KH	Cambodia
-KP	Democratic People's Republic of Korea
-KR	Republic of Korea
+KP	Korea, North
+KR	Korea, South
 KW	Kuwait
 KZ	Kazakhstan
-LA	Lao People's Democratic Republic
+LA	Laos
 LB	Lebanon
 LK	Sri Lanka
 LR	Liberia
@@ -95,11 +95,11 @@ LS	Lesotho
 LT	Lithuania
 LU	Luxembourg
 LV	Latvia
-LY	Libyan Arab Jamahiriya
+LY	Libya
 MA	Morocco
-MD	Republic of Moldova
+MD	Moldova
 MG	Madagascar
-MK	The Former Yugoslav Republic of Macedonia
+MK	Macedonia
 ML	Mali
 MM	Myanmar
 MN	Mongolia
@@ -131,7 +131,7 @@ PY	Paraguay
 QA	Qatar
 RO	Romania
 RS	Serbia
-RU	Russian Federation
+RU	Russia
 RW	Rwanda
 SA	Saudi Arabia
 SB	Solomon Islands
@@ -146,7 +146,7 @@ SN	Senegal
 SO	Somalia
 SR	Suriname
 SV	El Salvador
-SY	Syrian Arab Republic
+SY	Syria
 SZ	Swaziland
 TD	Chad
 TG	Togo
@@ -156,14 +156,14 @@ TL	Timor-Leste
 TM	Turkmenistan
 TN	Tunisia
 TR	Turkey
-TW	Province of China Taiwan
+TW	Taiwan
 TZ	Tanzania
 UA	Ukraine
 UG	Uganda
-US	United States
+US	USA
 UY	Uruguay
 UZ	Uzbekistan
-VE	Bolivarian Republic of Venezuela
+VE	Venezuela
 VN	Viet Nam
 VU	Vanuatu
 XK	Kosovo
