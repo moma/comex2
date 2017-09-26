@@ -22,11 +22,9 @@ from json      import loads
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db
-    from services.text.utils import CountryConverter
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db
-    from text.utils     import CountryConverter
 
 
 # col are for str stats api
@@ -976,12 +974,6 @@ class BipartiteExtractor:
 
 
     def buildJSON(self,graph,coordsRAW=None):
-
-        inst = CountryConverter("","","","")
-        ISO=inst.getCountries("services/text/countries_ISO3166.txt")
-        Alternatives=inst.getCountries("services/text/countries_alternatives.txt")
-        inst.createInvertedDicts(ISO,Alternatives)
-
         nodesA=0
         nodesB=0
         edgesA=0

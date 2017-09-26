@@ -274,8 +274,6 @@ if __name__ == "__main__":
         print("\t".join(clean_fields))
 
 
-
-
 # init a country normalization instance
 cc = CountryConverter()
 iso = cc.getCountries("services/text/countries_ISO3166.txt")
