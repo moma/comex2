@@ -42,6 +42,7 @@ CONFIGMENU = [
             {"sec": 'backends',   "var":'SQL_PORT',     "def": '3306'       },
             {"sec": 'backends',   "var":'DOORS_HOST',   "def": '0.0.0.0'    },
             {"sec": 'backends',   "var":'DOORS_PORT',   "def": '443'        },
+            {"sec": 'backends',   "var":'DOORS_NOSSL',  "def": False        },
 
             # data processing
             {"sec": 'content',    "var":'HAPAX_THRESHOLD',   "def": '1 '    }
@@ -49,6 +50,7 @@ CONFIGMENU = [
 
 
 IMAGE_SAVING_POINT = ['data', 'shared_user_img']
+BLOB_SAVING_POINT = ['data', 'shared_user_files']
 
 def home_path():
     """
@@ -214,6 +216,8 @@ def mlog(loglvl, *args):
     """
     levels = {"DEBUGSQL":-1, "DEBUG":0, "INFO":1, "WARNING":2, "ERROR":3}
 
+    timestamp = datetime.now().isoformat()
+
     if 'LOG_FILE' in REALCONFIG:
         try:
             logfile = open(REALCONFIG["LOG_FILE"], "a")    # a <=> append
@@ -223,16 +227,16 @@ def mlog(loglvl, *args):
 
         if loglvl in levels:
             if levels[loglvl] >= levels[REALCONFIG["LOG_LEVEL"]]:
-                print(loglvl+':', *args, file=logfile)
+                print(loglvl+':'+timestamp+':', *args, file=logfile)
                 if REALCONFIG["LOG_TEE"]:
-                    print(loglvl+':', *args)
+                    print(loglvl+':'+timestamp+':', *args)
         if loglvl not in levels:
             first_arg = loglvl
             loglvl = "INFO"
             if levels[loglvl] >= levels[REALCONFIG["LOG_LEVEL"]]:
-                print(loglvl+':', first_arg, *args, file=logfile)
+                print(loglvl+':'+timestamp+':', first_arg, *args, file=logfile)
                 if REALCONFIG["LOG_TEE"]:
-                    print(loglvl+':', first_arg, *args)
+                    print(loglvl+':'+timestamp+':', first_arg, *args)
 
         logfile.close()
     else:
@@ -251,27 +255,43 @@ def format_err(err):
 
 from uuid   import uuid4
 from imghdr import what   # diagnoses filetype and returns ext
-def pic_blob_to_filename(pic_blob):
+def save_blob_and_get_filename(blob, blobtype):
     """
-    Saves a pic blob, returns the relative path
+    Saves a blob, returns the relative path
 
-    Input pic_blob: werkzeug.datastructures.FileStorage
+    Input blob: werkzeug.datastructures.FileStorage
 
-    exemple result:
-        output "12345.png"
-        + saved in /data/shared_user_img/12345.png
+    usage:
+      - for any binary file, the blobtype argument will become the extension
+        new_fname = tools.save_blob_and_get_filename(request.files['some_pdf'], "pdf")
+        exemple result:
+            output "ABCDEF.pdf"
+            + saved in /data/shared_user_files/ABCDEF.pdf
+
+      - for a picture, you should use blobtype 'pic':
+        (saving path will be different and ext will be guessed by imghdr.what)
+        new_fname = tools.save_blob_and_get_filename(request.files['pic_file'], "pic")
+        exemple result:
+            output "12345.png"
+            + saved in /data/shared_user_img/12345.png
     """
-    # our path starts with a working copy of the saving point
-    path_elts=list(IMAGE_SAVING_POINT)
-
     # random 32 hex chars
     filename = uuid4().hex
-    fileext = what(pic_blob.stream)
+
+    if blobtype == "pic":
+        # our path starts with a working copy of the saving point
+        path_elts=list(IMAGE_SAVING_POINT)
+        # for pics, the filext is guessed
+        fileext = what(blob.stream)
+    else:
+        path_elts=list(BLOB_SAVING_POINT)
+        fileext = blobtype
+
     fbasename = str(filename)+'.'+str(fileext)
     path_elts.append(fbasename)
-    new_img_relpath = path.join(*path_elts)
+    new_blob_relpath = path.join(*path_elts)
     # save
-    pic_blob.save(new_img_relpath)
+    blob.save(new_blob_relpath)
     # filename
     return fbasename
 

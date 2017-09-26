@@ -168,7 +168,7 @@ foreach ($scholars as $scholar) {
         $content .= '<div class="span3" align="left">';
 
         $content .= '  <div class="keywords-of-scholar">
-                       <i class="icon-tags"></i> ' . clean_exp($scholar['keywords']). '
+                       <i class="icon-tags"></i> ' . clean_exp(split_join_keywords_for_html($scholar['keywords'])). '
                        </div>';
 
         $content .= "\n";

@@ -294,10 +294,21 @@
                           type="text" class="form-control autocomp" placeholder="Add a keyword here"
                           value="{{ current_user.info.keywords }}">
                  </div>
-                 <p class="legend">Please enter at least 5 keywords (press TAB or ENTER after each)</p>
+                 <p class="legend">Please enter at least 3 keywords (press TAB or ENTER after each)</p>
                </div>
 
-               <h3 class="formcat"> About your future activities </h3>
+               <h3 class="formcat"> About your activities </h3>
+
+               <div class="question">
+                 <p class="legend">Hashtags for community interest groups (seminars, mailing lists, events...)</p>
+                 <div class="input-group tagbox-container">
+                   <label for="hashtags" class="smlabel input-group-addon tagbox-label">Interest groups</label>
+                   <input id="hashtags" name="hashtags" maxlength="350"
+                          type="text" class="form-control" placeholder="ex: #residentISC, #gis, #bigdata, #CCS17, #scala, #python, #ecmlpkdd2018"
+                          value="{{ current_user.info.hashtags }}">
+                 </div>
+                 <p class="legend">(press TAB or ENTER after each)</p>
+               </div>
 
                <div class="question">
                  <div class="input-group">
@@ -320,17 +331,6 @@
                    </div>
                    <p id="job_date_message" class="legend red" style="font-weight:bold"></p>
                  </div>
-               </div>
-
-               <div class="question">
-                 <p class="legend">Hashtags for community interest groups (seminars, mailing lists, events...)</p>
-                 <div class="input-group tagbox-container">
-                   <label for="hashtags" class="smlabel input-group-addon tagbox-label">Interest groups</label>
-                   <input id="hashtags" name="hashtags" maxlength="350"
-                          type="text" class="form-control" placeholder="ex: #residentISC, #gis, #bigdata, #CCS17, #scala, #python, #ecmlpkdd2018"
-                          value="{{ current_user.info.hashtags }}">
-                 </div>
-                 <p class="legend">(press TAB or ENTER after each)</p>
                </div>
 
             </div> <!-- /panel-body -->
@@ -621,13 +621,6 @@
 <!-- ======================================================================= -->
 
 {% block last_imports %}
-    <script type="text/javascript">
-        //               ---------
-        // a copy of the user info in json
-        //               ---------
-        var uinfo = {{current_user.json_info|safe}};
-    </script>
-
     <!--  our js  -->
     <script src="{{ url_for('static', filename='js/comex_page_profile_controllers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/comex_user_autocompletes.js') }}"></script>

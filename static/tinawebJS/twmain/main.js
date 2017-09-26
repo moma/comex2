@@ -3,12 +3,8 @@
 //  ======= [ main TW properties initialization ] ======== //
 
 
-TW.File = ""            // remember the currently opened file
-
-// used iff servermenu
-TW.gmenuPaths={};       // map [graphname => graphsource] for file selectors
-TW.gmenuInfos={};       // map [graphsource => { node0/1 categories
-                        //                      + relatedDocs db fields names}]
+TW.File = ""              // remember the currently opened file
+TW.Project = ""           // remember the project of currently opened file
 
 // a system state is the summary of tina situation
 TW.initialSystemState = {
@@ -26,6 +22,10 @@ TW.states = [TW.initialSystemState]
 
 // SystemState() returns the current situation
 TW.SystemState = function() { return TW.states.slice(-1)[0] }
+
+// options for facetting the data attributes
+// (project conf values will override these global conf defaults)
+TW.facetOptions = TW.conf.defaultFacetOptions
 
 // gracefully degrade our most costly settings if the user agent is mobile
 if (/mobile/i.test(navigator.userAgent))   mobileAdaptConf()
@@ -47,53 +47,48 @@ TW.instance.init()
 TW.instance.initGUIListeners();
 TW.instance.initSearchListeners();
 
+TW.currentRelDocsDBs = []  // to make available dbconf to topPapers
+
 // show the custom name + home link of the app
 writeBrand(TW.conf.branding, TW.conf.brandingLink)
 
 // choosing the input
 // -------------------
 // type of input
-var sourcemode = isUndef(getUrlParam.sourcemode) ? TW.conf.sourcemode : getUrlParam.sourcemode
+TW.sourcemode = isUndef(getUrlParam.sourcemode) ? TW.conf.sourcemode : getUrlParam.sourcemode
 
 // if page is being run locally ==> only possible source shall be via file input
-if (window.location.protocol == 'file:' || sourcemode == 'localfile') {
+if (window.location.protocol == 'file:' || TW.sourcemode == 'localfile') {
 
   let inputDiv = document.getElementById('localInput')
   inputDiv.style.display = 'block'
 
+  // user can open a gexf or json from his fs
+  var graphFileInput = createFilechooserEl()
+  inputDiv.appendChild(graphFileInput)
+
   if (window.location.protocol == 'file:') {
     var remark = document.createElement("p")
-    remark.innerHTML = `You're running project explorer as a local html file (no syncing).`
+    remark.innerHTML = `<h5>/!\\ Running project explorer as a local html file /!\\<br>(<a id="localfile-warning" data-toggle="popover" data-content="<p>In localfile mode, it is impossible to load some interface elements: <ul><li>modules (histograms, suggestions)</li><li>related docs search engine</li><li>any custom project conf</li></ul></p><p><b>You can still explore your graph and its data attributes with our default settings</b>.</p><p>For more information, check out the <a href=https://github.com/moma/ProjectExplorer/blob/master/README.md#usage-on-a-web-server target=_blank>documentation</a>.</p>">no syncing</a>)</h5>`
     remark.classList.add('comment')
     remark.classList.add('centered')
     inputDiv.appendChild(remark)
     inputDiv.style.height = "auto";
     inputDiv.style.padding = "10px";
-  }
 
-  // user can open a gexf or json from his fs
-  var graphFileInput = createFilechooserEl()
-  inputDiv.appendChild(graphFileInput)
+    new Popover(
+      document.getElementById('localfile-warning'),
+      {"placement": 'left', "delay": 1000}
+    )
+  }
 }
 // traditional cases: remote read from API or prepared server-side file
 else {
-  try {
-    // we'll first retrieve the menu of available sources in db.json,
-    // then get the real data in a second ajax via API or server file
-    [TW.gmenuPaths, TW.gmenuInfos, TW.File] = readMenu(TW.conf.paths.sourceMenu)
-
-    //     NB: this menu used to be a file list for only one sourcemode
-    //         but now also contains settings for nodetypes and for
-    //         companion APIs (reldocs searches)
-    //      => we read it for all cases now
-  }
-  catch(e) {
-    console.error(`Couldn't read ${TW.conf.paths.sourceMenu}, trying to start with settings_explorer defaults.`)
-  }
-
-  // NB it will use global urlParams and TW.settings to choose the source
-  var [inFormat, inData, inConfKey, mapLabel] = syncRemoteGraphData()
-  mainStartGraph(inFormat, inData, inConfKey, TW.instance)
+  // NB it will
+  //     - use global urlParams, TW.conf and possibly server_menu.json
+  //     - choose the source and format
+  var [inFormat, inData, mapLabel] = syncRemoteGraphData()
+  mainStartGraph(inFormat, inData, TW.instance)
   writeLabel(mapLabel)
 }
 
@@ -105,18 +100,16 @@ else {
 function syncRemoteGraphData () {
   var inFormat;      // = { db|api.json , somefile.json|gexf }
   var inData;        // = {nodes: [....], edges: [....], cats:...}
-  var inConfKey;     // = source name for entry in db.json
 
   var mapLabel;      // user displayed label for this input dataset
 
   // case (1) read from remote DB via API bridge fetching
   // ex: /services/api/graph?q=filters...
-  if (sourcemode == "api") {
+  if (TW.sourcemode == "api") {
     console.log("input case: api, using TW.conf.sourceAPI")
 
     // the only API format, cf. inData
     inFormat = 'json'
-    inConfKey = 'graphapi/default'
 
     // TODO-rename: s/nodeidparam/srcparams
     var sourceinfo = getUrlParam.nodeidparam
@@ -218,53 +211,75 @@ function syncRemoteGraphData () {
   }
 
 
-  // sourcemode == "serverfile" or "servermenu"
+  // TW.sourcemode == "serverfile" or "servermenu"
   // cases            (2)       and     (3) : read a file from server
   else {
-    console.log("input case: server-side file, using TW.conf.paths.sourceMenu or getUrlParam.file or TW.conf.paths.sourceFile")
+    console.log("input case: server-side file, using TW.conf.paths.sourceMenu and/or TW.File")
 
-    // -> @mode is servermenu, files are listed in db.json file (preRes ajax)
-    //      --> if @file also in url, choose the db.json one matching
-    //      --> otherwise, choose the "first_file" from db.json list
 
-    // -> @mode is serverfile
-    //      -> gexf file path is in the urlparam @file
-    //      -> gexf file path is already specified in TW.conf.paths.sourceFile
+    // both modes (2) and (3) need a direct file
 
-    // menufile case : a list of source files in ./db.json
-    if (sourcemode == 'servermenu') {
-        console.log("using entire FILEMENU TW.conf.paths.sourceMenu")
-
-        // chooser menu
-        var files_selector = '<select onchange="jsActionOnGexfSelector(this.value);">'
-        for (let shortname in TW.gmenuPaths) {
-          let fullPath = TW.gmenuPaths[shortname]
-          files_selector += '<option>'+shortname+'</option>'
-        }
-        files_selector += "</select>"
-        $("#network").html(files_selector)
-
-        // in this case we keep the TW.File that was already set from readMenu
-    }
-
-    // direct urlparam file case
-    else if( !isUndef(getUrlParam.file)  ) {
+    // a) file path is in the urlparam @file (overrides any defaults)
+    if( !isUndef(getUrlParam.file)  ) {
       TW.File = getUrlParam.file
     }
-    // direct file fallback case: specified file in settings_explorer
-    else if (TW.conf.paths.sourceFile && linkCheck(TW.conf.paths.sourceFile)) {
+    // b) default case: specified file path in settings_explorer
+    else if (TW.conf.paths.sourceFile) {
       console.log("no @file arg: trying TW.conf.sourceFile from settings")
       TW.File = TW.conf.paths.sourceFile;
     }
-    else {
-      console.error(`No specified input and neither db.json nor TW.conf.paths.sourceFile ${TW.conf.paths.sourceFile} are present`)
+
+
+    // 2) @mode is servermenu, files are listed in db.json file (preRes ajax)
+    //      --> if @file also in url, choose the db.json one matching
+    //      --> otherwise, choose the "first_file" from db.json list
+    // menufile case : a list of source files in ./db.json
+    if (TW.sourcemode == 'servermenu') {
+        console.log("== servermenu mode ==")
+        if (! linkCheck(TW.conf.paths.sourceMenu)) {
+          console.error(`servermenu mode: Couldn't read ${TW.conf.paths.sourceMenu}, referenced by TWConf.paths under sourceMenu... file is not accessible, trying to start with settings_explorer defaults.`)
+        }
+        else {
+          // we'll first retrieve the menu of available sources in server_menu.json,
+          // then get the real data in a second ajax via API or server file
+          let [gmenu, firstProject] = readMenu(TW.conf.paths.sourceMenu)
+
+          // if TW.File was not set we keep the first one from readMenu
+          if (!TW.File) {
+            TW.File = firstProject + "/" + gmenu[firstProject][0]
+          }
+
+          // chooser menu
+          var files_selector = '<select onchange="openGraph(this.options[this.selectedIndex].dataset.fullpath)">'
+          for (var projectPath in gmenu) {
+            for (var i in gmenu[projectPath]) {
+              let filePath = gmenu[projectPath][i]
+              let fullPath = projectPath+'/'+filePath
+              let shortname = graphPathToLabel(fullPath)
+              let preSelected = (fullPath == TW.File)
+              files_selector += `<option ${preSelected ? "selected":""} data-fullpath="${fullPath}">`+shortname+'</option>'
+            }
+          }
+          files_selector += "</select>"
+          $("#network").html(files_selector)
+        }
     }
 
+    // 3) @mode is serverfile a or b (default)
+    else if (TW.File) {
+      if (! linkCheck(TW.File)) {
+        console.error(`Specified file ${TW.File} is absent.`)
+      }
+    }
+    else {
+      console.error(`No specified input and no servermenu.`)
+    }
+
+    // finally: read the chosen file
     var finalRes = AjaxSync({ url: TW.File });
     inData = finalRes["data"]
     inFormat = finalRes["format"]
-    inConfKey = TW.File
-    mapLabel = TW.File
+    mapLabel = graphPathToLabel(TW.File)
 
     if (TW.conf.debug.logFetchers) {
       console.warn('@TW.File', finalRes["OK"], TW.File)
@@ -274,8 +289,7 @@ function syncRemoteGraphData () {
     }
   }
 
-  return [inFormat, inData, inConfKey, mapLabel]
-
+  return [inFormat, inData, mapLabel]
 }
 
 
@@ -293,9 +307,11 @@ function syncRemoteGraphData () {
 //  args:
 //     inFormat: 'json' or 'gexf'
 //     inData: source data as str
-//     inConfKey: optional entry in db.json to declare nodetypes and reldbs
 //     twInstance: a tinaweb object (gui, methods) to bind the graph to
-function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
+//
+// NB: function also uses TW.File to get the associated project dir and conf
+//                    and TW.conf for all global settings
+function mainStartGraph(inFormat, inData, twInstance) {
 
   // Graph-related vars
   // ------------------
@@ -304,7 +320,10 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
   TW.Edges = [];
   TW.ByType = {}          // node ids sorted by nodetype id   (0, 1)
   TW.Relations = {}       // edges sorted by source/target type id ("00", "11")
-  TW.Clusters = [];       // "by value" facet index built in parseCustom
+  TW.Facets = [];         // "by value" facet index built in parseCustom
+
+  TW.Project = null
+  TW.currentRelDocsDBs = {}
 
   TW.partialGraph = null  // will contain the sigma visible graph instance
 
@@ -318,15 +337,53 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
     alert("error on data load")
   }
   else {
-      // override default categories with the ones from db.json if present
-      let additionalConf = []
-      if (TW.gmenuInfos[inConfKey]) {
-        additionalConf = TW.gmenuInfos[inConfKey]
+      let optNodeTypes = null
+      let optRelDBs = null
+      let optProjectFacets = null
+
+      if (TW.sourcemode == "api") {
+        optNodeTypes = TW.conf.sourceAPI.nodetypes
+      }
+      else {
+        // we assume the filePath is of the form projectPath/sourceFile
+        // (NB these are server-side path so we got linux-style slashes)
+        let pathsplit = TW.File.match("^(.*)/([^/]+)$")
+        if (! pathsplit) {
+          console.warn (`couldn't make out project path from ${TW.File}:
+                         won't read project conf and will try using defaults`)
+        }
+        else {
+          let srcDirname = pathsplit[1] ;
+          let srcBasename = pathsplit[2] ;
+
+          // try and retrieve associated project_conf.json
+          [optNodeTypes, optRelDBs] = readProjectConf(srcDirname, srcBasename)
+
+          // export to globals for getTopPapers and makeRendererFromTemplate
+          if (optRelDBs) {
+            TW.currentRelDocsDBs = optRelDBs
+            TW.Project = srcDirname
+          }
+
+          // try and retrieve associated legends.json
+          optProjectFacets = readProjectFacetsConf(srcDirname, srcBasename)
+
+          // export to globals for facet options (merge with previous defaults)
+          if (optProjectFacets) {
+            TW.facetOptions = Object.assign(TW.facetOptions, optProjectFacets)
+          }
+        }
       }
 
+      if (TW.conf.debug.logSettings) {
+        console.log("READ project_conf.json nodetypes", optNodeTypes)
+        console.log("READ project_conf.json relatedDBs", optRelDBs)
+      }
+
+      // override default categories with project_conf.json if present
       // parse the data
       if (TW.conf.debug.logParsers)   console.log("parsing the data")
-      let start = new ParseCustom(  inFormat , inData, additionalConf );
+      let start = new ParseCustom(  inFormat , inData, optNodeTypes);
       let catsInfos = start.scanFile();
 
       TW.categories = catsInfos.categories
@@ -356,11 +413,14 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
 
       TW.ByType = dicts.byType  // useful for loops
 
+      // init the rendering flags (after we got types, before we first render)
+      TW.gui.handpickedcolorsReset(TW.categories)
+
       // in-place: pre-compute all color/unselected color/size properties
       prepareNodesRenderingProperties(TW.Nodes)
       prepareEdgesRenderingProperties(TW.Edges, TW.Nodes)
 
-      if (inData.clusters) TW.Clusters = inData.clusters
+      if (inData.clusters) TW.Facets = inData.clusters
 
       // main console info
       // ===================
@@ -386,8 +446,12 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
       TW.graphData = {nodes: [], edges: []}
       TW.graphData = sigma_utils.FillGraph( initialActivetypes , initialActivereltypes, TW.catDict  , TW.Nodes , TW.Edges , TW.graphData );
 
-      if (TW.graphData.nodes.length == 0) console.error("empty graph")
-      if (TW.graphData.edges.length == 0) console.error("no edges in graph")
+      if (TW.graphData.edges.length == 0) console.warn("no edges in graph")
+      if (TW.graphData.nodes.length == 0) {
+        console.error("empty graph")
+        alert("This query returned no nodes. The graph is empty")
+        return false
+      }
 
       // our final sigma params (cf github.com/jacomyal/sigma.js/wiki/Settings)
       TW.customSettings = Object.assign(
@@ -444,7 +508,7 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
       });
       // ==================================================================
 
-      // a new state
+      // a new GUI state (updates sliders and menus)
       TW.pushGUIState({
         'activetypes': initialActivetypes,
         'activereltypes': initialActivereltypes
@@ -461,12 +525,18 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
       // NB : camera positions are fix if the node is fixed => they only depend on layout
       //      renderer position depend on viewpoint/zoom (like ~ html absolute positions of the node in the div)
 
-      // now that we have a sigma instance let's adapt the environment and bind our click handlers to it
+      // prepare the colors/clusters menu until next changeType/changeLevel
+      // (and update TW.Facets)
+      updateDynamicFacets()
+      changeGraphAppearanceByFacets()
+
+      // now that we have a sigma instance and TW.Facets
+      // let's adapt the environment and bind our click handlers to it
       twInstance.initSigmaListeners(
         TW.partialGraph,
         initialActivetypes,      // to init node sliders and .class gui elements
         initialActivereltypes,   // to init edge sliders
-        inConfKey                // to init relatedDocs
+        optRelDBs                // optional conf to init relatedDocs
       )
 
       // set the initial color
@@ -521,13 +591,6 @@ function mainStartGraph(inFormat, inData, inConfKey, twInstance) {
 
       // will run fa2 if enough nodes and TW.conf.fa2Enabled == true
       sigma_utils.smartForceAtlas()
-
-      // should prepare the colors/clusters menu once and for all
-      // (previously, needed to be called after changeType/changeLevel)
-      changeGraphAppearanceByFacets()
-
-      // set the default legend
-      set_ClustersLegend ( "clust_default" )
   }
 
 }

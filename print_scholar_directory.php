@@ -4,7 +4,6 @@ include ("php_library/js_elements.php");
 include ("php_library/parametres.php");
 include ("php_library/normalize.php");
 include ("php_library/baselayout_head_template.php");
-include ("php_library/baselayout_topbar_template.php");
 include ("php_library/baselayout_tail_template.php");
 
 $meta = $html_head_inner;
@@ -111,7 +110,7 @@ HERE_QUERY;
         // retrieved from secondary table and GROUP_CONCATenated
         $info['keywords_ids'] = explode(',', $row['keywords_ids']);
         $info['nb_keywords'] = $row['keywords_nb'];
-        $info['keywords'] = split_join_keywords_for_html($row['keywords_list']);
+        $info['keywords'] = $row['keywords_list'];
 
         // $info['status'] = $row['status'];
         $info['record_status'] = $row['record_status'];  // TODO use this one
@@ -274,10 +273,17 @@ Contributions and ideas are welcome to improve this directory.
     </div>
     <div class="row chart-row">
         <div class="col-lg-12 col-md-12 col-sm-12">
-            <!-- conditional display (idem) -->
-            <div id="labs_div" class="directory-piechart"></div>
+          <!-- new: tagcloud -->
+          <h3 class=centered><i class="icon-tags"></i>&nbsp;Main keywords for this listing</h3>
+          <div id="kw_tagcloud_div"></div>
         </div>
+        <!--
+        <div class="col-lg-6 col-md-6 col-sm-12">
+          <div id="labs_div" class="directory-piechart"></div>
+        </div>
+        -->
     </div>
+    <div class="row smallspacerrow">&nbsp;</div>
 </div>
 
 <br/>
@@ -303,8 +309,7 @@ if (count($scholars)==0){
     echo '</head>';
     echo '<body>';
     echo $doors_connect_params;
-    echo $topbar;
-    echo '<div class="container full-directory">';
+    echo '<div class="page container full-directory">';
     // echo '<div class="hero-unit">';
     echo $header;
     echo '';
@@ -313,6 +318,7 @@ if (count($scholars)==0){
     // echo '</div>';
     echo '</div>';
     echo $html_tail_imports;
+    echo tagcloud_snippet($kw_counts_as_sorted_couples_array);
     echo $rm_ads_snippet;
     echo '</body>
     </html>';

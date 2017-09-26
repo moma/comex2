@@ -1,5 +1,8 @@
 """
-DB data querying (mostly aggs + subset selections orginally made by Samuel)
+DB data querying:
+  - aggregations on almost any DB fields via FIELDS_FRONTEND_TO_SQL
+  - BipartiteExtractor subset selections originally made by Samuel
+  - soon multimatch subset selections
 """
 __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
@@ -19,13 +22,11 @@ from json      import loads
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db
-    from services.text.utils import CountryConverter
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                     DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db
-    from text.utils     import CountryConverter
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                DBHashtags, DBCountries
 
@@ -62,11 +63,16 @@ FIELDS_FRONTEND_TO_SQL = {
                       'class': "lab",               #  <= idem
                       'type': "LIKE_relation",
                       'grouped': "orgs_list"},
-    # TODO use
-    "cities":        {'col':"orgs.locname",
+
+    # (POSS: locs.locname to factorize orgs.locname, jobs.locname at write time)
+    "cities":       {'col':"orgs.locname",
                       'type': "LIKE_relation",
                       'grouped': "locnames_list",
                       'class': "*"},
+
+    "jobcities":    {'col':"jobs.locname",
+                      'type': "LIKE_relation",
+                      'grouped': "locnames_list"},
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
@@ -398,6 +404,17 @@ def get_field_aggs(a_field,
                 ORDER BY occs DESC
             """ % {'col': sql_col, 'post_filter': post_where}
 
+        elif sql_tab == 'jobs':
+            stmt = """
+                SELECT x, n FROM (
+                    SELECT %(col)s AS x, COUNT(*) AS n
+                    FROM jobs
+                    GROUP BY %(col)s
+                ) AS allcounts
+                %(post_filter)s
+                ORDER BY n DESC
+            """ % {'col': sql_col, 'post_filter': post_where}
+
         mlog("DEBUGSQL", "get_field_aggs STATEMENT:\n-- SQL\n%s\n-- /SQL" % stmt)
 
         # do it
@@ -476,6 +493,9 @@ class BipartiteExtractor:
                                        VV
                                      neighboors
     """
+
+    # class var: last terms_colors max
+    terms_color_max = 1
 
     def __init__(self,dbhost):
         self.connection=connect(
@@ -588,7 +608,7 @@ class BipartiteExtractor:
                     for row in results:
                         # mlog("DEBUG", "the row:", row)
                         node_uid = row['uid']
-                        node_shortid = "D::"+row['initials']+"/%05i"%int(node_uid);
+                        node_shortid = "S::"+row['initials']+"/%05i"%int(node_uid);
 
                         #    old way: candidate = ( integerID , realSize , #keywords )
                         #    new way: scholars_array[uid] = ( ID , occ size )
@@ -789,13 +809,28 @@ class BipartiteExtractor:
                     ) AS labs_list
                 FROM (
                     SELECT
-                        scholars.*,
+                        scholars_and_jobs.*,
                         GROUP_CONCAT(
                           JSON_ARRAY(insts.name, insts.acro, insts.locname)
                         ) AS insts_list
                     FROM
-                        scholars
-                        LEFT JOIN sch_org ON luid = sch_org.uid
+                        (
+                        SELECT scholars.*,
+                               IFNULL(jobs_count.nb_proposed_jobs, 0) AS nb_proposed_jobs,
+                               jobs_count.job_ids,
+                               jobs_count.job_titles
+                        FROM scholars
+                        LEFT JOIN (
+                            SELECT uid,
+                            count(jobid) AS nb_proposed_jobs,
+                            GROUP_CONCAT(jobid) AS job_ids,
+                            GROUP_CONCAT(JSON_QUOTE(jtitle)) AS job_titles
+                            FROM jobs
+                            WHERE job_valid_date >= CURDATE()
+                            GROUP BY uid
+                            ) AS jobs_count ON jobs_count.uid = scholars.luid
+                        ) AS scholars_and_jobs
+                        LEFT JOIN sch_org ON scholars_and_jobs.luid = sch_org.uid
                         LEFT JOIN (
                             SELECT * FROM orgs WHERE class = 'inst'
                         ) AS insts ON sch_org.orgid = insts.orgid
@@ -821,6 +856,8 @@ class BipartiteExtractor:
         # debug
         mlog("DEBUG", "db.extract: sql3="+sql3)
 
+        ide = None
+
         try:
             self.cursor.execute(sql3)
 
@@ -828,7 +865,7 @@ class BipartiteExtractor:
                 info = {};
 
                 # semantic short ID
-                # ex "D::JFK/00001"
+                # ex "S::JFK/00001"
 
                 if 'pic_fname' in res3 and res3['pic_fname']:
                     pic_src = '/data/shared_user_img/'+res3['pic_fname']
@@ -848,11 +885,15 @@ class BipartiteExtractor:
                         lambda arr: Org(arr, org_class='insts'),
                         loads('['+res3['insts_list']+']')
                 ))
+
+                # POSSIBLE: in the future (SQL VERSION >= 8) USE JSON_ARRAYAGG
+                # https://dev.mysql.com/doc/refman/8.0/en/group-by-functions.html#function_json-arrayagg
+
                 # mlog("DEBUGSQL", "res main lab:", labs[0].label)
                 # mlog("DEBUGSQL", "res main inst:", insts[0].label)
 
                 # all detailed node data
-                ide="D::"+res3['initials']+("/%05i"%int(res3['luid']));
+                ide="S::"+res3['initials']+("/%05i"%int(res3['luid']));
                 info['id'] = ide;
                 info['luid'] = res3['luid'];
                 info['doors_uid'] = res3['doors_uid'];
@@ -869,6 +910,9 @@ class BipartiteExtractor:
                 info['home_url'] = res3['home_url'];
                 info['team_lab'] = labs[0].label;
                 info['org'] = insts[0].label;
+                info['nb_proposed_jobs'] = res3['nb_proposed_jobs'];
+                info['job_ids'] = res3['job_ids'].split(',') if res3['job_ids'] else [];
+                info['job_titles'] = loads('['+res3['job_titles']+']') if res3['job_titles'] else [];
 
                 if len(labs) > 1:
                     info['lab2'] = labs[1].label
@@ -884,8 +928,9 @@ class BipartiteExtractor:
 
         except Exception as error:
             mlog("ERROR", "=====  extract ERROR ====")
-            mlog("ERROR", "extract on scholar no %s" % str(scholar_id))
-            if sql3 != None:
+            if ide:
+                mlog("ERROR", "extract on scholar no %s" % str(ide))
+            elif sql3 != None:
                 mlog("ERROR", "extract attempted SQL query:\t"+sql3)
             mlog("ERROR", repr(error) + "("+error.__doc__+")")
             mlog("ERROR", "stack (\n\t"+"\t".join(format_tb(error.__traceback__))+"\n)")
@@ -947,13 +992,14 @@ class BipartiteExtractor:
         # print(termsMatrix)
         # ------- /debug ------------------------------
 
-        # TODO restore job snippet 1
-        # sql='select login from jobs';
-        # for res in self.cursor.execute(sql):
-        #     if res['login'].strip() in self.scholars_colors:
-        #         self.scholars_colors[res['login'].strip()]+=1;
-
-        query = "SELECT kwstr,kwid,occs FROM keywords WHERE kwid IN "
+        query = """SELECT kwstr,keywords.kwid,occs,nbjobs FROM keywords
+                   LEFT JOIN (
+                        SELECT kwid, count(kwid) AS nbjobs
+                        FROM job_kw
+                        GROUP BY kwid
+                        ) AS jobcounts
+                   ON jobcounts.kwid = keywords.kwid
+                   WHERE keywords.kwid IN """
         conditions = ' (' + ','.join(sorted(list(termsMatrix))) + ')'
 
         # debug
@@ -970,26 +1016,33 @@ class BipartiteExtractor:
             info['kwid'] = idT
             info['occurrences'] = res['occs']
             info['kwstr'] = res['kwstr']
+
+            # job counter: how many times a term in cited in job ads
+            if res['nbjobs']:
+                info['nbjobs'] = int(res['nbjobs'])
+                # mlog("DEBUG", "nbjobs", info['kwstr'], int(res['nbjobs']))
+            else:
+                info['nbjobs'] = 0
+
+            # save
             self.terms_dict[str(idT)] = info
-        count=1
 
+        # set the colors factor and max
+        # will affect red and green level of default color (cf. colorRed, colorGreen)
         for term in self.terms_dict:
-            self.terms_colors[term]=0
+            self.terms_colors[term] = self.terms_dict[term]['nbjobs']
+            # if (self.terms_colors[term] != 0):
+                # mlog("DEBUG", "self.terms_colors[term]", term, self.terms_colors[term])
+            if self.terms_colors[term] > BipartiteExtractor.terms_color_max:
+                BipartiteExtractor.terms_color_max = self.terms_colors[term]
 
-        # TODO restore job snippet 2
-        # sql='select term_id from jobs2terms'
-        # for row in self.cursor.execute(sql):
-        #     if row['term_id'] in self.terms_colors:
-        #         self.terms_colors[row['term_id']]+=1
-
-        cont=0
         for term_id in self.terms_dict:
             sql="SELECT uid, initials FROM sch_kw JOIN scholars ON uid=luid WHERE kwid=%s" % term_id
             term_scholars=[]
             self.cursor.execute(sql)
             rows = self.cursor.fetchall()
             for row in rows:
-                term_scholars.append("D::"+row['initials']+"/%05i"%int(row['uid']))
+                term_scholars.append("S::"+row['initials']+"/%05i"%int(row['uid']))
 
             for k in range(len(term_scholars)):
                 if term_scholars[k] in scholarsMatrix:
@@ -1014,8 +1067,8 @@ class BipartiteExtractor:
                                 scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
 
                                 # eg matrix entry for scholar k
-                                # 'D::SK/04047': {'occ': 1, 'cooc': {'D::SL/02223': 1}}
-            nodeId = "N::"+str(term)
+                                # 'S::SK/04047': {'occ': 1, 'cooc': {'S::SL/02223': 1}}
+            nodeId = "K::"+str(term)
             self.Graph.add_node(nodeId)
 
         for scholar in self.scholars:
@@ -1032,7 +1085,7 @@ class BipartiteExtractor:
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
-                            target="N::"+str(keyword)
+                            target="K::"+str(keyword)
 
                             # term--scholar weight: constant / log(1+total keywords of scholar)
                             weight = bipaW / log1p(scholarsMatrix[scholar]['occ'])
@@ -1044,19 +1097,19 @@ class BipartiteExtractor:
                 neighbors = termsMatrix[str(nodeId1)]['cooc'];
                 for i, neigh in enumerate(neighbors):
                     if neigh != term:
-                        source="N::"+term
-                        target="N::"+neigh
+                        source="K::"+term
+                        target="K::"+neigh
 
                         # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
                         weight=neighbors[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
 
                         # detailed debug
-                        if neighbors[neigh] != 1:
-                            mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
-                            mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
-                            mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
-                            mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
-                            mlog("DEBUG", "edge w", weight)
+                        # if neighbors[neigh] != 1:
+                        #     mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
+                        #     mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
+                        #     mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
+                        #     mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
+                        #     mlog("DEBUG", "edge w", weight)
 
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
 
@@ -1066,7 +1119,7 @@ class BipartiteExtractor:
 
                 # weighted list of other scholars
                 neighbors=scholarsMatrix[str(nodeId1)]['cooc'];
-                # eg {'D::KW/03291': 1, 'D::WTB/04144': 3}
+                # eg {'S::KW/03291': 1, 'S::WTB/04144': 3}
 
 
                 for i, neigh in enumerate(neighbors):
@@ -1085,14 +1138,14 @@ class BipartiteExtractor:
         # print(scholarsMatrix)
 
         # exemple:
-        # {'D::PFC/00002': {'occ': 6,
-        #                   'cooc': {'D::PFC/00002': 6,
-        #                            'D::fl/00009': 1,
-        #                            'D::DC/00010': 1}
+        # {'S::PFC/00002': {'occ': 6,
+        #                   'cooc': {'S::PFC/00002': 6,
+        #                            'S::fl/00009': 1,
+        #                            'S::DC/00010': 1}
         #                   },
-        #   'D::fl/00009': {'occ': 9,
-        #                   'cooc': {'D::fl/00009': 9,
-        #                            'D::PFC/00002': 1}
+        #   'S::fl/00009': {'occ': 9,
+        #                   'cooc': {'S::fl/00009': 9,
+        #                            'S::PFC/00002': 1}
         #                  }
         # ------- /debug ------------------------------
 
@@ -1104,12 +1157,6 @@ class BipartiteExtractor:
 
 
     def buildJSON(self,graph,coordsRAW=None):
-
-        inst = CountryConverter("","","","")
-        ISO=inst.getCountries("services/text/countries_ISO3166.txt")
-        Alternatives=inst.getCountries("services/text/countries_alternatives.txt")
-        inst.createInvertedDicts(ISO,Alternatives)
-
         nodesA=0
         nodesB=0
         edgesA=0
@@ -1129,29 +1176,38 @@ class BipartiteExtractor:
             #mlog("DEBUG", coords)
 
         for idNode in graph.nodes_iter():
-            if idNode[0]=="N":#If it is NGram
-
-                # debug
-                # mlog("DEBUG", "terms idNode:", idNode)
+            if idNode[0]=="K": #If it is Keyword
 
                 kwid=idNode.split("::")[1]
                 try:
                     nodeLabel= self.terms_dict[kwid]['kwstr'].replace("&"," and ")
-                    colorg=max(0,180-(100*self.terms_colors[kwid]))
+                    ratio = self.terms_colors[kwid]/BipartiteExtractor.terms_color_max
+                    colorRed=int(180+75*ratio)
+                    colorGreen=int(180-140*ratio)
 
                     term_occ = self.terms_dict[kwid]['occurrences']
+
+                    # debug
+                    # mlog("DEBUG", "coloring terms idNode:", colorRed, colorGreen)
 
                 except KeyError:
                     mlog("WARNING", "couldn't find label and meta for term " + kwid)
                     nodeLabel = "UNKNOWN"
-                    colorg = 0
+                    colorRed = 180
+                    colorGreen = 180
                     term_occ = 1
 
                 node = {}
-                node["type"] = "NGram"
+                node["type"] = "Keywords"
                 node["label"] = nodeLabel
-                node["color"] = "19,"+str(colorg)+",244"
+                node["color"] = str(colorRed)+","+str(colorGreen)+",25"
                 node["term_occ"] = term_occ
+
+                # new tina: any parsable attributes directly become facets
+                node["attributes"] = {
+                    "total_occurrences": term_occ,
+                    "nbjobs": self.terms_dict[kwid]['nbjobs'],
+                }
                 if coordsRAW: node["x"] = str(coords[idNode]['x'])
                 if coordsRAW: node["y"] = str(coords[idNode]['y'])
 
@@ -1161,15 +1217,17 @@ class BipartiteExtractor:
 
                 nodesB+=1
 
-            if idNode[0]=='D':#If it is Document (or scholar)
+            # adding here node properties
+            if idNode[0]=='S':#If it is scholar
 
                 nodeLabel= self.scholars[idNode]['hon_title']+" "+self.scholars[idNode]['first_name']+" "+self.scholars[idNode]['mid_initial']+" "+self.scholars[idNode]['last_name']
                 color=""
                 if self.scholars_colors[self.scholars[idNode]['email']]==1:
                     color='243,183,19'
-
                 elif self.scholars[idNode]['job_looking']:
-                    color = '139,28,28'
+                    color = '43,44,141'
+                elif self.scholars[idNode]['nb_proposed_jobs'] > 0:
+                    color = '41,189,243'
                 else:
                     color = '78,193,127'
 
@@ -1238,10 +1296,27 @@ class BipartiteExtractor:
                         content += '[ <a href=' +self.scholars[idNode]['home_url'].replace("&"," and ")+ ' target=blank > View homepage </a >]<br/>'
 
 
-                content += '</p></div>'
+                content += '</p>'
+
+                # also add pointers to jobs
+                if self.scholars[idNode]['nb_proposed_jobs'] > 0:
+                    # mlog("DEBUG", "adding jobs for", idNode, "nb_proposed_jobs", self.scholars[idNode]['nb_proposed_jobs'])
+                    content += """
+                        <hr>
+                        <div class=information-others>
+                        <h5> Related jobs </h5>
+                        <ul class=infoitems>
+                        """
+                    for j, jobid in enumerate(self.scholars[idNode]['job_ids']):
+                        content += "<li>"
+                        content += "<a href=\"/services/job/"+jobid+"\" target=\"_blank\">"+ self.scholars[idNode]['job_titles'][j]
+                        content += "</a></li>"
+                    content += '</ul></div>'
+
+                content += '</div>'
 
                 node = {}
-                node["type"] = "Document"
+                node["type"] = "Scholars"
                 node["label"] = nodeLabel
                 node["color"] = color
 
@@ -1315,12 +1390,12 @@ class BipartiteExtractor:
             #if e%1000 == 0:
             #    mlog("INFO", e)
 #    for n in GG.nodes_iter():
-#        if nodes[n]["type"]=="NGram":
+#        if nodes[n]["type"]=="Keywords":
 #            concepto = nodes[n]["label"]
 #            nodes2 = []
 #            neigh = GG.neighbors(n)
 #            for i in neigh:
-#                if nodes[i]["type"]=="NGram":
+#                if nodes[i]["type"]=="Keywords":
 #                    nodes2.append(nodes[i]["label"])
 #            mlog("DEBUG", concepto,"\t",", ".join(nodes2))
 

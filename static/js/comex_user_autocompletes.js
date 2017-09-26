@@ -92,7 +92,7 @@
  //       => supposed to also match the REST param
  //            (eg services/api/aggs?field=keywords)
 
-function remoteAutocompleteInit(fieldName, hap, altApiName) {
+function remoteAutocompleteInit(fieldName, hap, altApiName, seedKeys) {
     var nMax = 100
     var hapaxThresh = 1
     if (hap != null) {
@@ -139,7 +139,13 @@ function remoteAutocompleteInit(fieldName, hap, altApiName) {
            // console.log(kwValuedArray)
 
            // sorted auto completion array by previous freq, with max
-           var theArray = []
+           var theArray
+           if (seedKeys && seedKeys.length) {
+             theArray = seedKeys
+           }
+           else {
+             theArray = []
+           }
            for (var i in theValuedArray) {
              theArray.push(theValuedArray[i][0])
              if (i > nMax) {

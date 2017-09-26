@@ -73,7 +73,7 @@
             Map your own socio-semantic network or explore sub-communities using the <strong> interactive menu</strong> on the top of the webpage. Use the "refine" filters to select keywords and scholars matching your subjects of interests.
             <br/>
             <br/>
-            The integration of job openings in maps aims at increasing the visibility of new positions or new candidates. <small>[ <a href="/jobmarket.html">more</a> ]</small>
+            The integration of job openings in maps aims at increasing the visibility of new positions or new candidates. <small>[&nbsp;<a href="/services/jobboard">more</a>&nbsp;]</small>
           </p>
 
           <p class="sub-hero">
@@ -107,7 +107,7 @@
           </p>
           <p class="sub-hero">
               <span class="glyphicon glyphicon-info-sign"></span>
-              View our <a href="/tips.html">tips</a> for best experience. This directory is <strong>open</strong> to everybody working in the field of Complex Systems science and Complexity science. Map and explore communities or generate a printable version of their directory.
+              View our <a href="/about/tips">tips</a> for best experience. This directory is <strong>open</strong> to everybody working in the field of Complex Systems science and Complexity science. Map and explore communities or generate a printable version of their directory.
                Updated every few minutes.
 
                <br/>
@@ -124,9 +124,9 @@
           </h2>
            <div id="news-container">
                <ul>
-                   <li><a href="/jobmarket.html">Soon a better job market integration: </a> announce new jobs and find people looking for a job<br/></li>
-                   <li><a href="/community_tags.html">Community tags:</a> Map any workgroup or event audience and get the associated directory.<br/><br/></li>
-                   <li>This beta version of Community Explorer 2 is open source!</a> For sysadmins, it's easy to deploy a new server like this one using docker (<a href="https://github.com/moma/comex2/tree/master/setup/dockers">more info</a>).</li>
+                   <li><a href="/services/jobboard" target="_blank">Job market integration: </a> announce new jobs and find people looking for a job<br/></li>
+                   <!-- <li><a href="/community_tags.html" target="_blank">Community tags:</a> Map any workgroup or event audience and get the associated directory.<br/><br/></li> -->
+                   <li>This beta version of Community Explorer 2 is open source!</a> For sysadmins, it's easy to deploy a new server like this one using docker (<a href="https://github.com/moma/comex2/" target="_blank">more info</a>).</li>
                </ul>
            </div>
 
@@ -142,29 +142,45 @@
 
     <!-- INTRO foot (social media likes etc) -->
     <div class="row">
-      <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
-      <div class="my-centering-box col-lg-8 col-md-10 col-sm-12">
-          <a href="https://twitter.com/intent/tweet?button_hashtag=communityexplorer&text=Map%20your%20%23network%2C%20explore%20the%20worldwide%20%23complexsystems%20%23community%20at%20all%20scales.%20%23dataviz" class="twitter-hashtag-button" data-url="http://communityexplorer.org">Tweet #communityexplorer</a>
-
-          &nbsp;
-
-          <div class="fb-like" data-href="http://www.communityexplorer.org" data-width="300" data-layout="standard" data-action="like" data-show-faces="false" data-share="false">
-          </div>
+      <div class="spacer col-lg-1 hidden-md-down">&nbsp;</div>
+      <div class="col-lg-5 col-md-6 col-sm-12" style="text-align:right;padding-top:2px">
+           <a target="_blank"
+              href="https://twitter.com/intent/tweet?button_hashtag=communityexplorer&text=Map%20your%20%23network%2C%20explore%20the%20worldwide%20%23complexsystems%20%23community%20at%20all%20scales.%20%23dataviz"
+              class="twitter-hashtag-button" data-url="http://communityexplorer.org">Tweet #communityexplorer</a>
       </div>
-
-      <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
+      <div class="col-lg-5 col-md-6 col-sm-12" style="text-align:left">
+        <div class="fb-like" data-href="http://www.communityexplorer.org" data-width="300" data-layout="standard" data-action="like" data-show-faces="false" data-share="false">
+        </div>
+      </div>
+      <div class="spacer col-lg-1 hidden-md-down">&nbsp;</div>
     </div>
+
+
+    <div class="row mediumspacerrow">&nbsp;</div>
+
+    <!-- 2 x tagclouds row -->
+    <div class="row">
+      <div class="spacer col-lg-1 hidden-md-down">&nbsp;</div>
+      <div class="my-centering-box col-lg-5 col-md-6 col-sm-12">
+        <h3 class="centered mgrey">Keywords from the database</h3>
+        <div id="front-kws-tagcloud"></div>
+      </div>
+      <div class="my-centering-box col-lg-5 col-md-6 col-sm-12">
+        <h3 class="centered mgrey">Community tags from the database</h3>
+        <div id="front-hts-tagcloud"></div>
+      </div>
+      <div class="spacer col-lg-1 hidden-md-down">&nbsp;</div>
+    </div>
+    <div class="row smallspacerrow">&nbsp;</div>
 
 {% endblock %}
 
 <!-- ======================================================================= -->
 
 {% block last_imports %}
-    <script type="text/javascript">
-        //               ---------
-        // a copy of the user info in json
-        //               ---------
-        var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
-    </script>
-
+<!-- generate 2 x tagclouds -->
+<script type="text/javascript">
+  cmxClt.elts.tagcloud.update("front-kws-tagcloud", "keywords", {"limit": 40, "fontMin":.8, "fontMax":3})
+  cmxClt.elts.tagcloud.update("front-hts-tagcloud", "hashtags", {"limit": 40, "fontMin":1.2, "fontMax":4})
+</script>
 {% endblock %}

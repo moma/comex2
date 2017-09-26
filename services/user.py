@@ -203,9 +203,15 @@ def doors_login(email, password, config=REALCONFIG):
     NB: returned doors_uid will be None if user not found
     """
     uid = None
-    sentdata = {'login':email, 'password':password}
-
+    sentdata = {'login':email.lower(), 'password':password}
+    ssl_verify = True
     http_scheme = "https:"
+
+    if config['DOORS_NOSSL']:
+        # /!\ unsafe param: only useful for local tests /!\
+        http_scheme = 'http:'
+        ssl_verify = False
+        mlog("WARNING", "user.doors_login: SSL and HTTPS turned off (after tests remove DOORS_NOSSL from config file)")
 
     if config['DOORS_PORT'] in ['80', '443']:
         # implicit port
@@ -213,8 +219,7 @@ def doors_login(email, password, config=REALCONFIG):
     else:
         doors_base_url = http_scheme + '//'+config['DOORS_HOST']+':'+config['DOORS_PORT']
 
-    mlog("WARNING", "user.doors_login: SSL certificate verification turned off for https staging tests (after tests do remove verify=False !!)")
-    doors_response = post(doors_base_url+'/api/user', data=sentdata, verify=False)
+    doors_response = post(doors_base_url+'/api/user', data=sentdata, verify=ssl_verify)
 
     mlog("INFO", "/api/user doors_response",doors_response)
     if doors_response.ok:
@@ -240,9 +245,16 @@ def doors_register(email, password, name, config=REALCONFIG):
     Remote query to Doors API to register a user
     """
     uid = None
-    sentdata = {'login':email, 'password':password, 'name':name}
+    sentdata = {'login':email.lower(), 'password':password, 'name':name}
 
     http_scheme = "https:"
+    ssl_verify = True
+
+    if config['DOORS_NOSSL']:
+        # /!\ unsafe param: only useful for local tests /!\
+        http_scheme = 'http:'
+        ssl_verify = False
+        mlog("WARNING", "user.doors_register: SSL and HTTPS turned off (after tests remove DOORS_NOSSL from config file)")
 
     if config['DOORS_PORT'] in ['80', '443']:
         # implicit port
@@ -250,7 +262,7 @@ def doors_register(email, password, name, config=REALCONFIG):
     else:
         doors_base_url = http_scheme + '//'+config['DOORS_HOST']+':'+config['DOORS_PORT']
 
-    doors_response = post(doors_base_url+'/api/register', data=sentdata)
+    doors_response = post(doors_base_url+'/api/register', data=sentdata, verify=ssl_verify)
 
     mlog("INFO", "/api/register doors_response",doors_response)
     if doors_response.ok:

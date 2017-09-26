@@ -237,9 +237,15 @@ $(document).ready(function() {
 
   changeTargetId = function(nodeId) {
       document.getElementById('print2').onclick = function() {
-        return window.open("/print_scholar_directory.php?query=" + nodeId);
+        if (uinfo && uinfo.luid) {
+          return window.open("/print_scholar_directory.php?query=" + nodeId + "&user="+uinfo.luid);
+        }
+        else {
+          return window.open("/print_scholar_directory.php?query=" + nodeId);
+        }
       }
       document.getElementById('generate2').onclick = function() {
+        // POSS add user in url params and find a way to load and call cmxClt.elts.topbar.create
         return window.open('/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam="' + nodeId + '"');
       }
   }
@@ -308,12 +314,10 @@ $(document).ready(function() {
   // refine filters => tinawebjs graphexplorer
   $("#generate").click(function() {
     console.log("clicked on generate")
-    hide(".hero-unit");
-    $("#welcome").fadeOut("slow");
     // console.log("initiating graphexplorer")
     return collectFilters(function(query) {
       // debug
-    //   console.log("collected filters: " + query);
+      // console.log("collected filters: " + query);
       // empty query => no map + warning
       if (query == "" || decodeURI(query) == "{}") {
           if (document.getElementById('refine-warning')) {
@@ -322,7 +326,8 @@ $(document).ready(function() {
           else {
             cmxClt.elts.box.addGenericBox('refine-warning',
                 "No filters were selected",
-                "Please fill at least a filter before generating a MAP <br/>(mapping without filters takes a long time and overloads servers)")
+                "Please fill at least a filter before generating a MAP <br/>(mapping without filters takes a long time and overloads servers)"
+              )
             cmxClt.elts.box.toggleBox("refine-warning")
           }
           return null
@@ -336,7 +341,12 @@ $(document).ready(function() {
     return collectFilters(function(query) {
       // debug
       // console.log("collected filters: " + query);
-      return window.open("/print_directory.php?query=" + query);
+      if (uinfo && uinfo.luid) {
+        return window.open("/print_directory.php?query=" + query + "&user="+uinfo.luid);
+      }
+      else {
+        return window.open("/print_directory.php?query=" + query);
+      }
     });
   });
   hide("#loading");

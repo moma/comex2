@@ -114,6 +114,8 @@ Uploaded images are in `data/shared_user_img`.
 ##### More info
 Full table structure is described in [this documentation file](https://github.com/moma/comex2/blob/master/doc/table_specifications.md).
 
+Some common maintenance operations have example scripts in the `setup/toolbox` folder.
+
 ##### Exemple queries
 ```SQL
 

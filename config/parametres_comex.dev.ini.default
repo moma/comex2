@@ -30,6 +30,9 @@ SQL_PORT=3306
 DOORS_HOST=192.168.1.190
 DOORS_PORT=443
 
+#; only for local tests
+DOORS_NOSSL=false
+
 [content]
 # used for all aggregations queries
 HAPAX_THRESHOLD = 0

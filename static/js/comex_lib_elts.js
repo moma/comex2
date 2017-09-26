@@ -27,6 +27,16 @@ var cmxClt = (function(cC) {
     cC.elts.elBody = document.querySelector('body')
     cC.elts.elPage = document.querySelector('.page')
 
+    // a topbar creation function from template
+    //   ------
+    cC.elts.topbar = {}
+    cC.elts.topbar.create
+
+    // a tagcloud-like div with proportional labels
+    //   ------
+    cC.elts.tagcloud = {}
+    cC.elts.tagcloud.xhrSync
+    cC.elts.tagcloud.prepare
 
     // an optional modal box for login/register credentials
     //            -----------
@@ -37,6 +47,283 @@ var cmxClt = (function(cC) {
     cC.elts.box.postAuthBox
     cC.elts.box.authBox = null
 
+    cC.elts.topbar.create = function(luid, empty) {
+      let baseMenus = ''
+
+      // for active users that are not empty
+      if (luid && !empty) {
+        baseMenus = `
+          <li class="comex-nav-item">
+              <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="${luid}"'> Your Map </a>
+          </li>
+          <li class="comex-nav-item">
+              <a class="topbarlink" href='/print_scholar_directory.php?query=${luid}&user=${luid}'> Your Directory </a>
+          </li>
+          <li class="dropdown">
+            <a id="jobs-dropdown" href="#" class="navlink dropdown-toggle"
+               data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+               <span class="glyphicon glyphicon-briefcase"></span>
+               Jobs
+               <span class="caret"></span>
+           </a>
+            <ul class="dropdown-menu">
+              <li>
+                  <a href='/services/addjob/'>Add a new job</a>
+              </li>
+              <li>
+                  <a href='/services/user/myjobs/'>Your posted jobs</a>
+              </li>
+              <li>
+                <a href='/services/jobboard/'>Job Market</a>
+              </li>
+            </ul>
+          </li>
+        `
+      }
+      // for anonymous and empty users
+      else {
+        baseMenus = `
+          <li class="dropdown">
+            <a id="jobs-dropdown" href="#" class="navlink dropdown-toggle"
+               data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+               <span class="glyphicon glyphicon-briefcase"></span>
+               Jobs
+               <span class="caret"></span>
+           </a>
+            <ul class="dropdown-menu">
+              <li>
+                <a href='/services/jobboard/'> Job Market </a>
+              </li>
+            </ul>
+          </li>
+        `
+      }
+
+      let dropDownContent = ''
+      if (luid) {
+        if (empty) {
+          // special case for returning users
+          dropDownContent = `
+            <li>
+                <a href="/services/user/profile"> Create your Profile !</a>
+            </li>
+            <li>
+                <a href='/services/user/logout/'> Logout </a>
+            </li>
+          `
+        }
+        // normal logged in case
+        else {
+          dropDownContent = `
+            <li>
+                <a href="/services/user/profile"> Your Profile </a>
+            </li>
+            <li>
+                <a href='/services/user/logout/'> Logout </a>
+            </li>
+          `
+        }
+      }
+      // unlogged case
+      else {
+        dropDownContent = `
+          <li>
+              <div class="dropdown-a-like" id="poplogin"
+                data-toggle="dropdown"
+                onclick="cmxClt.elts.box.toggleBox('auth_modal')">
+                Login </div>
+          </li>
+          <li>
+              <a href="/services/user/register"> Register </a>
+          </li>
+        `
+      }
+
+      let topbarHtml = `
+        <div class="topbar" style="opacity: 0.9;" id="helloworld">
+            <div class="topbar-inner">
+                <div class="container-fluid">
+                    <ul class="white nav navbar-nav navbar-left">
+                        <li>
+                            <a class="brand" href="https://iscpif.fr/">
+                              <img height="25px" src="/static/img/logo_m_bleu-header.png">
+                            </a>
+                        </li>
+                        <li>
+                            <a class="brand" href="/">
+                              <span class="glyphicon glyphicon-home white"></span>&nbsp;&nbsp;
+                              Community Explorer
+                            </a>
+                        </li>
+
+
+                      <!-- MAIN SEARCH/REFINE NAVBAR -->
+                      <li id="mapping" class="comex-nav-item">
+                          <p class='topbarlink'>
+                              <strong>SELECT Keywords AND Scholars</strong>
+                          </p>
+                      </li>
+                      <li id="refine" class="dropdown comex-nav-item">
+                          <a class="btn-default nav-inline-selectable"
+                             style="padding-top: 1em"
+                             onclick='$(this).next(".dropdown-menu").toggle();'
+                             >refine<i class="caret"></i></a>
+                          <ul class="dropdown-menu">
+                              <li>
+                                  <a id="addfiltercountry" href="#"
+                                      onclick='$(this).parents(".dropdown-menu").toggle();'>
+                                      Filter by country</a>
+                              </li>
+                              <li>
+                                  <a id="addfilterkeyword" href="#"
+                                     onclick='$(this).parents(".dropdown-menu").toggle();'>
+                                     Filter by keyword</a>
+                              </li>
+                              <li>
+                                  <a id="addfiltertag" href="#"
+                                     onclick='$(this).parents(".dropdown-menu").toggle();'>
+                                     Filter by community tags</a>
+                              </li>
+                              <li>
+                                  <a id="addfilterlaboratory" href="#"
+                                     onclick='$(this).parents(".dropdown-menu").toggle();'>
+                                     Filter by laboratory</a>
+                              </li>
+                              <li>
+                                  <a id="addfilterinstitution" href="#"
+                                     onclick='$(this).parents(".dropdown-menu").toggle();'>
+                                     Filter by organization</a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="comex-nav-item">
+                          <a class="topbarlink" id="print" href="#"> <i class="icon-arrow-right icon-white"></i> <strong>CREATE DIRECTORY</strong></a>
+                      </li>
+                      <li class="comex-nav-item">
+                          <p class="topbarlink">
+                              <strong>&nbsp;OR&nbsp;</strong>
+                          </p>
+                      </li>
+                      <li class="comex-nav-item">
+                          <a class="topbarlink" id="generate" href="#"> <i class="icon-arrow-right icon-white"></i> <strong>MAP</strong></a>
+                      </li>
+                    </ul>
+
+
+                    <ul class="white nav navbar-nav navbar-right">
+                      ${baseMenus}
+
+                      <!-- USER TOOLBARS (LOGIN/REGISTER/PROFILE/ETC) -->
+                      <li class="dropdown">
+                        <a id="user-dropdown" href="#" class="navlink dropdown-toggle"
+                           data-toggle="dropdown" role="button"
+                           aria-haspopup="true" aria-expanded="false">
+                           <span class="glyphicon glyphicon-user"></span>
+                           User
+                           <span class="caret"></span>
+                       </a>
+                        <ul class="dropdown-menu">
+                          ${dropDownContent}
+                        </ul>
+                      </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+      `
+
+      // append as body's first child
+      let topbar = document.createElement('div')
+      topbar.innerHTML = topbarHtml
+      document.body.insertBefore(topbar, document.body.firstChild)
+
+      // initialize the 2 not-automatic dropdowns (refine is self-contained)
+      new Dropdown( document.getElementById('user-dropdown') );
+      new Dropdown( document.getElementById('jobs-dropdown') );
+    }
+
+
+    cC.elts.tagcloud.xhrSync = function(fieldName, theCallback) {
+      let thresh = 0
+      $.ajax({
+          type: 'GET',
+          dataType: 'json',
+          url: "/services/api/aggs?field="+fieldName+"&hapax="+thresh,
+          success: theCallback,
+          error: function(result) {
+              console.warn('tagcloud.xhrSync ('+fieldName+'): jquery ajax error with result', result)
+          }
+      });
+    }
+
+    cC.elts.tagcloud.update = function(tgtDivId, aggFieldName, args) {
+
+      let tgtDiv = document.getElementById(tgtDivId)
+      if (! tgtDiv) return false
+
+      if (! args)   args = {}
+
+      var limit = args.limit || 200
+      var tagcloudFontsizeMin = args.fontMin ||  1
+      var tagcloudFontsizeMax = args.fontMax || 4
+
+      cmxClt.elts.tagcloud.xhrSync( aggFieldName,
+
+        // cb inspired from ProjectExplorer htmlProportionalLabels
+        function(elems){
+          if(elems.length==0){
+            tgtDiv.innerHTML = ""
+            return false;
+          }
+          let resHtml=[]
+
+          let fontSize   // <-- normalized for display
+
+          // we assume already sorted, and we skip 0 which is null
+          let frecMax = elems[1].occs
+          let frecMin = elems.slice(-1)[0].occs
+
+          let sourceRange = frecMax - frecMin
+          let targetRange = tagcloudFontsizeMax - tagcloudFontsizeMin
+
+          for(var i in elems){
+              if(i==limit)
+                  break
+              let labl=elems[i].x
+              let frec=elems[i].occs
+              if (! labl)
+                continue
+
+              if (sourceRange) {
+                fontSize = ((frec - frecMin) * (targetRange) / (sourceRange)) + tagcloudFontsizeMin
+                fontSize = parseInt(100000 * fontSize)/100000
+              }
+              else {
+                // 1em when all elements have the same freq
+                fontSize = 1
+              }
+
+              // debug
+              // console.log('htmlfied_tagcloud (',labl') freq',frec,' fontSize', fontSize)
+
+              if(typeof labl == "string"){
+                  let explorerParam = (aggFieldName == "hashtags") ? "tags" : aggFieldName
+                  let explorerFilter = {}
+                  explorerFilter[explorerParam] = [labl]
+                  let encodedFilter = escape(encodeURIComponent(JSON.stringify(explorerFilter)))
+                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&nodeidparam=\"" + encodedFilter +"\"')"
+
+                  // using em instead of px to allow global x% resize at css box level
+                  let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; line-height:'+fontSize/6+'em; padding:'+2.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';
+                  resHtml.push(htmlLabel)
+              }
+          }
+
+          tgtDiv.innerHTML = resHtml
+          return true;
+        })
+    }
+
 
     // function to login via ajax
     cC.elts.box.postAuthBox = function(formId) {
@@ -46,16 +333,14 @@ var cmxClt = (function(cC) {
         var formdat = formObj.asFormData();
         // + real captcha value has also been collected by asFormData()
 
-        // TODO for SSL
-        //      currently relative URL <=> same protocol as source
-        //
-        //      but ideally should force https either:
-        //           1) https on all site
-        //              NB if 1st option use nginx rewrite
-        //              or
-        //           2) https at least for login
-        //              NB if 2nd option http => https just for login
-        //                 then need CORS on flask side to allow it
+        var nextLocation = '/services/user/profile'
+
+        if (   document.getElementById('auth_modal')
+            && document.getElementById('auth_modal').dataset
+            && document.getElementById('auth_modal').dataset.next
+          ) {
+            nextLocation = document.getElementById('auth_modal').dataset.next
+          }
 
         // new-style ajax
         if (window.fetch) {
@@ -68,12 +353,12 @@ var cmxClt = (function(cC) {
             // 1st then() over promise
             .then(function(response) {
                 // NB 2 promises to unwrap for Fetch to complete which allows the cookie to be set in the OK case
-                if(response.ok) {
+                if (response.ok) {
                   // unwraps the promise => 2nd then()
                   response.text().then( function(bodyText) {
                     // cookie should be set now !
                     console.log("Login was OK, redirecting to profile...")
-                    window.location = '/services/user/profile'
+                    window.location = nextLocation
                   })
                 }
                 else {
@@ -107,7 +392,7 @@ var cmxClt = (function(cC) {
                 url: "/services/user/login/",
                 success: function(data) {
                     // console.log('JQUERY got return', data, 'and login cookie should be set')
-                    window.location = '/services/user/profile'
+                    window.location = nextLocation
                 },
                 error: function(result) {
                     console.warn('jquery ajax error with result', result)
@@ -117,8 +402,12 @@ var cmxClt = (function(cC) {
     }
 
     // our self-made modal open/close function
-    // optional dontOpacifyPage (default false)
-    cC.elts.box.toggleBox = function(boxId, dontOpacifyPage) {
+    // optional params:
+    //      nextPage        (default null)
+    //      dontOpacifyPage (default false)
+    cC.elts.box.toggleBox = function(boxId, params) {
+        if (typeof params == 'undefined') params = {}
+
         var laBox = document.getElementById(boxId)
         if (laBox) {
             if (laBox.style.display == 'none') {
@@ -126,8 +415,11 @@ var cmxClt = (function(cC) {
                 laBox.style.display = 'block'
                 laBox.style.opacity = 1
 
+                // optional set data
+                if (params.nextPage) laBox.dataset.next = params.nextPage
+
                 // opacify .page element
-                if (cC.elts.elPage && !dontOpacifyPage) cC.elts.elPage.style.opacity = .2
+                if (cC.elts.elPage && !params.dontOpacifyPage) cC.elts.elPage.style.opacity = .2
             }
             else {
                 // remove box
@@ -135,7 +427,7 @@ var cmxClt = (function(cC) {
                 setTimeout(function(){laBox.style.display = 'none'}, 300)
 
                 // show .page
-                if (cC.elts.elPage && !dontOpacifyPage) cC.elts.elPage.style.opacity = ''
+                if (cC.elts.elPage && !params.dontOpacifyPage) cC.elts.elPage.style.opacity = ''
             }
         }
         else {
@@ -183,7 +475,7 @@ var cmxClt = (function(cC) {
             preEmail = boxParams.email
             emailLegend = "This email is your login for community explorer"
             passPlaceholder = "Your password"
-            passLegend = ""
+            passLegend = `Forgot your password ? You can reset it on <a href="${cmxClt.uauth.doorsParam.htscheme}//${cmxClt.uauth.doorsParam.connect}" target="_blank">Doors</a> (our external authentication portal).`
             confirmPass = ""
         }
         else {
@@ -242,12 +534,12 @@ var cmxClt = (function(cC) {
                         </div>
 
                         <div class="question">
-                          <p class="legend">${passLegend}</p>
                           <div class="input-group">
                             <label for="menu_password" class="smlabel input-group-addon">Password</label>
                             <input id="menu_password" name="password" maxlength="30"
                                    type="password" class="form-control" placeholder="${passPlaceholder}">
                           </div>
+                          <p class="legend">${passLegend}</p>
                         </div>
                         <br/>
                         ${confirmPass}
@@ -360,7 +652,7 @@ var cmxClt = (function(cC) {
     // POSS use sessionStorage instead
 
     cC.elts.box.closeCookieOnceForAll = function () {
-        cmxClt.elts.box.toggleBox('cookie-div', true)
+        cmxClt.elts.box.toggleBox('cookie-div', {'dontOpacifyPage': true})
         localStorage['comex_cookie_warning_done'] = 1
     }
 
@@ -407,4 +699,4 @@ var cmxClt = (function(cC) {
 })(cmxClt) ;
 
 
-console.log("html elements lib load OK")
+console.log("uform related html elements lib load OK")

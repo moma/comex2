@@ -7,7 +7,6 @@ if __package__ == "services.text":
 else:
     from tools          import mlog
 
-
 def sanitize(value, specific_type=None):
     """
     One of the main goals is to remove ';'
@@ -42,6 +41,15 @@ def sanitize(value, specific_type=None):
     elif specific_type == "sdate":
         san_val = sub(r'[^0-9/-:]', '_', str_val)
 
+    elif specific_type == "scountry":
+        # cc unifies variants like France, france, U.S.A., USA
+        found = cc.searchCode(str_val)
+        if found != None:
+            san_val = cc.ISO[found][0]
+        else:
+            # default: "some input" capitalized => "Some Input"
+            san_val = str_val.capitalize()
+
     # free string types
     else:
         clean_val = normalize_forms(normalize_chars(str_val))
@@ -60,15 +68,7 @@ def sanitize(value, specific_type=None):
 
 
 class CountryConverter:
-    def __init__(self,dbname,dbtable,dbcolumnID,dbcolumnName):
-
-        self.connDBLP=connect(dbname)
-        self.connDBLP.row_factory = Row# Magic line!
-        self.cursorDBLP=self.connDBLP.cursor()
-        self.dbname=dbname
-        self.dbtable=dbtable
-        self.dbcolumnID=dbcolumnID
-        self.dbcolumnName=dbcolumnName
+    def __init__(self):
         self.ISO={}
         self.dictISO={}
         self.dictAlt={}
@@ -113,43 +113,6 @@ class CountryConverter:
             if len(a)>0:
                 for j in a:
                     self.dictAlt[j.upper()]=i
-
-
-    def convertAll(self,write):
-        dbtable=self.dbtable
-        dbcolumnName=self.dbcolumnName
-        dbcolumnID=self.dbcolumnID
-
-        if write:
-            query="ALTER TABLE "+dbtable+" ADD COLUMN norm_"+dbcolumnName+" char(250)"
-            self.cursorDBLP.execute(query)
-            self.connDBLP.commit()
-
-
-        query="SELECT "+dbcolumnID+","+dbcolumnName+" FROM "+dbtable
-        self.cursorDBLP.execute(query)
-        rows = self.cursorDBLP.fetchall()
-        total=len(rows)
-
-        fails={}
-        for i in rows:
-            # if write:
-            #     q2='UPDATE '+dbtable+' SET norm_'+dbcolumnName+'="'+i[dbcolumnName]+'" WHERE '+dbcolumnID+'='+str(i[dbcolumnID])
-            #     self.cursorDBLP.execute(q2)
-            #     self.connDBLP.commit()
-
-            ind=i[dbcolumnName].encode("UTF-8")
-            code=self.searchCode(ind)
-            if code:
-                if write:
-                    q3='UPDATE '+dbtable+' SET norm_'+dbcolumnName+'="'+code+'" WHERE '+dbcolumnID+'='+str(i[dbcolumnID])
-                    self.cursorDBLP.execute(q3)
-                    self.connDBLP.commit()
-            else: fails[i[dbcolumnID]]=ind
-            mlog("INFO", str(i[dbcolumnID])+" / "+str(total))
-
-        self.connDBLP.close()
-        return fails
 
 
 #! /usr/bin/python3
@@ -309,3 +272,10 @@ if __name__ == "__main__":
 
         # OUTPUT
         print("\t".join(clean_fields))
+
+
+# init a country normalization instance
+cc = CountryConverter()
+iso = cc.getCountries("services/text/countries_ISO3166.txt")
+alt = cc.getCountries("services/text/countries_alternatives.txt")
+cc.createInvertedDicts(iso, alt)

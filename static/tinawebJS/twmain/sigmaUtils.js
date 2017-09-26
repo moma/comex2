@@ -118,7 +118,7 @@ var SigmaUtils = function () {
         context.beginPath();
 
         if (settings('twSelectedColor') == "node")
-          context.fillStyle = TW.gui.handpickedcolor? node.customAttrs.alt_color : node.color; // node's
+          context.fillStyle = TW.gui.handpickedcolors[node.type].alton ? node.customAttrs.alt_color : node.color; // node's
         else
           context.fillStyle = "#fff"; // default
 
@@ -180,7 +180,6 @@ var SigmaUtils = function () {
       var color, size,
         prefix = settings('prefix') || ''
 
-
       //debug
       // console.warn("rendering edge", edge)
 
@@ -188,7 +187,7 @@ var SigmaUtils = function () {
 
       // precomputed color with no opacity
       // cf. sigmaTools.edgeRGB
-      var baseRGB = TW.gui.handpickedcolor ? edge.customAttrs.alt_rgb : edge.customAttrs.rgb
+      var baseRGB = edge.customAttrs.useAltColor ? edge.customAttrs.alt_rgb : edge.customAttrs.rgb
 
       if (edge.customAttrs.activeEdge) {
         size = (defSize * 2) + 1
@@ -291,7 +290,7 @@ var SigmaUtils = function () {
 
 
         // mode variants 1: if a coloringFunction is active
-        if (! TW.gui.handpickedcolor) {
+        if (! TW.gui.handpickedcolors[node.type].alton) {
           nodeColor = node.color
         }
         else {
@@ -300,7 +299,6 @@ var SigmaUtils = function () {
 
         // mode variants 2: if node is selected, highlighted or unselected
         if (TW.gui.selectionActive) {
-
 
           // the selected node(s)
           if (node.customAttrs.active) {
@@ -317,7 +315,7 @@ var SigmaUtils = function () {
           // passive nodes should blend in the grey of twEdgeGreyColor
           // cf settings_explorerjs, defgrey_color and deselectNodes()
           else {
-            if (! TW.gui.handpickedcolor) {
+            if (! TW.gui.handpickedcolors[node.type].alton) {
               nodeColor = node.customAttrs.defgrey_color
             }
             else {
@@ -442,7 +440,7 @@ var SigmaUtils = function () {
             x = Math.round(node[prefix + 'x'] - fontSize / 2 - 2);
             y = Math.round(node[prefix + 'y'] - fontSize / 2 - 2);
             w = Math.round(
-              context.measureText(node.label).width + fontSize / 2 + size + 7
+              context.measureText(node.label).width + fontSize / 2 + size + 12
             );
             h = Math.round(fontSize + 4);
             e = Math.round(fontSize / 2 + 4);
@@ -556,9 +554,14 @@ var SigmaUtils = function () {
           }
           // normal case
           else {
-              if ((TW.conf.fa2Enabled || args.manual)
-                  && TW.partialGraph.graph.nNodes() >= TW.conf.minNodesForAutoFA2) {
-                setTimeout(function(){sigma_utils.ourStopFA2()},args.duration)
+              if (TW.conf.fa2Enabled) {
+
+                if (! args.manual) {
+                  if (TW.partialGraph.graph.nNodes() < TW.conf.minNodesForAutoFA2)
+                    return
+                  else
+                    setTimeout(function(){sigma_utils.ourStopFA2()},args.duration)
+                }
 
                 // hide edges during work for smaller cpu load
                 if (TW.partialGraph.settings('drawEdges')) {
@@ -651,25 +654,42 @@ function edgeInfos(anEdge) {
 }
 
 
-function gradientColoring(daclass) {
+// FIXME this function could be optimized
+function gradientColoring(daclass, forTypes) {
 
     graphResetLabelsAndSizes()    // full loop
 
-    TW.gui.handpickedcolor = true
+    if (typeof forTypes != 'array' || ! forTypes.length) {
+      // default strategy on multiple types: color all types that have the attr
+      forTypes = getActivetypesNames().filter(function(ty){
+        return daclass in TW.Facets[ty]
+      })
+    }
+
+    // value getter
+    let getVal
+    if (daclass in TW.sigmaAttributes) {
+      getVal = TW.sigmaAttributes[daclass](TW.partialGraph)
+    }
+    else {
+      getVal = function (nd) { return nd.attributes[daclass]}
+    }
 
     var min_pow = 0;
-    for(var nid in TW.Nodes) {
-        var the_node = TW.Nodes[ nid ]
-        var attval = the_node.attributes[daclass];
+    for (var k in forTypes) {
+      let nids = TW.ByType[TW.catDict[forTypes[k]]]
+      for (var j in nids) {
+        let attval = getVal(TW.Nodes[ nids[j] ]);
         if( !isNaN(parseFloat(attval)) ) { //is float
-            while(true) {
-                var themult = Math.pow(10,min_pow);
-                if(parseFloat(attval)==0.0) break;
-                if ( (parseFloat(attval)*themult)<1.0 ) {
-                    min_pow++;
-                } else break;
-            }
+          while(true) {
+              var themult = Math.pow(10,min_pow);
+              if(parseFloat(attval)==0.0) break;
+              if ( (parseFloat(attval)*themult)<1.0 ) {
+                  min_pow++;
+              } else break;
+          }
         }
+      }
     }
 
     var NodeID_Val = {}
@@ -678,9 +698,14 @@ function gradientColoring(daclass) {
     var themult = Math.pow(10,min_pow);
     // console.log('themult', themult)
 
-    for(var nid in TW.Nodes) {
-        var the_node = TW.Nodes[ nid ]
-        var attval = the_node.attributes[daclass];
+    for (var k in forTypes) {
+      let nids = TW.partialGraph.graph.getNodesByType(
+        TW.catDict[forTypes[k]]   // unordered type names to type id
+      )
+      for (var j in nids) {
+        let nid = nids[j]
+        var attval = getVal(TW.Nodes[nid])
+
         var attnumber = Number(attval);
         if (isNaN(attnumber)) {
           continue;
@@ -692,6 +717,7 @@ function gradientColoring(daclass) {
 
         if (round_number<real_min) real_min = round_number;
         if (round_number>real_max) real_max = round_number;
+      }
     }
 
     // console.log("NodeID_Val", NodeID_Val)
@@ -703,27 +729,35 @@ function gradientColoring(daclass) {
     // console.log("the mult: "+themult)
     // console.log(" - - - - - - - - -- - - ")
 
-
     //    [ Scaling node colours(0-255) and sizes(2-7) ]
     var Min_color = 0;
     var Max_color = 255;
     var Min_size = 1;
     var Max_size= 8;
+    var setSize = (TW.facetOptions[daclass] && TW.facetOptions[daclass].setsize)
     for(var nid in NodeID_Val) {
-        var newval_color = Math.round( ( Min_color+(NodeID_Val[nid]["round"]-real_min)*((Max_color-Min_color)/(real_max-real_min)) ) );
+        var newval_color
+        // special case: all nodes have the same size
+        if (real_min == real_max) {
+          newval_color = 0
+        }
+        else {
+          newval_color = Math.round( ( Min_color+(NodeID_Val[nid]["round"]-real_min)*((Max_color-Min_color)/(real_max-real_min)) ) );
+        }
         var hex_color = rgbToHex(255, (255-newval_color) , 0)
 
         let n = TW.partialGraph.graph.nodes(nid)
         if (n && !n.hidden) {
-          n.color = hex_color
           n.customAttrs.alt_color = hex_color
 
           // also recalculating the "unselected" color for next renders
           n.customAttrs.altgrey_color = "rgba("+(hex2rgba(hex_color).slice(0,3).join(','))+",0.4)"
 
-          // £TODO SETTING SIZE HERE SHOULD BE OPTIONAL
-          var newval_size = Math.round( ( Min_size+(NodeID_Val[nid]["round"]-real_min)*((Max_size-Min_size)/(real_max-real_min)) ) );
-          n.size = newval_size;
+          // optionally changing size
+          if (setSize) {
+            var newval_size = Math.round( ( Min_size+(NodeID_Val[nid]["round"]-real_min)*((Max_size-Min_size)/(real_max-real_min)) ) );
+            n.size = newval_size;
+          }
 
           n.label = "("+NodeID_Val[nid]["real"].toFixed(min_pow)+") "+TW.Nodes[nid].label
         }
@@ -736,31 +770,43 @@ function gradientColoring(daclass) {
     // Edge precompute alt_rgb by new source-target nodes-colours combination
     repaintEdges()
 
-    // remember in clusters
-    let bins = TW.Clusters[getActivetypesNames()[0]][daclass]
-    if (bins && bins.invIdx) {
-      for (var i in bins.invIdx) {
-        if (bins.invIdx[i].labl != '_non_numeric_') {
-          let nidList = bins.invIdx[i]['nids']
-          if (nidList.length) {
-            // we take an exemplar in the range, further than middle
-            // (result optically more representative than with 1/2 of len)
-            let aNid = nidList[Math.floor(3*nidList.length/4)]
-            bins.invIdx[i].col = TW.partialGraph.graph.nodes(aNid).color
+    // remember in clusters of each requested type
+    for (var k in forTypes) {
+      let ty = forTypes[k]
+      TW.gui.handpickedcolors[ty] = {
+        'alton': true,
+        'altattr': daclass,
+      }
+      let bins = TW.Facets[ty][daclass]
+      if (bins && bins.invIdx) {
+        for (var i in bins.invIdx) {
+          if (bins.invIdx[i].labl != '_non_numeric_') {
+            let nidList = bins.invIdx[i]['nids']
+            if (nidList.length) {
+              // we take first non null exemplar from last in the range
+              // (possible skip due to changeLevel or filters)
+              for (var k = nidList.length-1 ; k >= 0 ; k--) {
+                let nd = TW.partialGraph.graph.nodes(nidList[k])
+                if (nd) {
+                  bins.invIdx[i].col = nd.customAttrs.alt_color
+                  break
+                }
+              }
+            }
+            else {
+              bins.invIdx[i].col = "#777" // empty bin
+            }
           }
           else {
-            bins.invIdx[i].col = "#111" // empty bin
+            bins.invIdx[i].col = "#bbb" // non numeric values bin
           }
-        }
-        else {
-          bins.invIdx[i].col = "#bbb" // non numeric values bin
         }
       }
     }
 
     // NB legend will group different possible values using
-    //    precomputed ticks from TW.Clusters.terms[daclass]
-    set_ClustersLegend ( daclass)
+    //    precomputed ticks from TW.Facets[type][daclass]
+    updateColorsLegend (daclass, forTypes)
 
     TW.partialGraph.render();
 }
@@ -785,9 +831,29 @@ function repaintEdges() {
 
 
           if (src && tgt) {
-            let src_color = src.customAttrs.alt_color || src.color || '#555'
-            let tgt_color = tgt.customAttrs.alt_color || tgt.color || '#555'
+            let src_color
+            let tgt_color
+
+            // handpickedcolors on multiple types may or may not affect
+            // a given edge so we need the useAltColor individual flag
+            let useAlt = false
+
+            if (TW.gui.handpickedcolors[src.type].alton) {
+              src_color = src.customAttrs.alt_color || '#555'
+              useAlt = true
+            }
+            else
+              src_color = src.color || '#555'
+
+            if (TW.gui.handpickedcolors[tgt.type].alton) {
+              tgt_color = tgt.customAttrs.alt_color || '#555'
+              useAlt = true
+            }
+            else
+              tgt_color = tgt.color || '#555'
+
             e.customAttrs.alt_rgb = sigmaTools.edgeRGB(src_color,tgt_color)
+            e.customAttrs.useAltColor = useAlt
             // we don't set e.color because opacity may vary if selected or not
           }
         }
@@ -799,114 +865,131 @@ function repaintEdges() {
 
 // heatmap from cold to warm with middle white
 //         (good for values centered around a neutral zone)
-// NB - binning is done at parseCustom (cf. TW.Clusters)
-//    - number of bins can be specified by attribute name in TW.conf.facetOptions[daclass]["n"]
-function heatmapColoring(daclass) {
+// NB - binning is done at parseCustom (cf. TW.Facets)
+//    - number of bins can be specified by attribute name in TW.facetOptions[daclass]["n"]
+function heatmapColoring(daclass, forTypes) {
   var binColors
   var doModifyLabel = false
-  var actypes = getActivetypesNames()
+
+  // let's go
+  graphResetLabelsAndSizes()    // full loop
 
   // default value
   let nColors = TW.conf.legendsBins || 5
 
   // possible user value
-  if (TW.conf.facetOptions[daclass]) {
-    if (TW.conf.facetOptions[daclass]["n"] != 0) {
-      nColors = TW.conf.facetOptions[daclass]["n"]
+  if (TW.facetOptions[daclass]) {
+    if (TW.facetOptions[daclass]["n"] != 0) {
+      nColors = TW.facetOptions[daclass]["n"]
     }
     else {
       console.warn(`Can't use user-specified number of bins value 0 for attribute ${at}, using TW.conf.legendsBins ${TW.conf.legendsBins} instead`)
     }
   }
 
-  // we have no specifications yet for colors and legends on multiple types
-  if (actypes.length > 1) {
-    console.warn("colors by bins will only color nodes of type 0")
+  if (typeof forTypes != 'array' || ! forTypes.length) {
+    // default strategy on multiple types: color all types that have the attr
+    forTypes = getActivetypesNames().filter(function(ty){
+      return daclass in TW.Facets[ty]
+    })
   }
 
-  var ty = actypes[0]
+  for (var k in forTypes) {
 
-  // our binning
-  var tickThresholds = TW.Clusters[ty][daclass].invIdx
+    var ty = forTypes[k]
 
-  // verifications
-  if (tickThresholds.length - 1 != nColors) {
-    console.warn (`heatmapColoring setup mismatch: TW.Clusters ticks ${tickThresholds.length} - 1 non_numeric from scanClusters should == nColors ${nColors}`)
-    nColors = tickThresholds.length - 1
-  }
-
-  binColors = getHeatmapColors(nColors)
-
-  // let's go
-  graphResetLabelsAndSizes()    // full loop
-
-  // global flag
-  TW.gui.handpickedcolor = true
-
-  // use our valueclass => ids mapping
-  for (var k in tickThresholds) {
-
-    // console.debug('tick infos', tickThresholds[k])
-    // ex: {labl: "terms||growth_rate||[0 ; 0.583]", nids: Array(99), range: [0 ; 0.583210]}
-
-    let theColor
-
-    // skip grouped NaN values case => grey
-    if (tickThresholds[k].labl == '_non_numeric_') {
-      theColor = '#bbb'
-    }
-    else {
-      theColor = binColors[k]
+    // global flag
+    TW.gui.handpickedcolors[ty] = {
+      'alton': true,
+      'altattr': daclass,
     }
 
-    if (tickThresholds[k].nids.length) {
-      let rgbColStr = hex2rgba(binColors[k]).slice(0,3).join(',')
+    // our binning
+    var tickThresholds = TW.Facets[ty][daclass].invIdx
 
-      // color the referred nodes
-      for (var j in tickThresholds[k].nids) {
-        let n = TW.partialGraph.graph.nodes(tickThresholds[k].nids[j])
-        if (n) {
-          n.customAttrs.alt_color = binColors[k]
-          n.customAttrs.altgrey_color = "rgba("+rgbColStr+",0.4)"
+    // verifications
+    if (tickThresholds.length - 1 != nColors) {
+      console.log (`heatmapColoring setup mismatch: TW.Facets ticks ${tickThresholds.length} - 1 non_numeric from scanAttributes should == nColors ${nColors}`)
+      nColors = tickThresholds.length - 1
+    }
 
-          var originalLabel = TW.Nodes[n.id].label
-          if (doModifyLabel) {
-            var valSt = n.attributes[daclass]
-            n.label = `(${valSt}) ${originalLabel}`
+    binColors = getHeatmapColors(nColors)
+
+    // use our valueclass => ids mapping
+    for (var k in tickThresholds) {
+
+      // console.debug('tick infos', tickThresholds[k])
+      // ex: {labl: "terms||growth_rate||[0 ; 0.583]", nids: Array(99), range: [0 ; 0.583210]}
+
+      let theColor
+
+      // skip grouped NaN values case => grey
+      if (tickThresholds[k].labl == '_non_numeric_') {
+        theColor = '#bbb'
+      }
+      else {
+        theColor = binColors[k]
+      }
+
+      if (tickThresholds[k].nids.length) {
+        let rgbColStr = hex2rgba(binColors[k]).slice(0,3).join(',')
+
+        // color the referred nodes
+        for (var j in tickThresholds[k].nids) {
+          let n = TW.partialGraph.graph.nodes(tickThresholds[k].nids[j])
+          if (n) {
+            n.customAttrs.alt_color = binColors[k]
+            n.customAttrs.altgrey_color = "rgba("+rgbColStr+",0.4)"
+
+            var originalLabel = TW.Nodes[n.id].label
+            if (doModifyLabel) {
+              var valSt = n.attributes[daclass]
+              n.label = `(${valSt}) ${originalLabel}`
+            }
           }
         }
       }
-    }
 
-    // remember
-    tickThresholds[k].col = theColor
+      // remember
+      tickThresholds[k].col = theColor
+    }
   }
 
   // Edge precompute alt_rgb by new source-target nodes-colours combination
   repaintEdges()
 
-  set_ClustersLegend ( daclass )
+  updateColorsLegend ( daclass, forTypes )
 
   TW.partialGraph.render();
 }
 
 
-function clusterColoring(daclass) {
+function clusterColoring(daclass, forTypes) {
 
-    graphResetLabelsAndSizes()    // full loop
+    graphResetLabelsAndSizes()    // full loop (could be avoided most times if flag in sstate)
+
+    if (typeof forTypes != 'array' || ! forTypes.length) {
+      // default strategy on multiple types: color all types that have the attr
+      forTypes = getActivetypesNames().filter(function(ty){
+        return daclass in TW.Facets[ty]
+      })
+    }
 
     // louvain needs preparation
     if(daclass=="clust_louvain") {
         if(!TW.SystemState().LouvainFait) {
             try {
-              RunLouvain()
-              TW.SystemState().LouvainFait = true
+              RunLouvain(function() {
+                TW.SystemState().LouvainFait = true
+                clusterColoring("clust_louvain")
+              })
             }
             catch(e) {
               TW.SystemState().LouvainFait = false
               console.warn("skipped error on louvain, falling back to default colors")
               daclass == 'clust_default'
             }
+            return
         }
     }
 
@@ -920,10 +1003,10 @@ function clusterColoring(daclass) {
         }
 
         // reset the global state
-        TW.gui.handpickedcolor = false
+        TW.gui.handpickedcolorsReset()
+
     }
     else {
-
       let colList = []
       if (TW.conf.randomizeClusterColors) {
         // shuffle on entire array is better than random sorting function on each element
@@ -935,52 +1018,56 @@ function clusterColoring(daclass) {
 
       let nColors = TW.gui.colorList.length
 
+      for (var k in forTypes) {
+        let typeName = forTypes[k]
+        let facets = TW.Facets[typeName][daclass]
 
-      let facets = TW.Clusters[getActivetypesNames()[0]][daclass]
-      if (facets && facets.invIdx) {
-        for (var i in facets.invIdx) {
-          let valGroup = facets.invIdx[i]
-          let theColor
-          if (valGroup.labl == "_non_numeric_") {
-            theColor == '#bbb'
-          }
-          else {
-            let val = valGroup.val || valGroup.range
-            // use the int as an index between 0 and nColors
-            if (parseInt(val) == val) {
-              theColor = colList [val % nColors]
+        if (facets && facets.invIdx) {
+          for (var i in facets.invIdx) {
+            let valGroup = facets.invIdx[i]
+            let theColor
+            if (valGroup.labl == "_non_numeric_") {
+              theColor == '#bbb'
             }
-            // or create a representative int on the same range
             else {
-              let someRepresentativeInt = stringToSomeInt(val) % nColors
-              theColor = colList[ someRepresentativeInt ]
-            }
-          }
-
-          if (valGroup.nids.length) {
-            let rgbColStr = hex2rgba(theColor).slice(0,3).join(',')
-            for (let j in valGroup.nids) {
-              let theNode = TW.partialGraph.graph.nodes(valGroup.nids[j])
-              if (theNode) {
-                theNode.customAttrs.alt_color = theColor
-                theNode.customAttrs.altgrey_color = "rgba("+rgbColStr+",0.4)"
+              let val = valGroup.val || valGroup.range
+              // use the int as an index between 0 and nColors
+              if (parseInt(val) == val) {
+                theColor = colList [val % nColors]
+              }
+              // or create a representative int on the same range
+              else {
+                let someRepresentativeInt = stringToSomeInt(val) % nColors
+                theColor = colList[ someRepresentativeInt ]
               }
             }
-          }
 
-          // remember in TW.Clusters
-          valGroup.col = theColor
+            if (valGroup.nids.length) {
+              let rgbColStr = hex2rgba(theColor).slice(0,3).join(',')
+              for (let j in valGroup.nids) {
+                let theNode = TW.partialGraph.graph.nodes(valGroup.nids[j])
+                if (theNode) {
+                  theNode.customAttrs.alt_color = theColor
+                  theNode.customAttrs.altgrey_color = "rgba("+rgbColStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")"
+                }
+              }
+            }
+
+            // remember in TW.Facets
+            valGroup.col = theColor
+          }
         }
-      }
-      // fallback on old, slower strategy if scanClusters inactive
-      else {
-        for(var nid in TW.Nodes) {
-            var the_node = TW.partialGraph.graph.nodes(nid)
+        // fallback on old, slower strategy if scanAttributes inactive
+        else {
+          let nids = TW.ByType[TW.catDict[typeName]]
+          for (var j in nids) {
+            let nid = nids[j]
+            let the_node = TW.partialGraph.graph.nodes(nid)
 
             if (the_node) {
 
               // POSS: use "hidden" in filters instead of remove/readd
-              //       then this condition would be more useful here
+              //  typeName     then this condition would be more useful here
               if (! the_node.hidden) {
                 var attval = ( !isUndef(the_node.attributes) && !isUndef(the_node.attributes[daclass]) )? the_node.attributes[daclass] : TW.partialGraph.graph.nodes(nid)[daclass];
 
@@ -1002,17 +1089,20 @@ function clusterColoring(daclass) {
                 the_node.customAttrs.altgrey_color = "rgba("+(hex2rgba(theColor).slice(0,3).join(','))+",0.4)"
               }
             }
+          }
+        }
+        // set the global state
+        TW.gui.handpickedcolors[typeName] = {
+          'alton': true,
+          'altattr': daclass,
         }
       }
-
-      // set the global state
-      TW.gui.handpickedcolor = true
     }
 
     // Edge precompute alt_rgb by new source-target nodes-colours combination
     repaintEdges()
 
-    set_ClustersLegend ( daclass )
+    updateColorsLegend ( daclass, forTypes )
     TW.partialGraph.render();
 }
 
@@ -1057,7 +1147,7 @@ function mobileAdaptConf() {
     TW.conf.sigmaJsDrawingProperties.mouseZoomDuration = 0
     // TW.conf.sigmaJsDrawingProperties.defaultEdgeType = 'line'
 
-    // TW.conf.scanClusters = false
+    // TW.conf.scanAttributes = false
     // TW.conf.twRendering = false
 
     // £TODO better CSS for histogram on mobile

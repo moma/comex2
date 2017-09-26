@@ -44,10 +44,20 @@ $missing_labs = array_key_exists('', $lab_counts) ? $lab_counts[''] : 0;
 $missing_insts = array_key_exists('', $inst_counts) ? $inst_counts[''] : 0;
 
 
+// totaux par keywords
+$kw_counts = array();
 
-// données des pays
+// boucle de preparation de stats
 foreach ($scholars as $row) {
 
+
+    // exemple row
+    // { "unique_id": 4206, "doors_uid": "33aa6eca-6ef2-4627-90b3-08ff832f420f", "first_name": "Romain", "mid_initial": "", "last_name": "Loth", "initials": "RL", "nb_keywords": 12, "keywords": "data mining and analysis, dataviz, graph visualization, interface design, linguistics, machine learning, social computing, text-mining, frontend, hci, gui, software design", "record_status": "active", "country": "France", "homepage": "https:\/\/github.com\/rloth", "labs": [ "Institut des Syst\u00e8mes Complexes de Paris Ile-de-France (ISCPIF)" ], "institutions": [ "SOmething else " ], "labs_ids": [ "3668" ], "insts_ids": [ "3893" ], "title": "Mr", "position": "Engineer", "pic_src": "\/data\/shared_user_img\/afdea4e34d944e4688b753d0fa8b40c2.png", "interests": "" }
+
+    // debug
+    // echodump("row", $row);
+
+    // données des pays
     if (strlen(trim($row["country"]))>1){
         if (array_key_exists($row["country"], $country_list)) {
             $country_list[$row["country"]]+=1;
@@ -55,6 +65,23 @@ foreach ($scholars as $row) {
             $country_list[$row["country"]] = 1;
         }
     }
+
+    // totaux sur les donnees des keywords
+    if (strlen($row["keywords"])) {
+        $arr = explode(',', $row["keywords"]);
+        foreach ($arr as $kw) {
+            // forme canonique
+            $kw_key = keywordsToHtml($kw);
+
+            // increment
+            if (array_key_exists($kw_key, $kw_counts)) {
+                $kw_counts[$kw_key] += 1;
+            } else {
+                $kw_counts[$kw_key] = 1;
+            }
+        }
+    }
+
     // traitement des postes
     // TODO supprimer, l'essentiel est fait/à faire en amont à l'enregistrement
     $position = strtolower(trim($row["position"]));
@@ -132,14 +159,19 @@ foreach ($scholars as $row) {
 }
 
 
-
 asort($country_list);
 asort($position_list);
 asort($title_list);
 asort($lab_counts);
 asort($inst_counts);
+asort($kw_counts);
+$kw_counts = array_reverse($kw_counts);
 
-
+$kw_counts_as_sorted_couples_array = array();
+foreach ($kw_counts as $kw => $count) {
+  $elem = array('key' => $kw, 'value' => $count);
+  array_push($kw_counts_as_sorted_couples_array, $elem);
+}
 
 // TODO factorize all this
 
@@ -427,55 +459,7 @@ $(document).ready(function() {
          '}]
 	});
 
-    var MIN_DISTINCT_LABS = parseInt('.$MIN_DISTINCT_LABS.')
-    var MIN_DISTINCT_LABS_SCHOLARS_SHARE = parseFloat('.$MIN_DISTINCT_LABS_SCHOLARS_SHARE.')
 
-    if (
-        parseInt('.$n_shown_labs.') >= MIN_DISTINCT_LABS
-        && parseFloat('.$share_of_shown_labs.') >= MIN_DISTINCT_LABS_SCHOLARS_SHARE
-        ) {
-
-        labs= new Highcharts.Chart({
-    		chart: {
-    			renderTo: "labs_div",
-    			plotBackgroundColor: null,
-    			plotBorderWidth: null,
-    			plotShadow: false,
-                colors: '.$COLOR_SCHEME.'
-    		},
-    		title: {
-    			text: "Labs"
-    		},
-    		tooltip: {
-    			formatter: function() {
-    				return "<b>"+ this.point.name +"</b>: "+ Math.floor(10*this.percentage)/10 +" %";
-    			},
-                useHTML: true
-    		},
-    		plotOptions: {
-    			pie: {
-    				allowPointSelect: true,
-    				cursor: "pointer",
-                    size: "45%",
-    				dataLabels: {
-    					enabled: true,
-    					color: "#000000",
-    					connectorColor: "#000000",
-    					formatter: function() {
-    						return "<b>"+ this.point.name +"</b>: "+ Math.floor(10*this.percentage)/10 +" %";
-    					}
-    				},
-                    useHTML: true
-    			}
-    		},
-    		series: [{
-    			type: "pie",
-    			name: "Lab Affiliations",' . $labs_data . '}]
-    	});
-    }
-    else {
-        document.getElementById("labs_div").style.display = "none"
-    }
 
     var MIN_DISTINCT_INSTS = parseInt('.$MIN_DISTINCT_INSTS.')
     var MIN_DISTINCT_INSTS_SCHOLARS_SHARE = parseFloat('.$MIN_DISTINCT_INSTS_SCHOLARS_SHARE.')
@@ -511,7 +495,7 @@ $(document).ready(function() {
     					color: "#000000",
     					connectorColor: "#000000",
     					formatter: function() {
-                            console.log("point:",this.point)
+                            // console.log("point:",this.point)
                             var truc = "<b>"+ this.point.name +"</b>: "+ Math.floor(10*this.percentage)/10 +" %"
     						return truc;
     					}
@@ -530,13 +514,6 @@ $(document).ready(function() {
 
 
 });
-
-
-
-
-
-
-
 
 </script>';
 ?>

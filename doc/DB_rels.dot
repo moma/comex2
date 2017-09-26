@@ -1,0 +1,24 @@
+// dot DB_rels.dot -Tpng -o comex_DB_rels.png
+digraph comex_DB_rels {
+    graph [ordering="out"];
+    rankdir=LR ;
+
+    edge [fontsize=10] ;
+    label=<<B><U>comex_db:comex_shared</U></B>>;
+    labelloc="t" ;
+
+
+    "scholars" -> "sch_kw" ;
+    "sch_kw" -> "keywords" ;
+
+    "scholars" -> "sch_ht" ;
+    "sch_ht" -> "hashtags" ;
+
+    "scholars" -> "sch_org" ;
+    "sch_org" -> "orgs"  [label="org: inst or lab"] ;
+
+    "scholars" -> "jobs" [label="job.uid author of job ad"] ;
+    "jobs" -> "job_kw";
+    "job_kw" -> "keywords";
+
+}

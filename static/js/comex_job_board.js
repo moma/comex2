@@ -7,15 +7,11 @@
  * @copyright ISCPIF-CNRS 2017
  * @author romain.loth@iscpif.fr
  *
- * @requires jsgrid.js
+ * @requires jsgrid.js, comex_jobad_elements.js
  */
-
 
 let myController = {
   loadData: function(someFilter) {
-    console.log('type of filter', typeof someFilter)
-    console.log('filter', someFilter)
-
     // filter object example:
     // {email: "", job_valid_date: "", mission_text: "blabla some query"}
 
@@ -51,17 +47,27 @@ let myController = {
 
 let gridFields = [
    {
+     name: "jtitle",
+     title:"Title",
+     type: "text",
+     width: 80,
+     css:"jtitle"
+   },
+   {
      name: "mission_text",
      title:"Mission",
      type: "text",
-     width: 110,
-     css:"mission"
+     width: 70,
+     css:"mission",
+     itemTemplate: function(value) {
+       return value.replace(/\n/g, '<br>')
+     }
    },
    {
      name: "keywords",
      title:"Keywords",
      type: "text",
-     width: 80,
+     width: 65,
      align: "center",
      css:"keywords",
      itemTemplate: function(value) {
@@ -81,39 +87,59 @@ let gridFields = [
      name: "recruiter_org_text",
      title:"Organization",
      type: "text",
-     width: 80,
+     width: 70,
      align: "center",
-     css:"recr-org"
+     css:"recr-org",
+     itemTemplate: function(value) {
+       return value.replace(/\n/g, '<br>')
+     }
    },
    {
      name: "email",
      title:"Contact",
      type: "text",
-     width: 60,
+     width: 50,
      align: "center",
      css:"email"
+   },
+   {
+     name: "locname",
+     title:"Location",
+     type: "text",
+     width: 45,
+     align: "center",
+     css:"locname"
    },
    {
      name: "job_valid_date",
      title:"Until",
      type: "text",
-     width: 40,
+     width: 30,
      align: "center",
      css:"jobdate"
+   },
+   {
+     name: "pdf_fname",
+     title:"PDF",
+     type: "text",
+     width: 15,
+     align: "center",
+     css:"pdf_fname",
+     itemTemplate: function(value) {
+       if (value) {
+         return `<a class="norowclick"
+                    href="/data/shared_user_files/${value}" target="_blank">
+                  <span class="glyphicon glyphicon-file norowclick"></span>
+                </a>`
+       }
+     }
    }
 ]
 
-
 if (params.isAdmin) {
-  gridFields.push({
-    title: "Delete",
-    type:'control',
-    itemTemplate: function(value, item) {
-        return [this._createDeleteButton(item)];
-    }
-  })
+  // adds edit and delete buttons
+  gridFields.push({type:'control'})
 }
-
 
 
 // to create a tag box
@@ -124,8 +150,56 @@ function makeTagBox(textValue) {
   return newBox
 }
 
+// to create a job edit modal
+var jobeditModal = new Modal(
+    document.getElementById('job-details'),
+    {backdrop: 'static', keyboard: false}
+);
 
-$("#jobsgrid").jsGrid({
+// to edit a job in the modal (using globals: uinfo, params)
+function editJob(jobinfo) {
+  // re-create the form element + init form controllers and autocomplete
+  createJobForm( 'edit-job-container', {
+      'user': uinfo,
+      'job': jobinfo,
+      'can_edit': params.isAdmin,
+      'alt_submit': 'save-modified-job'
+  })
+  // show the modal
+  jobeditModal.open();
+}
+
+// to use as a callback for the jobForm onclick validateJobForm action
+function saveModifiedJob(aFormData) {
+  $.ajax({
+      type: 'POST',
+      url: "/services/api/jobs/",
+      data: aFormData,
+      processData: false,
+      contentType: false,
+      success: function(data) {
+          console.log('job update got return', data)
+          jobeditModal.close();
+          window.location.reload()
+      },
+      error: function(result) {
+          console.warn('job update ajax error with result', result)
+      }
+  });
+}
+
+// redefine jsGrid's default edit button action accordingly
+jsGrid.ControlField.prototype._createEditButton = function(item) {
+    return this._createGridButton(
+      this.editButtonClass,
+      this.editButtonTooltip,
+      function(grid, e) {
+        editJob(item)
+        e.stopPropagation();
+    });
+}
+
+let jobGrid = $("#jobsgrid").jsGrid({
     width: "80%",
     height: "700px",
 
@@ -133,16 +207,26 @@ $("#jobsgrid").jsGrid({
     sorting: true,
     paging: true,
 
-    editing: false,
+    editing: false,  // default editing behavior is off (we add our own instead)
     inserting: false,
+    deleteConfirm: "This will delete the job.\nAre you sure ?",
 
-    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/jobad/'>here</a></p></div>",
+    noDataContent: "<div class=my-centering-box><p class=stamp style=\"width:50%;background-color:#222;text-align:center;\">There are no currently available jobs for this request.<br><br>If you're registered, you can add jobs <a href='/services/addjob/'>here</a></p></div>",
 
     data: params.jobsTable,
     controller: myController,
 
-    fields: gridFields
-});
+    fields: gridFields,
 
+    // open full form instead of inline editing
+    rowClick: function(rowargs) {
+      if (rowargs && rowargs.event && rowargs.event.target) {
+        let tgt = rowargs.event.target
+        if (! tgt.classList.contains("norowclick")) {
+          editJob(rowargs.item)
+        }
+      }
+    }
+})
 
 console.log("job-board controllers load OK")

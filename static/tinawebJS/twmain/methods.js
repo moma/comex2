@@ -17,6 +17,8 @@ TW.pushGUIState = function( args ) {
     // counter à toutes fins utiles
     newState.id ++
 
+    // console.log("pushGUIState:", newState.id)
+
     // 2) we update it with provided args
     if (!isUndef(args.activetypes))    newState.activetypes = args.activetypes
     if (!isUndef(args.activereltypes)) newState.activereltypes = args.activereltypes
@@ -61,13 +63,12 @@ TW.pushGUIState = function( args ) {
     }
 
     // recreate tabs after type changes
-    // db.json conf entry (£TODO unify s/(?:TW.File|inConfKey)/TW.sourceId/g)
-    let inConfKey = (sourcemode != "api") ? TW.File : 'graphapi/default'
+    // project_conf.json conf entry (POSS unify s/TW.File/TW.sourceId/g)
     if (TW.conf.getRelatedDocs
         && !isUndef(args.activetypes)
-        && TW.gmenuInfos[inConfKey]) {
+        && TW.currentRelDocsDBs) {
 
-      resetTabs(newState.activetypes, TW.gmenuInfos[inConfKey])
+      resetTabs(newState.activetypes, TW.currentRelDocsDBs)
     }
 
     // 4) store it in TW.states
@@ -96,7 +97,6 @@ TW.resetGraph = function() {
 
   // reset rendering gui flags
   TW.gui.selectionActive = false
-  TW.gui.handpickedcolor = false
 
   // reset circle size and cursor
   TW.gui.circleSize = 0
@@ -106,90 +106,181 @@ TW.resetGraph = function() {
   TW.gui.checkBox=false
   TW.gui.lastFilters = {}
 
+  // reset colors legends
+  updateColorsLegend()
+
+  // forget the states
+  TW.states = [TW.initialSystemState]
+
   // remaining global vars will be reset by new graph mainStartGraph
 }
 
+// create more human-readable graph labels for the menu
+// data/project/coolgraph.gexf ==> "project: coolgraph"
+function graphPathToLabel(fullPath) {
+  return fullPath.replace(
+      /^(?:data\/)?([^/]+)\/(.*)(?:\.(?:gexf|json))?/,
+      "$1: $2"
+    )
+}
 
-// read all sources' detailed confs
-//  -> list of source paths available
-//  -> declared nodetypes
-//  -> declared rDocs conf
+
+// read the server files menu list
+// (list of source paths available)
 function readMenu(infofile) {
-
-  // exemple entry
-  // --------------
-  // "data/gargistex": {
-  //   "first" : "shale_and_ice.gexf",
-  //   "graphs":{
-  //     "shale_and_ice.gexf": {
-  //       "node0": {
-  //         "name": "terms",
-  //         "reldbs": {
-  //           "csv": {
-  //             "file": "shale_and_ice.csv",
-  //             "qcols": ["title"],
-  //             "template": "bib_details"
-  //           },
-  //           "twitter": {}
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-
-
   if (TW.conf.debug.logFetchers)  console.info(`attempting to load filemenu ${infofile}`)
+
   var preRES = AjaxSync({ url: infofile, datatype:"json" });
 
   if (preRES['OK'] && preRES.data) {
     if (TW.conf.debug.logFetchers) console.log('initial AjaxSync result preRES', preRES)
   }
 
-  // 1 - store the first one (b/c we'll loose order)
-  var first_file = "", first_dir = "" , first_path = ""
-  for( var path in preRES.data ) {
-    if (TW.conf.debug.logFetchers) console.log("db.json path", path)
-    first_file = preRES.data[path]["first"] || Object.keys(preRES.data[path]["graphs"])[0]
-    first_dir = path
-    break;
-  }
-  first_path = first_dir+"/"+first_file
+  // we just make a clean copy, skipping invalid entries
+  let serverMenu = {}
+  let firstProject = null
 
-  // 2 - process all the paths and associated confs
-  let paths = {}
-  let details = {}
-
-  for( var path in preRES.data ) {
-      var theGraphs = preRES.data[path]["graphs"]
-
-      for(var aGraph in theGraphs) {
-          var graphBasename = aGraph.replace(/\.gexf$/, "") // more human-readable in the menu
-          paths[graphBasename] = path+"/"+aGraph
-          // ex : "RiskV2PageRank1000.gexf":data/AXA/RiskV2PageRank1000.gexf
-          // (we assume there's no duplicate basenames)
-
-          if (TW.conf.debug.logSettings)
-            console.log("db conf entry: "+graphBasename)
-
-          // for associated LocalDB php queries: CSV (or CortextDBs sql)
-          if (theGraphs[aGraph]) {
-            let gSrcEntry = theGraphs[aGraph]
-            details[path+"/"+aGraph] = new Array(2)
-            if (gSrcEntry.node0) {
-              details[path+"/"+aGraph][0] = gSrcEntry.node0
-            }
-            if (gSrcEntry.node1) {
-              details[path+"/"+aGraph][1] = gSrcEntry.node1
-            }
-          }
-          else {
-            details[path+"/"+aGraph] = null
-          }
+  // check all the paths and associated sources
+  for( var projectPath in preRES.data ) {
+    if (! preRES.data[projectPath] || ! preRES.data[projectPath].length) {
+      console.warn("sourceMenu: Skipping invalid project entry:", projectPath)
+    }
+    else {
+      if (projectPath == "first_project") {
+        firstProject = preRES.data['first_project']
       }
+      else {
+        // test and copy if ok
+        serverMenu[projectPath] = []
+        for (var l in preRES.data[projectPath]) {
+          let sourceFile = preRES.data[projectPath][l]
+          let fileExists = linkCheck(projectPath+'/'+sourceFile)
+          if (fileExists) {
+            serverMenu[projectPath].push(sourceFile)
+          }
+        }
+        if (! serverMenu[projectPath].length) {
+          console.warn(`sourceMenu: Skipping project path ${projectPath} (none of the referenced source files are present.)`)
+          delete serverMenu[projectPath]
+        }
+      }
+    }
   }
-
-  return [paths, details, first_path]
+  return [serverMenu, firstProject]
 }
+
+// read project_conf.json files in the project dir for this file
+function readProjectConf(projectPath, filePath) {
+  let declaredNodetypes
+  let declaredDBConf
+
+  let projectConfFile = projectPath + '/project_conf.json'
+
+  if (! linkCheck(projectConfFile)) {
+    console.warn (`no project_conf.json next to the file, ${filePath},
+                   will try using default nodetypes`)
+  }
+  else {
+
+    if (TW.conf.debug.logFetchers)
+      console.info(`attempting to load project conf ${projectConfFile}`)
+
+    var pjconfRes = AjaxSync({ url: projectConfFile, datatype:"json" });
+
+    if (TW.conf.debug.logFetchers)
+      console.log('project conf AjaxSync result pjconfRes', pjconfRes)
+
+    if (! pjconfRes['OK']
+       || ! pjconfRes.data
+       || ! pjconfRes.data[filePath] ) {
+       console.warn (`project_conf.json in ${projectPath} is not valid json
+                      or does not contain an entry for ${filePath},
+                      will try using default nodetypes`)
+    }
+    else {
+      let confEntry = pjconfRes.data[filePath]
+      for (var ndtype in confEntry) {
+        if (! /node\d+/.test(ndtype)) {
+          console.warn (`project_conf.json in ${projectPath}, in the entry
+                         for ${filePath}, should only contain properties
+                         like 'node0', 'node1', etc.`)
+        }
+        else {
+          if (! confEntry[ndtype].name) {
+            console.warn (`project_conf.json in ${projectPath}, in the entry for
+                          ${filePath}.${ndtype}, should contain a 'name' slot`)
+          }
+          // valid case !
+          else {
+            if (! declaredNodetypes)  declaredNodetypes = {}
+
+            // fill simple nodetypes
+            declaredNodetypes[ndtype] = confEntry[ndtype].name
+          }
+
+          // optional reldbs -----------------------
+          if (confEntry[ndtype].reldbs) {
+            if (! declaredDBConf)     declaredDBConf = {}
+
+            // it must match because we tested well-formedness above
+            let ndtypeId = ndtype.match(/^node(\d+)/)[1]
+
+            declaredDBConf[ndtypeId] = {}
+            for (var dbtype in confEntry[ndtype].reldbs) {
+              if (! TW.conf.relatedDocsAPIS[dbtype]) {
+                console.info (`project_conf.json: ${projectPath}.${filePath}.${ndtype}:
+                               skipping unknown related docs db type **${dbtype}**.
+                               The only available db types are:
+                               ${Object.keys(TW.conf.relatedDocsAPIS)}.`)
+              }
+              else {
+                declaredDBConf[ndtypeId][dbtype] = confEntry[ndtype].reldbs[dbtype]
+              }
+            }
+          }
+          // ----------------------------------------
+
+        }
+      }
+    }
+  }
+  return [declaredNodetypes, declaredDBConf]
+}
+
+
+
+// read optional legends.json file in the project dir for this file
+function readProjectFacetsConf(projectPath, filePath) {
+  let declaredFacetsConf
+
+  let legendConfFile = projectPath + '/legends.json'
+
+  if (! linkCheck(legendConfFile)) {
+    console.log (`no legend.json next to the file, ${filePath},
+                   will try using default facet options`)
+  }
+  else {
+    if (TW.conf.debug.logFetchers)
+      console.info(`attempting to load legends conf ${legendConfFile}`)
+
+    var legconfRes = AjaxSync({ url: legendConfFile, datatype:"json" });
+
+    if (TW.conf.debug.logFetchers)
+      console.log('legends conf AjaxSync result legconfRes', legconfRes)
+
+    if (! legconfRes['OK']
+       || ! legconfRes.data) {
+       console.warn (`legends.json in ${projectPath} is not valid json: skipped`)
+    }
+    else {
+      // load attributes params as they are
+      declaredFacetsConf = legconfRes.data
+      // (each coloring function has own fallbacks and checks on these params)
+    }
+  }
+  return declaredFacetsConf
+}
+
 
 
 // settings: {norender: Bool}
@@ -223,7 +314,8 @@ function cancelSelection (fromTagCloud, settings) {
         $("#information").html("");
         $("#searchinput").val("");
         $("#unselectbutton").hide();
-        $("#lefttopbox").hide();
+        $("#lefttopbox").hide();           // <= main selection list cf namesDIV
+        $("#names").html("");              // <= contained by #lefttopbox
     }
 
     // send "eraseNodeSet" event
@@ -244,18 +336,19 @@ function cancelSelection (fromTagCloud, settings) {
 //   - that all typenames have a mapping to cat[0] (terms) or cat[1] (contexts)
 //   - that currentState.activetypes is an array of 2 bools for the currently displayed cat(s)
 function getActivetypesNames() {
-  let currentTypes = []
-  let currentTypeIdx
+  let currentTypeNames = []
 
-  for (var possType in TW.catDict) {
-    currentTypeIdx = TW.catDict[possType]
-    if (TW.SystemState().activetypes[currentTypeIdx]) {
-      currentTypes.push(possType)
+  // for instance [true, false] if type0 is active
+  let activeFlags = TW.SystemState().activetypes
+
+  for (var i = 0 ; i < TW.categories.length ; i++) {
+    if (activeFlags[i]) {
+      currentTypeNames.push(TW.categories[i])
     }
   }
 
   // ex: ['Document'] or ['Ngrams'] or ['Document','Ngrams']
-  return currentTypes
+  return currentTypeNames
 }
 
 function getActiverelsKey(someState) {
@@ -274,7 +367,15 @@ function getNActive(someState) {
   return TW.SystemState().activetypes.filter(function(bool){return bool}).length
 }
 
-// changes attributes of nodes and edges to remove active, highlight and activeEdge flags
+
+
+// deselectNodes
+// -------------
+// works only on the sigma part:
+// changes attributes of nodes and edges to remove:
+//  - active flags
+//  - highlight flags
+//  - and activeEdge flags
 
 // NB: "low-level" <=> by design, does NOT change the state, gui nor global flag
 //                     but ought to be called by "scenario" functions that do
@@ -414,9 +515,9 @@ function htmlfied_nodesatts(elems){
         }
         else {
           information += '<li><b>' + node.label + '</b></li>';
-          let google='<a href=http://www.google.com/#hl=en&source=hp&q=%20'+node.label.replace(" ","+")+'%20><img src="'+TW.conf.paths.ourlibs+'/img/google.png"></img></a>';
-          let wiki = '<a href=http://en.wikipedia.org/wiki/'+node.label.replace(" ","_")+'><img src="'+TW.conf.paths.ourlibs+'/img/wikipedia.png"></img></a>';
-          let flickr= '<a href=http://www.flickr.com/search/?w=all&q='+node.label.replace(" ","+")+'><img src="'+TW.conf.paths.ourlibs+'/img/flickr.png"></img></a>';
+          let google='<a target="_blank" href=http://www.google.com/#hl=en&source=hp&q=%20'+node.label.replace(" ","+")+'%20><img src="'+TW.conf.paths.ourlibs+'/img/google.png"></img></a>';
+          let wiki = '<a target="_blank" href=http://en.wikipedia.org/wiki/'+node.label.replace(" ","_")+'><img src="'+TW.conf.paths.ourlibs+'/img/wikipedia.png"></img></a>';
+          let flickr= '<a target="_blank" href=http://www.flickr.com/search/?w=all&q='+node.label.replace(" ","+")+'><img src="'+TW.conf.paths.ourlibs+'/img/flickr.png"></img></a>';
           information += '<li>'+google+"&nbsp;"+wiki+"&nbsp;"+flickr+'</li><br>';
           semnodes.push(information)
         }
@@ -635,7 +736,7 @@ function prepareNodesRenderingProperties(nodesDict) {
       // default unselected color
       defgrey_color : "rgba("+rgbStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")",
 
-      // will be used for repainting (read when TW.gui.handpickedcolor flag)
+      // will be used for repainting (read when TW.gui.handpickedcolors flags)
       alt_color: null,
       altgrey_color: null,
     }

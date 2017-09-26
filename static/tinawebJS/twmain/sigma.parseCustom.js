@@ -3,7 +3,7 @@
 //   (for instance loop on full gexf in scanGexf then again in dictfyGexf)
 
 // Level-01
-var ParseCustom = function ( format , data, optionalConf ) {
+var ParseCustom = function ( format , data, optionalNodeConf ) {
 
     if (format == 'gexf') {
       this.data = $.parseXML(data)
@@ -14,12 +14,10 @@ var ParseCustom = function ( format , data, optionalConf ) {
     this.format = format;
     this.nbCats = 0;
 
-    this.additionalConf = optionalConf
-
     // input = GEXFstring
     this.getGEXFCategories = function() {
         let observedCategories = scanGexf(this.data)
-        let finalCategories = sortNodeTypes(observedCategories, this.additionalConf)
+        let finalCategories = sortNodeTypes(observedCategories,optionalNodeConf)
         return finalCategories;
     }// output = {'cats':[ "cat1" , "cat2" , ...], 'rev': {cat1: 0, cat2: 1...}}
 
@@ -34,7 +32,7 @@ var ParseCustom = function ( format , data, optionalConf ) {
     // input = JSONstring
     this.getJSONCategories = function(json) {
       let observedCategories = scanJSON(this.data)
-      let finalCategories = sortNodeTypes(observedCategories, this.additionalConf)
+      let finalCategories = sortNodeTypes(observedCategories, optionalNodeConf)
       return finalCategories;
     }// output = {'cats':[ "cat1" , "cat2" , ...], 'rev': {cat1: 0, cat2: 1...}}
 
@@ -52,23 +50,18 @@ ParseCustom.prototype.scanFile = function() {
                     'lookup_dict': new Object()}
     switch (this.format) {
         case "api.json":
-            console.log("scanFile: "+this.format)
             break;
         case "db.json":
-            console.log("scanFile: "+this.format)
             break;
         case "json":
-            console.log("scanFile: "+this.format)
             catInfos = this.getJSONCategories( this.data );
             return catInfos;
             break;
         case "gexf":
-            console.log("scanFile: "+this.format)
             catInfos = this.getGEXFCategories( this.data );
             return catInfos;
             break;
         default:
-            console.log("scanFile   jsaispas: "+this.format)
             break;
     }
 };
@@ -217,15 +210,28 @@ function scanGexf(gexfContent) {
 // expected content: usually a just a few cats over all nodes
 // ex: terms
 // ex: ISItermsriskV2_140 & ISItermsriskV2_140
-function sortNodeTypes(observedTypesDict, optConf) {
+// optional arg optionalNodeConf should contain keys of the form:
+//    "node0": "Keywords",
+//    "node1": "Scholars"
+//     etc.
+// (it's read from project_conf.json)
+function sortNodeTypes(observedTypesDict, optionalNodeConf) {
   var observedTypes = Object.keys(observedTypesDict)
   observedTypes.sort(function(a,b) {return observedTypesDict[b] - observedTypesDict[a]})
 
   let nbNodeTypes = 2
+
+  if (observedTypes.length > nbNodeTypes) {
+    console.warn(`The graph source data has more different node types than
+                  supported. Less frequent node types will be ignored.
+                  Max allowed types: ${nbNodeTypes},
+                  Found: ${observedTypes.length} (namely: ${observedTypes})`)
+  }
+
   var declaredTypes = []
   for (var i = 0 ; i < nbNodeTypes ; i++ ) {
-    if (optConf[i] && optConf[i].name) {
-      declaredTypes[i] = optConf[i].name
+    if (optionalNodeConf && optionalNodeConf["node"+i]) {
+      declaredTypes[i] = optionalNodeConf["node"+i]
       if (TW.conf.debug.logSettings)
         console.log("expected cat (from db.json addtional conf)", i, declaredTypes[i])
     }
@@ -236,10 +242,14 @@ function sortNodeTypes(observedTypesDict, optConf) {
     }
   }
 
-  var newcats = []
-  var catDict = {}
+  // console.log("observedTypes", observedTypes)
+  // console.log("declaredTypes", declaredTypes)
+
+  var newcats = []   // will become TW.categories
+  var catDict = {}   // will become TW.catDict
 
   var nTypes = observedTypes.length
+
   if(nTypes==0) {
       newcats[0]="Terms";
       catDict["Terms"] = 0;
@@ -253,39 +263,72 @@ function sortNodeTypes(observedTypesDict, optConf) {
         console.log(`cat unique (${observedTypes[0]}) =>0`)
   }
   if(nTypes>1) {
-      // allows multiple node types, with an "all the rest" node1
+      // allows multiple node types even if not well declared
+      // ----------------------------------------------------
+      // POSSIBLE: an "all the rest" last nodeType ?
 
-      // try stipulated cats, then fallbacks
-      // possible: loop
-      if (observedTypesDict[declaredTypes[0]]) {
-        newcats[0] = declaredTypes[0];
-        catDict[declaredTypes[0]] = 0;
-      }
-      if (observedTypesDict[declaredTypes[1]]) {
-        newcats[1] = declaredTypes[1];
-        catDict[declaredTypes[1]] = 1;
-      }
+      let alreadyUsed = {}
 
-      // NB: type for nodes0 will be the majoritary by default, unless taken
-      if (!newcats[0]) {
-        if (observedTypes[0] != newcats[1])
-            newcats[0] = observedTypes[0]    // 0 is the most frequent here
-        else
-            newcats[0] = observedTypes[1]    // 1 is second most frequent
+      // try declared cats in declared position, independantly from each other
+      for (var i = 0 ; i < nbNodeTypes; i++) {
+        if (observedTypesDict[declaredTypes[i]]) {
+          let validatedType = declaredTypes[i]
+          newcats[i] = validatedType;
+          alreadyUsed[validatedType] = true
+        }
       }
 
-      // all the rest
-      for(var i in observedTypes) {
-        let c = observedTypes[i]
-        // or c is in "all the rest" group
-        // (POSS extend to multitypes)
-        if (c != newcats[0] && c != newcats[1]) {
-            if (!newcats[1])    newcats[1] = c;
-            else newcats[1] += '/'+c
-            catDict[c] = 1;
+      // console.log("found stipulated cats", newcats, catDict)
+
+      // fallbacks: if some or all stipulated cats are not found
+      // ---------
+
+      // heuristic A: fill missing ones, by frequence
+      // (eg if nodes0 was not found, then type for nodes0 will be the
+      //     majoritary observed one, unless taken where we move one up)
+      for (var i = 0 ; i < nbNodeTypes; i++) {
+        if (typeof newcats[i] == "undefined") {
+          for (var j = 0 ; j < nTypes ; j++) {
+            if (!alreadyUsed[observedTypes[j]]) {
+              newcats[i] = observedTypes[j]
+              alreadyUsed[observedTypes[j]] = true
+              break
+            }
+          }
+        }
+      }
+      // console.log("after filling majority cats", newcats, catDict)
+
+      // all the rest (heuristic B)
+      if (!newcats[nbNodeTypes-1]) {
+        for(var i in observedTypes) {
+          // without a group others: if there is more than two cats altogether,
+          //                         only the last cat counts as node1 cat
+          let c = observedTypes[i]
+
+
+          // -------------------------------------------- for a group "others"
+          // with a group "others": if there is more than two cats altogether,
+          //                         all the non majoritary or non-stipulated
+          //                         are grouped here as node1 cat
+          // but problem: it break the symetry b/w TW.categories and TW.catDict
+          //
+          // // c is in "all the rest" group (POSS extend to multitypes)
+          // if (c != newcats[0] && c != newcats[1]) {
+          //     if (!newcats[1])    newcats[1] = c;
+          //     else newcats[1] += '/'+c
+          //     catDict[c] = 1;
+          // }
+          // -------------------------------------------/ for a group "others"
         }
       }
   }
+
+  // reverse lookup
+  for (var i in newcats) {
+    catDict[newcats[i]] = i
+  }
+
   return {'categories': newcats, 'lookup_dict': catDict}
 }
 
@@ -312,14 +355,9 @@ function facetsBinning (valuesIdx) {
   let facetIdx = {}
 
   if (TW.conf.debug.logFacets) {
-    console.log('facetsBinning: begin TW.Clusters')
+    console.log('facetsBinning: begin TW.Facets')
     var classvalues_deb = performance.now()
   }
-
-  // var gotClusters = false
-  // for (var nodecat in valuesIdx) {
-  //   gotClusters = gotClusters || (valuesIdx[nodecat]['cluster_index'] || valuesIdx[nodecat][TW.conf.nodeClusAtt])
-  // }
 
   // all scanned attributes get an inverted index
   for (var cat in valuesIdx) {
@@ -383,16 +421,16 @@ function facetsBinning (valuesIdx) {
 
       // read stipulated options in user settings
       // ----------------------------------------
-      if (TW.conf.facetOptions[at]) {
-        binningMode = TW.conf.facetOptions[at]["binmode"]
-        nBins = TW.conf.facetOptions[at]["n"]
+      if (TW.facetOptions[at]) {
+        binningMode = TW.facetOptions[at]["binmode"]
+        nBins = TW.facetOptions[at]["n"]
         maxDiscreteValues = nBins
 
         if (nBins == 0) {
           console.warn(`Can't use user-specified number of bins value 0 for attribute ${at}, using TW.conf.legendsBins ${TW.conf.legendsBins} instead`)
           nBins = TW.conf.legendsBins
         }
-        if (TW.conf.debug.logFacets) console.log("TW.conf.facetOptions[at]", TW.conf.facetOptions[at])
+        if (TW.conf.debug.logFacets) console.log("TW.facetOptions[at]", TW.facetOptions[at])
       }
       else {
         if (TW.conf.debug.logFacets) console.log("(no specified options in settings for this attribute)")
@@ -409,7 +447,7 @@ function facetsBinning (valuesIdx) {
 
       // if small number of distinct values doesn't need binify
       if (    dataType == 'str'
-         || (TW.conf.facetOptions[at]                               // case with custom facetOptions
+         || (TW.facetOptions[at]                               // case with custom facetOptions
               && (nDistinctVals <= nBins || binningMode == "off"))
          || (nDistinctVals <= maxDiscreteValues )           // case with unspecified options
        ) {
@@ -621,7 +659,7 @@ function facetsBinning (valuesIdx) {
 
   if (TW.conf.debug.logFacets) {
     var classvalues_fin = performance.now()
-    console.log('end TW.Clusters, own time:', classvalues_fin-classvalues_deb)
+    console.log('end TW.Facets, own time:', classvalues_fin-classvalues_deb)
   }
 
   return facetIdx
@@ -653,10 +691,18 @@ function dictfyGexf( gexf , categories ){
     for(var i in categories)  {
       nodesByType[i] = []
 
-      let subCats = categories[i].split(/\//g)
-      for (var j in subCats) {
-        catDict[subCats[j]] = i
-      }
+
+      // without  a group "others" -------------------
+      catDict[categories[i]] = i
+
+      // POSS subCats for cat "others" if open types mapped to n types
+      //
+      // ----------------------- with a group "others"
+      // let subCats = categories[i].split(/\//g)
+      // for (var j in subCats) {
+      //   catDict[subCats[j]] = i
+      // }
+      // ---------------------- /with a group "others"
 
     }
 
@@ -673,11 +719,26 @@ function dictfyGexf( gexf , categories ){
     // let sumSizes = 0
     // let sizeStats = {'mean':null, 'median':null, 'max':0, 'min':1000000000}
 
-    // if scanClusters, we'll also use:
+    // if scanAttributes, we'll also use:
     var tmpVals = {}        // to build inverted index attval => nodes
                             // (to inventory subclasses for a given attr)
                             //   if < maxDiscreteValues: keep all in legend
                             //   else:  show intervals in legend
+
+    // tmpVals structure
+    // -----------------
+    // {
+    //   nodecat0: {
+    //     betweeness: {
+    //       map: {
+    //         val0: [nodeid_a, nodeid_b...],
+    //         val1: [nodeid_c, nodeid_d...],...
+    //       }
+    //       vals: {vstr:[], vnum:[val0, val1,...]}
+    //     },
+    //     ...
+    //   }
+    // }
 
     // usually there is only 1 <nodes> element...
     for(i=0; i<elsNodes.length; i++) {
@@ -813,7 +874,7 @@ function dictfyGexf( gexf , categories ){
 
             // console.debug("node.attributes", node.attributes)
             // creating a faceted index from node.attributes
-            if (TW.conf.scanClusters) {
+            if (TW.conf.scanAttributes) {
 
               tmpVals = updateValueFacets(tmpVals, node)
             }
@@ -837,8 +898,8 @@ function dictfyGexf( gexf , categories ){
 
 
     // clusters and other facets => type => name => [{label,val/range,nodeids}]
-    if (TW.conf.scanClusters) {
-      TW.Clusters = facetsBinning(tmpVals)
+    if (TW.conf.scanAttributes) {
+      TW.Facets = facetsBinning(tmpVals)
     }
 
     // linear rescale node sizes
@@ -1065,18 +1126,24 @@ function dictfyJSON( data , categories ) {
     for(var i in categories)  {
       nodesByType[i] = []
 
-      let subCats = categories[i].split(/\//g)
-      for (var j in subCats) {
-        catDict[subCats[j]] = i
-      }
+      // without  a group "others" -------------------
+      catDict[categories[i]] = i
 
+      // POSS subCats for cat "others" if open types mapped to n types
+      //
+      // ----------------------- with a group "others"
+      // let subCats = categories[i].split(/\//g)
+      // for (var j in subCats) {
+      //   catDict[subCats[j]] = i
+      // }
+      // ---------------------- /with a group "others"
     }
 
     // normalization, same as parseGexf
     let minNodeSize = Infinity
     let maxNodeSize = 0
 
-    // if scanClusters, we'll also use:
+    // if scanAttributes, we'll also use:
     var tmpVals = {}
 
     for(var nid in data.nodes) {
@@ -1131,7 +1198,7 @@ function dictfyJSON( data , categories ) {
         }
 
         // creating a faceted index from node.attributes
-        if (TW.conf.scanClusters) {
+        if (TW.conf.scanAttributes) {
           tmpVals = updateValueFacets(tmpVals, node)
         }
     }
@@ -1139,8 +1206,8 @@ function dictfyJSON( data , categories ) {
     // test: json with string facet (eg lab affiliation in comex)
     // console.log(tmpVals['Document'])
 
-    if (TW.conf.scanClusters) {
-      TW.Clusters = facetsBinning (tmpVals)
+    if (TW.conf.scanAttributes) {
+      TW.Facets = facetsBinning (tmpVals)
     }
 
     // £TODO ask if wanted

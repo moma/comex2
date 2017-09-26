@@ -100,8 +100,6 @@ if (uinfo.pic_url || uinfo.pic_fname) {
 }
 
 
-
-
 // initialize form controllers
 var theUForm = cmxClt.uform.Form(
     // id
@@ -110,10 +108,12 @@ var theUForm = cmxClt.uform.Form(
     completionAsYouGo,
     // other params
     { 'multiTextinputs': [{'id':'keywords',
-                           'prevals': uinfo.keywords},
+                           'prevals': uinfo.keywords,
+                           'minEntries': 3 },
                           {'id':'hashtags',
                            'prevals': uinfo.hashtags,
-                           'color': "#23A"}]
+                           'color': "#23A",
+                           'minEntries': 3 }]
     }
 )
 
@@ -198,8 +198,7 @@ function submitAndModal() {
     var formdat = theUForm.asFormData();
     var postUrl = "/services/user/profile/"
 
-    // if (window.fetch) {
-    if (false) {
+    if (window.fetch) {
         fetch(postUrl, {
             method: 'POST',
             headers: {'X-Requested-With': 'MyFetchRequest'},

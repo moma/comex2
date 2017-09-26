@@ -22,20 +22,12 @@ function SelectionEngine() {
 
         // currsels = bunch of nodes from a click in the map
         if(args.addvalue) {
-            // FOR SIMPLE UNIQUE UNION
-            if ( TW.SystemState().level) {
-              targeted = args.currsels.concat(args.prevsels.filter(function (item) {
-                  return args.currsels.indexOf(item) < 0;
-                }));
-            }
-            // meso view: complementary select if disjoint, deselect if overlap
-            else {
-              targeted = args.currsels.filter(function (item) {
-                  return args.prevsels.indexOf(item) < 0;
-              }).concat(args.prevsels.filter(function (item) {
-                  return args.currsels.indexOf(item) < 0;
-                }));;
-            }
+            // complementary select if disjoint, deselect if overlap
+            targeted = args.currsels.filter(function (item) {
+                return args.prevsels.indexOf(item) < 0;
+            }).concat(args.prevsels.filter(function (item) {
+                return args.currsels.indexOf(item) < 0;
+              }));;
         }
         else {
           targeted = args.currsels;
@@ -128,6 +120,7 @@ function SelectionEngine() {
      * Main function for any selecting action
      *
      * @nodes: eg targeted array (only ids)
+     * @noState: bool flag to avoid registering new state (useful for CTRL+Z)
      *
      *  external usage : clickHandler, search, changeType, filters, tag click...
      */
@@ -136,12 +129,14 @@ function SelectionEngine() {
 
         if (!args)                      args = {}
         if (isUndef(args.nodes))        args.nodes = []
+        if (isUndef(args.noState))      args.noState = false
 
         if (TW.conf.debug.logSelections) {
           var tMS2_deb = performance.now()
-
-          console.log("IN SelectionEngine.MultipleSelection2:")
-          console.log("nodes", args.nodes)
+          console.log(
+            "IN SelectionEngine.MultipleSelection2:", args.nodes,
+            "noState:", args.noState
+          )
         }
 
         // deselects only the active ones (based on SystemState())
@@ -213,7 +208,10 @@ function SelectionEngine() {
 
                                   // since we're there we'll also keep the neighbors info
                                   if (typeof sameSideNeighbors[tgtnid] == 'undefined') {
-                                    sameSideNeighbors[tgtnid]=0
+
+                                    // except when XR because it'll already be in oppoSideNeighbors
+                                    if (activereltype != 'XR')
+                                      sameSideNeighbors[tgtnid]=0
                                   }
 
                                   // and the detailed info
@@ -224,13 +222,19 @@ function SelectionEngine() {
                                   // **make the edge active**
                                   if (e1 && !e1.hidden) {
                                     e1.customAttrs.activeEdge = 1;
-                                    sameSideNeighbors[tgtnid] += e1.weight || 1
                                     activeRelations[activereltype][srcnid][tgtnid] += e1.weight || 1
+
+                                    // + enrich neighbor's info except if duplicate with oppoSideNeighbors
+                                    if (activereltype != 'XR')
+                                      sameSideNeighbors[tgtnid] += e1.weight || 1
                                   }
                                   if (e2 && !e2.hidden) {
                                      e2.customAttrs.activeEdge = 1;
-                                     sameSideNeighbors[tgtnid] += e2.weight || 1
                                      activeRelations[activereltype][srcnid][tgtnid] += e2.weight || 1
+
+                                     // + enrich neighbor's info except if duplicate with oppoSideNeighbors
+                                     if (activereltype != 'XR')
+                                      sameSideNeighbors[tgtnid] += e2.weight || 1
                                   }
 
                                   // we add as neighbor to color it (except if already in targeted)
@@ -318,8 +322,10 @@ function SelectionEngine() {
         }
 
         // it's a new SystemState
-        TW.pushGUIState( { 'sels': theSelection,
-                        'rels': activeRelations } )
+        if (! args.noState) {
+          TW.pushGUIState( { 'sels': theSelection,
+                             'rels': activeRelations } )
+        }
 
         // we send our "gotNodeSet" event
         // (signal for plugins that a search-selection was done or a new hand picked selection)
@@ -333,7 +339,6 @@ function SelectionEngine() {
         TW.gui.selectionActive = true
 
         TW.partialGraph.render();
-
 
         updateRelatedNodesPanel( theSelection , same, oppos )
 
@@ -839,27 +844,34 @@ var TinaWebJS = function ( sigmacanvas ) {
             }
 
             var timeoutIdCTRLZ = window.setTimeout(function() {
+              // console.log("pop state")
+              let previousState = TW.states.pop()
 
-              if (TW.gui.selectionActive) {
-                deselectNodes(TW.SystemState())
-                TW.gui.selectionActive = false
-              }
-
-              console.log("pop state")
-
-              TW.states.pop()
+              deselectNodes(previousState)
 
               let returningState = TW.SystemState()
-              if (returningState.selectionNids.length) {
-                TW.instance.selNgn.MultipleSelection2({nodes:returningState.selectionNids})
+
+              // restoring level (will also restore selections)
+              if (returningState.level != previousState.level) {
+                changeLevel(returningState)
               }
               else {
-                cancelSelection()
+                // restoring selection
+                if (returningState.selectionNids.length) {
+                  TW.gui.selectionActive = true
+                  // changes active/highlight and refresh
+                  // POSS turn the nostate version into a select fun like deselect (ie no state, no refresh)
+                  TW.instance.selNgn.MultipleSelection2({
+                    nodes: returningState.selectionNids,
+                    noState: true
+                  })
+                }
+                else {
+                  TW.gui.selectionActive = false
+                  TW.partialGraph.refresh()
+                }
               }
-              TW.partialGraph.refresh()
-
             }, 100)
-
           }
         } );
 
@@ -868,7 +880,8 @@ var TinaWebJS = function ( sigmacanvas ) {
 
     // to init local, instance-related listeners (need to run at new sigma instance)
     // args: @partialGraph = a sigma instance
-    this.initSigmaListeners = function(partialGraph, initialActivetypes, initialActivereltypes, optionalConfEntry) {
+    // accessed globals: TW.Facets
+    this.initSigmaListeners = function(partialGraph, initialActivetypes, initialActivereltypes, optionalRelDocsConf) {
 
       // console.log("initSigmaListeners TW.categories / types array / reltypeskeys array: ", TW.categories, initialActivetypes, initialActivereltypes)
 
@@ -934,7 +947,7 @@ var TinaWebJS = function ( sigmacanvas ) {
       // when one node and normal click
       // ===============================
       partialGraph.bind('clickNode', function(e) {
-        // console.log("clickNode event e", e.data.node)
+        // console.log("clickNode event e", e)
 
         // new sigma.js gives easy access to clicked node!
         var theNodeId = e.data.node.id
@@ -948,7 +961,26 @@ var TinaWebJS = function ( sigmacanvas ) {
                           } )
           // 2)
           if(targeted.length>0) {
-            selInst.MultipleSelection2( {nodes:targeted} )
+
+            // we still check if the selection is unchanged before create state
+            let currentNids = TW.SystemState().selectionNids
+            let sameNids = true
+            if (currentNids.length != targeted.length) {
+              sameNids = false
+            }
+            else {
+              for (var j in currentNids) {
+                if (currentNids[j] != targeted[j]) {
+                  sameNids = false
+                  break
+                }
+              }
+            }
+
+            // iff new selection, create effects and state
+            if (!sameNids) {
+              selInst.MultipleSelection2( {nodes:targeted} )
+            }
           }
         }
         // case with a selector circle cursor handled
@@ -958,10 +990,24 @@ var TinaWebJS = function ( sigmacanvas ) {
 
       // doubleClick creates new meso view around clicked node
       partialGraph.bind('doubleClickNode', function(e) {
-        var theNodeId = e.data.node.id
-        selInst.MultipleSelection2( {nodes:[theNodeId]} )
-        let newZoomState = Object.assign(TW.SystemState(), {level:false})
-        changeLevel(newZoomState)
+        // /!\   doubleClick will also fire 2 singleClick events  /!\
+        //
+        //      https://github.com/jacomyal/sigma.js/issues/208
+        //      https://github.com/jacomyal/sigma.js/issues/506
+        //
+        //      (order: clickNode, doubleClickNode, clickNode)
+        //                 1st        2nd (NOW)        3rd
+
+        // so if this was also a new selection, the 1st clickNode did handle it
+        // => we just create the new zoom level
+
+        // NB2: we never switch back to macro level from doubleClick
+
+        // A - create new zoom level state
+        TW.pushGUIState({ level: false })
+
+        // B - apply it without changing state
+        changeLevel(TW.SystemState())
       })
 
       // when click in the empty background
@@ -1085,13 +1131,46 @@ var TinaWebJS = function ( sigmacanvas ) {
         $("#read-opposite-neighs").readmore({maxHeight:200});
       }
 
-      // initialize reldocs tabs if declared in additionalConf
-      if (TW.conf.getRelatedDocs) {
+      // initialize reldocs tabs if declared in optionalRelDocsConf
+      // (optionalRelDocsConf function-scope name of TW.currentRelDocsDBs)
+      if (TW.conf.getRelatedDocs && optionalRelDocsConf) {
+        resetTabs(initialActivetypes, optionalRelDocsConf)
+      }
 
-        let moreConfKey = optionalConfEntry || TW.File
+      // defaultColoring: an attribute name to immediately apply color with
+      let madeDefaultColor = false
+      if (TW.conf.defaultColoring) {
+        let colMethodName, colMethod
+        if (TW.facetOptions[TW.conf.defaultColoring]) {
+          colMethodName = TW.gui.colorFuns[TW.facetOptions[TW.conf.defaultColoring]['col']]
+        }
+        if (! colMethodName) {
+          if(TW.conf.defaultColoring.indexOf("clust")>-1||TW.conf.defaultColoring.indexOf("class")>-1) {
+            // for classes and clusters
+            colMethod = "clusterColoring"
+          }
+          else {
+            colMethod = "heatmapColoring"
+          }
+        }
 
-        resetTabs(initialActivetypes, TW.gmenuInfos[moreConfKey])
-
+        // retrieve the actual function and if there, try and run it
+        colMethod = window[colMethodName]
+        if (colMethod && typeof colMethod == "function") {
+          try {
+            colMethod(TW.conf.defaultColoring)
+            madeDefaultColor = true
+          }
+          catch(err) {
+            console.warn(`Settings asked for defaultColoring by the
+                          attribute "${TW.conf.defaultColoring}" but
+                          it's not present in the dataset => skip action`)
+          }
+        }
+      }
+      // otherwise, set the default legend
+      if (! madeDefaultColor) {
+        updateColorsLegend ( "clust_default" )
       }
 
       // select currently active sliders
@@ -1174,6 +1253,8 @@ var TinaWebJS = function ( sigmacanvas ) {
       // attributes' facet-options init & handler
       fillAttrsInForm('choose-attr')
       document.getElementById('choose-attr').onchange = showAttrConf
+
+      // add all numeric attributes to titlingMetric with option type fromFacets
       fillAttrsInForm('attr-titling-metric', 'num')
 
       // cancelSelection(false);

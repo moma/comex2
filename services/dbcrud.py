@@ -64,10 +64,13 @@ ORG_COLS = [
 #          NAME,          NOT NULL,  MAXCHARS  KEY elt
 JOB_COLS = [
          ("uid",                True,      15,    False),  # author of the ad
+         ("jtitle",             True,      80,    False),
          ("mission_text",       True,    2400,    False),
          ("recruiter_org_text", True,    2400,    False),
          ("email",               True,    255,    False),  # job contact mail
-         ("job_valid_date",      True,   None,    False)
+         ("locname",            False,    120,    False),
+         ("job_valid_date",      True,   None,    False),
+         ("pdf_fname",          False,    120,    False)
          # 'last_modified'       timestamp added by DB itself
     ]
 
@@ -462,7 +465,7 @@ def save_full_scholar(safe_recs, cmx_db, uactive=True, update_user=None):
                             db_vals_str
                        )
     else:
-        set_full_str = ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])
+        set_full_str = key_val_expr(db_tgtcols, db_qstrvals)
 
         # UPDATE: full_statement with formated values
         full_statmt = 'UPDATE scholars SET %s WHERE luid = "%s"' % (
@@ -516,19 +519,19 @@ def update_scholar_cols(selected_safe_recs, cmx_db, where_luid=None):
             db_qstrvals.append(quotedstrval)
 
     cmx_db_c = cmx_db.cursor()
-    set_full_str = ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])
+    set_full_str = key_val_expr(db_tgtcols, db_qstrvals)
 
     # UPDATE: full_statement with formated values
     full_statmt = 'UPDATE scholars SET %s WHERE luid = "%s"' % (
-                        set_full_str,
-                        where_luid
-    )
+                    set_full_str,
+                    where_luid
+                  )
     cmx_db_c.execute(full_statmt)
     cmx_db.commit()
     return where_luid
 
 
-def save_pairs_sch_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
+def save_pairs_fkey_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
     """
     Simply save all pairings (luid, kwid) or (luid, htid) in the list
     @pairings_list: list of tuples
@@ -539,22 +542,36 @@ def save_pairs_sch_tok(pairings_list, cmx_db = None, map_table='sch_kw'):
         db = connect_db()
     db_cursor = db.cursor()
     for id_pair in set(pairings_list):
+        print("id_pair", id_pair)
         db_cursor.execute('INSERT INTO %s VALUES %s' % (map_table, str(id_pair)))
         db.commit()
         mlog("DEBUG", "%s: saved %s pair" % (map_table, str(id_pair)))
     if not cmx_db:
         db.close()
 
-def delete_pairs_sch_tok(uid, cmx_db, map_table='sch_kw'):
+def delete_pairs_fkey_tok(idkey, cmx_db = None, map_table='sch_kw'):
     """
-    Simply deletes all pairings (luid, *) in the table
+    Simply deletes all pairings (foreign_key, *) in the table
     """
-    if map_table not in ['sch_kw', 'sch_ht']:
+    if cmx_db:
+        db = cmx_db
+    else:
+        db = connect_db()
+    db_cursor = db.cursor()
+    if map_table not in ['sch_kw', 'sch_ht', 'job_kw']:
         raise TypeError('ERROR: Unknown map_table')
-    db_cursor = cmx_db.cursor()
-    n = db_cursor.execute('DELETE FROM %s WHERE uid = "%s"' % (map_table, uid))
-    cmx_db.commit()
-    mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(uid)))
+
+    table_to_col = {'sch_kw':'uid','sch_ht':'uid',
+                    'job_kw':'jobid'}
+    fkey = table_to_col[map_table]
+
+    db_cursor = db.cursor()
+    sql = 'DELETE FROM %s WHERE %s = "%s"' % (map_table,fkey,str(idkey))
+    n = db_cursor.execute(sql)
+    db.commit()
+    mlog("DEBUG", "%s: DELETED %i pairings for %s" % (map_table, n, str(idkey)))
+    if not cmx_db:
+        db.close()
 
 
 def get_or_create_tokitems(tok_list, cmx_db = None, tok_table='keywords'):
@@ -565,8 +582,8 @@ def get_or_create_tokitems(tok_list, cmx_db = None, tok_table='keywords'):
 
     tok_list is an array of strings
 
-    NB keywords are mandatory: each registration should provide at least MIN_KW
-       hashtags aren't
+    NB keywords are mandatory, hashtags are not
+       (minimum number of entries is checked client-side)
 
     for loop
        1) query to *keywords* or *hashtags* table (exact match)
@@ -865,7 +882,7 @@ def create_legacy_user_rettokens(
     #        """
 
 
-def save_job(job_infos):
+def save_job(job_infos, optional_job_id_to_update = None):
     """
     Save a new row in jobs table
     """
@@ -888,42 +905,64 @@ def save_job(job_infos):
             db_tgtcols.append(colname)
             db_qstrvals.append(quotedstrval)
 
-    db_cursor.execute('INSERT INTO jobs(%s) VALUES (%s)' % (
-                        ','.join(db_tgtcols),
-                        ','.join(db_qstrvals)
-                       )
-                     )
-    job_id = db_cursor.lastrowid
+    if optional_job_id_to_update:
+        # an updated job
+        job_id = optional_job_id_to_update
+        key_values = key_val_expr(db_tgtcols, db_qstrvals)
+        db_cursor.execute('UPDATE jobs SET %s WHERE jobid = %s' % (key_values, job_id))
+    else:
+        # a new job
+        db_cursor.execute('INSERT INTO jobs(%s) VALUES (%s)' % (
+                            ','.join(db_tgtcols),
+                            ','.join(db_qstrvals)
+                           )
+                         )
+        job_id = db_cursor.lastrowid
     db.commit()
     db.close()
-    mlog("DEBUG", "jobs: saved %s infos" % job_infos)
+    mlog("DEBUG", "jobs #%s: saved %s infos" % (job_id, job_infos))
     return job_id
 
 
-def get_jobs(author_uid = None):
-
+def get_jobs(author_uid = None, job_id = None):
     constraints = ['job_valid_date >= CURDATE()']
     if author_uid:
-        constraints.append('uid = "%s"' % author_uid)
+        constraints.append('jobs.uid = "%s"' % author_uid)
+
+    if job_id:
+        constraints.append('jobs.jobid = "%s"' % job_id)
 
     db = connect_db()
     db_c = db.cursor(DictCursor)
 
-    db_c.execute(
-        """SELECT jobs.*,
-                  COUNT(job_kw.kwid) AS kwid_nb,
-                  GROUP_CONCAT(keywords.kwstr) AS keywords
-           FROM jobs
-           LEFT JOIN job_kw ON jobs.jobid = job_kw.jobid
-           LEFT JOIN keywords ON keywords.kwid = job_kw.kwid
-           WHERE %s
-           GROUP BY jobs.jobid;
-        """ % " AND ".join(constraints)
-    )
+    sql_q = """SELECT jobs.*,
+              COUNT(job_kw.kwid) AS kwid_nb,
+              GROUP_CONCAT(keywords.kwstr) AS keywords
+       FROM jobs
+       LEFT JOIN job_kw ON jobs.jobid = job_kw.jobid
+       LEFT JOIN keywords ON keywords.kwid = job_kw.kwid
+       WHERE %s
+       GROUP BY jobs.jobid;
+    """ % " AND ".join(constraints)
+
+    mlog("DEBUGSQL", "get_jobs", sql_q)
+
+    db_c.execute(sql_q)
 
     job_rows = db_c.fetchall()
     db.close()
     return job_rows
+
+def find_jobs_pdf(job_id):
+    """
+    returns None or a basename like d8f5e73cc0b9409aae699cccf3588f8e.pdf
+    """
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+    db_c.execute("SELECT pdf_fname FROM jobs WHERE jobid = %s" % job_id)
+    res = db_c.fetchone()
+    db.close()
+    return res["pdf_fname"]
 
 def delete_job(jobid = None, author_uid = None):
     if not jobid or not author_uid:
@@ -938,3 +977,11 @@ def delete_job(jobid = None, author_uid = None):
     db.commit()
     db.close()
     return jobid
+
+
+def key_val_expr(db_tgtcols, db_qstrvals):
+    """
+    Array of table keys and of values to update
+    => to string of the form: date = "2017-08-12", mission_text="d'accord"
+    """
+    return ','.join([db_tgtcols[i] + '=' + db_qstrvals[i] for i in range(len(db_tgtcols))])

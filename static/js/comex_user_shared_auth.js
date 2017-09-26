@@ -24,7 +24,16 @@ cmxClt = (function(cC) {
 
     // #doors_connect.value ~~> like a @classparam for uauthforms
     // :str: "doors_hostname:doors_port"
-    cC.uauth.doorsConnectParam = document.getElementById('doors_connect').value
+    cC.uauth.doorsParam = {}
+    cC.uauth.doorsParam.connect = 'doors.iscpif.fr'
+    cC.uauth.doorsParam.htscheme = 'https:'
+    if (document.getElementById('doors_connect')) {
+      cC.uauth.doorsParam.connect = document.getElementById('doors_connect').value
+    }
+    if (document.getElementById('doors_scheme')) {
+      cC.uauth.doorsParam.htscheme = document.getElementById('doors_scheme').value
+    }
+    Object.freeze(cC.uauth.doorsParam)
 
     // param for "realperson" widget generation & validation
     cC.uauth.realCaptchaLength = 5
@@ -143,6 +152,7 @@ cmxClt = (function(cC) {
             var blockButton = function() {
                 console.log('blocking submit button')
                 auForm.elSubmitBtn.disabled = true
+                return {'ok': true}
             }
             auForm.preSubmitActions.push(blockButton)
         }
@@ -166,7 +176,10 @@ cmxClt = (function(cC) {
                 auForm.preSubmitActions.push(
                     function () {
                         // console.log('collecting captcha data')
-                        cmxClt.uauth.collectCaptcha(auForm)
+                        let retVal = cmxClt.uauth.collectCaptcha(auForm)
+
+                        return {'ok': retVal,
+                                'errMsg': retVal ? '': 'Captcha is not filled'}
                     }
                 )
 
@@ -183,13 +196,8 @@ cmxClt = (function(cC) {
 
     cC.uauth.collectCaptcha = function (uformObj) {
         uformObj.elCapcheck.value = $(uformObj.elCaptcha).realperson('getHash')
-        // console.debug('  '+uformObj.id+': collected captcha hash ' +uformObj.elCapcheck.value)
+        return typeof uformObj.elCapcheck.value != 'undefined'
     }
-
-    // NB removed earlyValidate
-    //       => no need for 1 exposed validation function
-    //          b/c all 3 checks bound to their elements onchange/onkeyup
-
 
     // ----------- interaction for mailID check via fetch @doors ---------------
     // function testMailFormatAndExistence
@@ -199,6 +207,7 @@ cmxClt = (function(cC) {
     //
     // NB for login we only check the doors DB
     //    for registration, we must check both DBs if email is available
+    //    + email shall always be checked in lowercase
 
     // effect 1 emailStatus ok/no, and side effect 2 on icon + msg
     //    wrong format ===========================> grey
@@ -206,10 +215,9 @@ cmxClt = (function(cC) {
     //    format ok, doorsStatus == expectExists => green
     cC.uauth.testMailFormatAndExistence = function (obja) {
 
-
       // PREP-ING
       if (obja.lastEmailValue == undefined) {
-          obja.lastEmailValue == null
+          obja.lastEmailValue = null
       }
 
       // locate our dials if any and if not already done
@@ -223,18 +231,21 @@ cmxClt = (function(cC) {
       }
 
       // GO TESTS
-      var emailValue = obja.elEmail.value
+      var emailValue = obja.elEmail.value.toLowerCase()
 
-
-      // 0) memo
+      // 0) use cache if checked the same value in the same session
       if (obja.emailStatus != null
           && emailValue == obja.lastEmailValue) {
           return obja.emailStatus
       }
 
       // 1) tests if email is well-formed
-      // TODO: better extension and allowed chars set
-      var emailFormatOk = /^[-A-z0-9_=.+]+@[-A-z0-9_=.+]+\.[-A-z0-9_=.+]{2,4}$/.test(emailValue)
+      var emailFormatOk = /^[-._~a-z0-9!$&*=/\\|'`#+?{}]+@(?=.{1,255}$)[-_~a-z0-9.]+\.[-_~a-z0-9]+$/.test(emailValue)
+      // NB can still do better (non ASCII domain extensions like 我爱你, etc.)
+      // cf. https://tools.ietf.org/html/rfc2822#section-3.2.4
+      //     https://tools.ietf.org/html/rfc2822#section-3.4
+      //     http://haacked.com/archive/2007/08/21/i-knew-how-to-validate-an-email-address-until-i.aspx/
+      //     http://www.ex-parrot.com/~pdw/Mail-RFC822-Address.html
 
       if (! emailFormatOk) {
 
@@ -578,6 +589,10 @@ cmxClt = (function(cC) {
         var passStr = data[1]
         var nameStr = data[2]
 
+        if (mailStr && typeof mailStr == 'string') {
+          mailStr = mailStr.toLowerCase()
+        }
+
         // test params and set defaults
         if (typeof apiAction != 'string'
             || (! /user|register|userExists/.test(apiAction))) {
@@ -611,13 +626,13 @@ cmxClt = (function(cC) {
                     "name":     nameStr
                 }
 
-            var scheme = 'https'
+            var htscheme = cC.uauth.doorsParam.htscheme || 'https:'
 
             $.ajax({
                 contentType: "application/x-www-form-urlencoded; charset=UTF-8",
                 dataType: 'json',
 
-                url: scheme + "://"+cC.uauth.doorsConnectParam+"/api/" + apiAction,
+                url: htscheme+"//"+cC.uauth.doorsParam.connect+"/api/" + apiAction,
                 data: sendData,
                 type: 'POST',
                 success: function(data) {

@@ -23,11 +23,20 @@ TW.gui.checkBox=false;
 TW.gui.shiftKey=false;
 TW.gui.foldedSide=false;
 TW.gui.manuallyChecked = false;
-TW.gui.handpickedcolor = false;     // <= changes edge rendering strategy
-TW.gui.lastFilters = {}
+TW.gui.lastFilters = {}             // <= last values, by slider id
 TW.gui.reldocTabs = [{}, {}]        // <= by nodetype and then dbtype
 
 TW.gui.sizeRatios = [1,1]           // sizeRatios per nodetype
+TW.gui.handpickedcolors = {};        // <= changes rendering, by nodetype
+TW.gui.handpickedcolorsReset = function (forTypes = TW.categories) {
+  TW.gui.handpickedcolors = {}
+  for (var k in forTypes) {
+    TW.gui.handpickedcolors[forTypes[k]] = {
+      'alton': false,
+      'altattr': null
+    }
+  }
+}
 
 TW.gui.noverlapConf = {
   nodeMargin: .4,
@@ -158,7 +167,11 @@ function getHeatmapColors(nClasses) {
 
 
 function writeBrand (brandString, brandLink) {
-  document.getElementById('twbrand').innerHTML = brandString
+  let elTitle = document.getElementById('twbrand')
+  if (elTitle) {
+    elTitle.innerHTML = brandString
+  }
+
   let anchors = document.getElementsByClassName('twbrand-link')
   for (var k in anchors) {
     if (anchors[k] && anchors[k].href) {
@@ -204,6 +217,10 @@ function alertCheckBox(eventCheck){
     }
 }
 
+
+// fileChooser: added to the environment when user opens explorer as local file
+// -----------
+// TODO: because source files now get a project_conf.md, find a way to open it too if it exists
 function createFilechooserEl () {
 
   var inputComment = document.createElement("p")
@@ -218,6 +235,8 @@ function createFilechooserEl () {
   graphFileInput.classList.add('centered')
 
   // NB file input will trigger mainStartGraph() when the user chooses something
+
+
   graphFileInput.onchange = function() {
     if (this.files && this.files[0]) {
 
@@ -248,7 +267,7 @@ function createFilechooserEl () {
           TW.resetGraph()
 
           // run
-          mainStartGraph(theFormat, rdr.result, null, TW.instance)
+          mainStartGraph(theFormat, rdr.result, TW.instance)
 
           // NB 3rd arg null = we got no additional conf for this "unknown" file
 
@@ -507,14 +526,40 @@ function changeType(optionaltypeFlag) {
       updateSearchLabels(nid,allNodes[nid].label,allNodes[nid].type);
     }
 
+    // update the gui (TODO handle by TW.pushGUIState) =========================
+    updateDynamicFacets()
 
-    // update the gui (POSS could be handled by TW.pushGUIState)
-    TW.gui.handpickedcolor = false
+    // console.log("outgoing.activetypes", outgoing.activetypes)
+    // console.log("newActivetypes", newActivetypes)
+
     changeGraphAppearanceByFacets( getActivetypesNames() )
-    if (typeFlag != 'all') {
-      graphResetLabelsAndSizes()
+
+    // turn off the altcolors for outgoing types
+    for (var tyId in TW.categories) {
+      let ty = TW.categories[tyId]
+      if (outgoing.activetypes[tyId] && ! newActivetypes[tyId]) {
+        if (TW.gui.handpickedcolors[ty].alton) {
+          clearColorLegend([ty])
+          TW.gui.handpickedcolors[ty].alton = false
+        }
+      }
+      else if (!outgoing.activetypes[tyId] && newActivetypes[tyId]) {
+        if (TW.gui.handpickedcolors[ty].altattr) {
+          TW.gui.handpickedcolors[ty].alton = true
+
+          // this re-coloring can be avoided if "hidden" was used in changeLevel and sliders
+          let recolorMethod = getColorFunction(TW.gui.handpickedcolors[ty].altattr)
+          window[recolorMethod](TW.gui.handpickedcolors[ty].altattr, [ty])
+
+          // without re-coloring step, we would only need to recreate legend box
+          // updateColorsLegend(TW.gui.handpickedcolors[ty].altattr, [ty])
+        }
+      }
     }
+
     TW.partialGraph.settings('labelThreshold', getSizeFactor())
+    fillAttrsInForm('choose-attr')
+    fillAttrsInForm('attr-titling-metric', 'num')
 
     // recreates FA2 nodes array from new nodes
     reInitFa2({
@@ -523,6 +568,8 @@ function changeType(optionaltypeFlag) {
         sigma_utils.smartForceAtlas()
       }
     })
+
+    // end update the gui ======================================================
 }
 
 
@@ -565,18 +612,29 @@ function getNeighbors(sourceNids, relKey) {
 //                         v
 //                   local selection SysSt = {level: false, activetypes:XY}
 //
-//  POSS: rewrite using .hidden instead of add/remove
-//
+//  optional args:
+//    @optionalTgtState: in rare cases we already have it (like CTRL+Z)
+//                       (=> avoid redoing property computations and state push)
+//    POSS: rewrite using .hidden instead of add/remove
 function changeLevel(optionalTgtState) {
+
     // show waiting cursor
     TW.gui.elHtml.classList.add('waiting');
 
     // let the waiting cursor appear
     setTimeout(function() {
-      var present = TW.SystemState(); // Last
 
       // array of nids [144, 384, 543]
-      let sels = optionalTgtState ? optionalTgtState.selectionNids : present.selectionNids
+      var sels
+
+      if (optionalTgtState) {
+        sels = optionalTgtState.selectionNids
+      }
+      else {
+        var present = TW.SystemState(); // Last
+        sels = present.selectionNids
+        deselectNodes()
+      }
 
       let selsChecker = {}
       for (let i in sels) {
@@ -589,8 +647,21 @@ function changeLevel(optionalTgtState) {
       // types eg [true]          <=> '1'
       //          [true, true]    <=> '1|1'
 
-      var activetypes = present.activetypes;
-      var activereltypes = present.activereltypes
+      if (optionalTgtState) {
+        activetypes = optionalTgtState.activetypes
+        activereltypes = optionalTgtState.activereltypes
+      }
+      else {
+        activetypes = present.activetypes;
+        activereltypes = present.activereltypes;
+      }
+
+      let activetypesDict = {}
+      for (var i in activetypes) {
+        if (activetypes[i]) {
+          activetypesDict[TW.categories[i]] = true
+        }
+      }
 
       TW.partialGraph.graph.clear();
 
@@ -652,9 +723,10 @@ function changeLevel(optionalTgtState) {
 
           // var t0 = performance.now()
           for(var nid in TW.Nodes) {
-              if(activetypes[TW.catDict[TW.Nodes[nid].type]])
-                  // we add 1 by 1
-                  add1Elem(nid)
+            if (activetypesDict[TW.Nodes[nid].type]) {
+              // we add 1 by 1 (POSS: use hidden instead)
+              add1Elem(nid)
+            }
           }
           for(var eid in TW.Edges) {
             for (var k in activereltypes) {
@@ -667,15 +739,43 @@ function changeLevel(optionalTgtState) {
           // console.log("returning to global took:", t1-t0)
       }
 
-      // sels and activereltypes unchanged, no need to call MultipleSelection2
+      // Selection is unchanged, but all the nodes are new
+      // so we call MultipleSelection2 to set up node attributes
+      if (sels.length)
+        TW.instance.selNgn.MultipleSelection2({nodes:sels, noState:true});
 
-      TW.pushGUIState({
-          level: futurelevel,
-          sels: sels
-      })
+      // if caller already had the state, he may or may not want to push it
+      if (! optionalTgtState) {
+        TW.pushGUIState({
+            level: futurelevel
+        })
+      }
 
       TW.partialGraph.camera.goTo({x:0, y:0, ratio:1.2, angle: 0})
       TW.partialGraph.refresh()
+
+      updateDynamicFacets()
+      changeGraphAppearanceByFacets( getActivetypesNames() )
+
+      // going back to global: recolor nodes that were out of scope
+      if(futurelevel) {
+        let todoCols = {}
+        for (var ty in activetypesDict) {
+          if (TW.gui.handpickedcolors[ty].alton) {
+            let attr = TW.gui.handpickedcolors[ty].altattr
+            if (!todoCols[attr]) todoCols[attr] = {'types':[], 'fun': null}
+            todoCols[attr].types.push(ty)
+            if (! todoCols[attr].fun) {
+              todoCols[attr].fun = getColorFunction(attr)
+            }
+          }
+        }
+        for (var attr in todoCols) {
+          let recolorMethod = todoCols[attr].fun
+          let forTypes = todoCols[attr].types
+          window[recolorMethod](attr, forTypes)
+        }
+      }
 
       // recreate FA2 nodes array after you change the nodes
       reInitFa2({
@@ -995,7 +1095,11 @@ function NodeWeightFilter( sliderDivID , tgtNodeKey) {
     // ids per weight level
     // we use live index from prepareSigmaCustomIndices
     let nodesByTypeNSize = TW.partialGraph.graph.getNodesBySize(tgtNodeKey)
-    var sortedSizes = Object.keys(nodesByTypeNSize).sort(function(a,b){return a-b})
+
+    var sortedSizes = []
+    if (nodesByTypeNSize)
+      sortedSizes = Object.keys(nodesByTypeNSize).sort(function(a,b){return a-b})
+
 
     var stepToIdsArr = []
 
@@ -1161,7 +1265,7 @@ activateRDTab = function(elTgt) {
 }
 
 
-// set up tabs for a given activetypes state and db.json entry
+// set up tabs for a given activetypes state and project_conf.json relDB entry
 function resetTabs(activetypes, dbconf) {
   let ul = document.getElementById('reldocs-tabs')
   let divs = document.getElementById('reldocs-boxes')
@@ -1176,22 +1280,20 @@ function resetTabs(activetypes, dbconf) {
     return
   }
 
-  console.log("dbconf for this source", dbconf)
-
   // for all active nodetypes
   for (let nodetypeId in activetypes) {
     if (activetypes[nodetypeId]) {
-      let additionalConf = dbconf[nodetypeId]
-
-      if (TW.conf.debug.logSettings)
-          console.log ("additionalConf for this source", additionalConf)
-
       let possibleAPIs = []
-      if (additionalConf.reldbs) {
-        possibleAPIs = additionalConf.reldbs
 
-        // 3 vars to know which one to activate
-        let nAPIs = Object.keys(possibleAPIs).length
+      if (dbconf[nodetypeId]) {
+        if (TW.conf.debug.logSettings)
+          console.log ("additional db conf for this source", dbconf[nodetypeId])
+        possibleAPIs = dbconf[nodetypeId]
+      }
+
+      let nAPIs = Object.keys(possibleAPIs).length
+      if (nAPIs > 0) {
+        // some more vars to know which one to activate
         let iAPI = 0
         let didActiveFlag = false
 
@@ -1250,8 +1352,7 @@ function resetTabs(activetypes, dbconf) {
 }
 
 
-function jsActionOnGexfSelector(graphBasename){
-    let graphPath = TW.gmenuPaths[graphBasename] || graphBasename+".gexf"
+function openGraph(graphPath){
     let serverPrefix = ''
     var pathcomponents = window.location.pathname.split('/')
     for (var i in pathcomponents) {
@@ -1265,7 +1366,7 @@ function jsActionOnGexfSelector(graphBasename){
     TW.resetGraph()
 
     TW.File = graphPath
-    mainStartGraph(newDataRes["format"], newDataRes["data"], TW.File, TW.instance)
-    writeLabel(graphBasename)
+    mainStartGraph(newDataRes["format"], newDataRes["data"], TW.instance)
+    writeLabel(graphPathToLabel(graphPath))
 }
 //============================= </OTHER ACTIONS > =============================//

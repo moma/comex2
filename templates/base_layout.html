@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
 
+  <!-- our CNRS icon -->
+  <link type="image/x-icon" rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
   <!-- ## CSS ## -->
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/topbar_bootstrap_retrocompatibility.css') }}">
@@ -10,6 +13,7 @@
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='js/realperson/jquery.realperson.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/whoswho.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex_user.css') }}">
+  <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
 
   <!--   for topbar search/refine   -->
@@ -72,8 +76,8 @@
   {% endblock %}
 
   <!-- needed if login -->
-  <input id="doors_connect" name="doors_connect" type="text" hidden
-         value="{{ doors_connect|safe }}">
+  <input id="doors_connect" name="doors_connect" type="text" hidden value="{{ doors_connect|safe }}">
+  <input id="doors_scheme"  name="doors_scheme"  type="text" hidden value="{{ doors_scheme|safe }}">
 
   <div class="topbar" style="opacity: 0.9;">
       <div class="topbar-inner">
@@ -150,7 +154,7 @@
                       <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="{{ current_user.uid }}"'> Your Map </a>
                   </li>
                   <li class="comex-nav-item">
-                      <a class="topbarlink" href='/print_scholar_directory.php?query={{ current_user.uid }}'> Your Directory </a>
+                      <a class="topbarlink" href='/print_scholar_directory.php?query={{ current_user.uid }}&amp;user={{ current_user.uid }}'> Your Directory </a>
                   </li>
                   <li class="dropdown">
                     <a href="#" class="navlink dropdown-toggle"
@@ -161,13 +165,13 @@
                    </a>
                     <ul class="dropdown-menu">
                       <li>
-                          <a href='/services/jobad/'> Add a new job </a>
+                          <a href='/services/addjob/'>Add a new job</a>
                       </li>
                       <li>
-                          <a href='/services/user/myjobs/'> All your jobs </a>
+                          <a href='/services/user/myjobs/'>Your posted jobs</a>
                       </li>
                       <li>
-                        <a href='/services/jobboard/'> Job Market </a>
+                        <a href='/services/jobboard/'>Job Market</a>
                       </li>
                     </ul>
                   </li>
@@ -243,7 +247,7 @@
         <!-- This directory is maintained by the <a href="http://cssociety.org" target="blank">Complex Systems Society</a>
              and the <a href="http://iscpif.fr" target="blank">Complex Systems Institute of Paris Ile-de-France</a>.<br/>-->
         <div class="center">
-            <a href="/about.html"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
+            <a href="https://iscpif.fr/projects/community-explorer/" target="_blank"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
             <!-- <a href="http://moma.csregistry.org/feedback" target="BLANK"><span class="glyphicon glyphicon-repeat"></span> Feedback</a> - -->
             <a href="/about/privacy"> <span class="glyphicon glyphicon-list-alt"></span> Privacy</a>
             <br>
@@ -273,28 +277,50 @@
     </footer>
 
   </div>
-
-
-
   <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap-native-1.1.min.js') }}"></script>
+  <script type="text/javascript">
+    // old browsers test as first of our scripts
+    var oldBrowserFlag = false;
+    try {
+      // test ECMA6 support on 3 basic functionalities: for..of, let, backticks
+      eval("for (var x of [1,2]);");
+      eval("let b = 1;");
+      eval("var st = `a`;");
+    }
+    catch(e) {
+      oldBrowserFlag = true;
+    }
+
+    // warning in a new div
+    if (oldBrowserFlag) {
+      var myDiv = document.createElement('div');
+      myDiv.innerHTML = '<div id="browser-warning-panel" class="panel panel-success browser-warning-panel" role="dialog"><div class="panel-body"><p class="center red"><a href="https://www.mozilla.org/en-US/firefox/all/"><img src="/static/img/firefox_logo.png"></a>&nbsp;&nbsp;&nbsp;For a better user experience, it is recommended to use a recent browser like Firefox or Chrome.<br/>Pour une meilleure expérience utilisateur, il est recommandé d\'utiliser un navigateur récent tel que Firefox ou Chrome.<button type="button" class="btn btn-sm btn-primary" style="float:right;" onclick="document.getElementById(\'browser-warning-panel\').parentNode.removeChild(document.getElementById(\'browser-warning-panel\'))">OK</button></p></div></div>';
+      document.body.insertBefore(myDiv, document.body.lastChild);
+    }
+  </script>
+
+  <script type="text/javascript">
+      //               ---------
+      // a copy of the user info in json: available to all templates except bare
+      //               ---------
+      var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
+      Object.freeze(uinfo)
+  </script>
 
   <!--  our js for auth and login: to be able to login via popup anywhere -->
   <script src="{{ url_for('static', filename='js/comex_user_shared.js') }}"></script>
   <script src="{{ url_for('static', filename='js/comex_user_shared_auth.js') }}"></script>
   <script src="{{ url_for('static', filename='js/comex_lib_elts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/comex_menubar_login_controllers.js') }}"></script>
-
-  <!--  for our other js: end-of-page javascript imports -->
-  {% block last_imports %}
-  {% endblock %}
-
   <script type="text/javascript">
       // shown once: a cookie warning
       if (! localStorage['comex_cookie_warning_done']) {
           cmxClt.elts.box.addCookieBox()
       }
-
   </script>
 
+  <!--  for our other js: end-of-page javascript imports -->
+  {% block last_imports %}
+  {% endblock %}
 </body>
 </html>

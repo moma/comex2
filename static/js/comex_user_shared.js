@@ -15,9 +15,9 @@
 
 
 // initialize and export cmxClt module
-var cmxClt = (function() {
+var cmxClt = (function(cC) {
 
-    let cC = {}
+    if (!cC)  cC = {}
 
     // cf corresponding css classes
     cC.colorWhite = '#fff'
@@ -37,6 +37,10 @@ var cmxClt = (function() {
 
 
     // the target columns in DB: tuple (name, mandatory, group, type, section)
+    // at = array of text
+    // t = text
+    // m = select menu
+    // f = blob
     cC.COLS = [
         ["keywords",               true,       "plsfill", "at", "map_infos"],
         // ==> *keywords* table
@@ -190,19 +194,24 @@ var cmxClt = (function() {
         // HTML elt to insert tag boxes around
         var refElt = null
 
-        // new array for full result
-        aUForm.mtiStock[fName] = []
+        // new multiTextinput slot in this form, for reference
+        aUForm.mti[fName] = {
+                             // new array for full result
+                             'stock': [],
+                             // specified in params or 0
+                             'minEntries': typeof otherMtiParams.minEntries != "undefined" ? otherMtiParams.minEntries : 0
+                           }
 
         // there must be a normal text input
         var normalInput = document.getElementById(fName)
         // (and it can use autocomplete)
 
-        // refElt is where we show the boxes
+        // refElt is where we show the boxes and messages
         refElt = normalInput
 
         refElt.style.marginBottom = 0
 
-        // shows a box and saves the input value in mtiStock
+        // shows a box and saves the input value in mti.stock
         var pushTagbox = function(event) {
             // debug
             // console.log ('pushTagbox from event' + event.type)
@@ -214,6 +223,7 @@ var cmxClt = (function() {
                 var subValues = asIsValue.split(/,/)
                 for (var i in subValues) {
                     var newValue = subValues[i]
+                    if (newValue == "") continue
 
                     // "let" so that it's unique for each i
                     // (this unique pointer is useful in newBoxClose)
@@ -224,7 +234,7 @@ var cmxClt = (function() {
                     newBox.textContent = newValue
 
                     // and save it
-                    var nSaved = aUForm.mtiStock[fName].push(newValue)
+                    var nSaved = aUForm.mti[fName].stock.push(newValue)
 
                     // normal case gets a close button x
                     if (!perhapsReadonly) {
@@ -239,12 +249,12 @@ var cmxClt = (function() {
 
                             // remove value from stock
                             var i = 0
-                            for (i in aUForm.mtiStock[fName]){
-                                if (aUForm.mtiStock[fName][i] == newValue) {
+                            for (i in aUForm.mti[fName].stock){
+                                if (aUForm.mti[fName].stock[i] == newValue) {
                                     break ;
                                 }
                             }
-                            aUForm.mtiStock[fName].splice(i, 1)
+                            aUForm.mti[fName].stock.splice(i, 1)
 
                             // signal form change
                             aUForm.elForm.dispatchEvent(new CustomEvent('change'))
@@ -252,7 +262,7 @@ var cmxClt = (function() {
                             // remove box
                             setTimeout(function(){newBox.style.display = 'none'}, 300)
 
-                            // console.debug("droptagbox", aUForm.id aUForm.mtiStock[fName].length, aUForm.mtiStock[fName])
+                            // console.debug("droptagbox", aUForm.id aUForm.mti[fName].stock.length, aUForm.mti[fName].stock)
                         }
 
                         newBox.insertBefore(newBoxClose, newBox.firstChild)
@@ -267,7 +277,7 @@ var cmxClt = (function() {
 
                     cC.insertAfter(refElt, newBox)
 
-                    // console.debug("pushTagbox", aUForm.id, aUForm.mtiStock[fName].length, cC.uform.mtiStock[fName])
+                    // console.debug("pushTagbox", aUForm.id, aUForm.mti[fName].stock.length, aUForm.mti[fName].stock)
                 }
             }
         }
@@ -316,8 +326,8 @@ var cmxClt = (function() {
     // exposed members:
     // theForm.id  <=> the HTML #id value
     // theForm.elForm <=> the HTML <form> element
-    // theForm.mtiStock <=> all tags entered via multiTextinputs
-    // theUForm.asFormData() <=> all values asFormData...
+    // theForm.mti.stock <=> all tags entered via multiTextinputs
+    // theForm.asFormData() <=> all values asFormData...
     // theForm.preSubmitActions <=> functions to call before sending data
 
     // NB if you send the data by a classic formElt.submit() or use asFormData(), preSubmitActions will already be called
@@ -371,46 +381,80 @@ var cmxClt = (function() {
 
         // optional: init mtis
         if (fParams.multiTextinputs) {
-            myUform.mtiStock = {}  // arrays of inputs per fieldName
+            myUform.mti = {}  // arrays of inputs metadata per fieldName
             for (var i in fParams.multiTextinputs) {
-                // creates mtiStock entries and mti elements and events
+                // creates mti.stock entries and mti elements and events
                 cC.uform.multiTextinput(
                     fParams.multiTextinputs[i].id,  // ex "keywords"
-                    fParams.multiTextinputs[i],     // ex color, previous values
+                    fParams.multiTextinputs[i],     // ex color, previous values,
+                                                    //    and/or min entries
                     myUform
                 )
             }
 
-            // collect multiTextinput values
-            myUform.mtiCollect = function() {
-                // console.log('collecting multiTextinputs')
-                for (var field in myUform.mtiStock) {
-                    document.getElementById(field).value = myUform.mtiStock[field].join(',')
-                    // console.debug("  mti collected field '"+field+"', new value =", document.getElementById(field).value)
+            let mtiCollect = function(field) {
+              return function() {
+                let exitStatus = true
+                let errMsg = ''
+
+                if (myUform.mti[field].stock.length < myUform.mti[field].minEntries) {
+                  let exitStatus = false
+                  let label = document.querySelectorAll(`label[for=${field}]`) || field
+                  errMsg = `Please provide at least ${myUform.mti[field].minEntries} entries for the field ${label}`
                 }
+                document.getElementById(field).value =  myUform.mti[field].stock.join(',')
+                console.debug(`  mti collected field "${field}"
+                                 new value = ${document.getElementById(field).value}`)
+
+                console.log('collecting multiTextinputs status:', exitStatus)
+                return {'ok': exitStatus, 'errMsg': errMsg}
+              }
             }
 
-            myUform.preSubmitActions.push(myUform.mtiCollect)
-
+            // mti collectors: a function per multiTextinput to check out values
+            for (var field in myUform.mti) {
+              myUform.preSubmitActions.push( mtiCollect(field) )
+            }
 
             // Here we overload the submit() function with preSubmitActions
             // (submit() is more practical to overload than the submit *event*)
             // (preSubmitActions are as evaluated at submit invocation time)
+
+            // NB: for the moment, the only preSubmitActions are mti collectors,
+            // but it may become other things in the future -- they just have to
+            // return a couple (successBool, errMsg)
 
             // we keep classicSubmit() as member of the html form
             // (preserves its invocation context)
             myUform.elForm.classicSubmit = myUform.elForm.submit
 
             myUform.elForm.submit = function() {
+                let goodToGo = true
+                let errorMsgs = []
 
                 // 1) invoke any (synchronous) preparation functions
                 for (var i in myUform.preSubmitActions) {
-                    myUform.preSubmitActions[i]()
+                    let thisStatus = myUform.preSubmitActions[i]()
+                    goodToGo = goodToGo && thisStatus.ok
+                    if (! thisStatus.ok) {
+                      errorMsgs.push(thisStatus.errMsg)
+                    }
                 }
 
-                // 2) proceed with normal submit
-                console.log("go classicSubmit")
-                myUform.elForm.classicSubmit()
+                // 2) if everything ok, proceed with normal submit
+                if (goodToGo) {
+                  console.log("go classicSubmit")
+                  myUform.elForm.classicSubmit()
+                }
+                else {
+                  let errorMsg = errorMsgs.join('<br/>')
+                  myUform.elMainMessage.innerHTML = `<span class='orange glyphicon glyphicon-exclamation-sign glyphicon-float-left'></span><p>${errorMsg}</p>`
+                  myUform.elMainMessage.classList.remove('faded')
+
+                  // unlock the button
+                  elSubmitBtn.disabled = false
+                }
+
             }
         }
         return myUform
@@ -490,24 +534,18 @@ var cmxClt = (function() {
           var labelElt = document.querySelector('label[for='+fieldName+']')
           var fieldLabel = labelElt ? labelElt.innerText : fieldName
 
-        //   console.warn('>>testFillField mtiStock:', aUForm.mtiStock)
-
-          // alternative filled values from storage lists
-          // POSS: do this only at the end before submit ?
-          // POSS: (in that case the testFillField would only look at array)
-          if (  (actualValue == null  || actualValue == "" )
-                    && aUForm.mtiStock[fieldName]
-                    && aUForm.mtiStock[fieldName].length) {
-              actualValue = aUForm.mtiStock[fieldName].join(',')
-
-              // debug
-              // console.log('recreated multiTextinput value', actualValue)
-          }
-
-
           // alternative null values
           if (actualValue == "") {
               actualValue = null
+          }
+
+          // filled values from mti lists are handled here during the form use
+          // (NB: check before submit is self-handled with a preSubmitAction)
+          if (fieldType == "at" && !actualValue
+             && aUForm.mti[fieldName].stock.length) {
+            actualValue = aUForm.mti[fieldName].stock.join(',')
+            // debug
+            // console.log('recreated multiTextinput value', actualValue)
           }
 
           // debug
@@ -517,16 +555,21 @@ var cmxClt = (function() {
           //             )
 
           // test mandatory -----------------
-          if (mandatory && actualValue == null) {
-              // todo human-readable fieldName here
+          if (mandatory &&
+                (actualValue == null
+                  ||
+                 (fieldType == 'at'
+                  && aUForm.mti[fieldName].stock.length < aUForm.mti[fieldName].minEntries)
+                )
+              ) {
               mandatoryMissingFields.push([fieldName, fieldLabel])
               valid = false
-            //   console.log("mandatoryMissingFields", fieldName)
 
               if (params.doHighlight && labelElt) {
                   labelElt.style.backgroundColor = cC.colorOrange
               }
           }
+
 
           // test benign
           // may be missing but doesn't affect valid
@@ -566,7 +609,6 @@ var cmxClt = (function() {
 
         if (isValid) {
             aUform.elMainMessage.innerHTML = "<span class='green glyphicon glyphicon-check glyphicon-float-left' style='float:left;'></span><p>OK thank you! <br/>(we have all the fields needed for the mapping!)<br/>(don't forget to SAVE!)</p>"
-
 
             aUform.elMainMessage.classList.add('faded')
         }
@@ -630,7 +672,9 @@ var cmxClt = (function() {
     // ===================================================================
 
     // exposed functions and vars
+    cC.uform.checkBlob
     cC.uform.checkShowPic
+    cC.uform.showPic
     cC.uform.createInitials
     cC.uform.checkJobDateStatus
     cC.uform.fName = document.getElementById('first_name')
@@ -677,9 +721,61 @@ var cmxClt = (function() {
         // possible re-adjust outerbox ?
     }
 
+    // checkBlob: a generic onchange checker for file inputs
+    // ---------
+    // returns a couple [successBool, message]
+    //
+    // optional args:
+    //  args.maxSize
+    //  args.expectedMime
+    //  args.expectedFileExt
+    cC.uform.checkBlob = function (aFileInput, args) {
+      if (! args)     args = {}
+      // 2MB default maxSize for pdf
+      let maxSize = 2097152
+      if (args.maxSize)    maxSize = args.maxSize
+
+      let theFile = aFileInput.files[0]
+      if (!theFile) {
+        return [false, 'no file']
+      }
+      else {
+        // check size
+        if (theFile.size > maxSize) {
+          // human-readable values for message
+          let kBMax = parseInt(maxSize/1024)
+          let kBReal = parseInt(theFile.size/1024)
+          return [false, `file too big (max=${kBMax}kB, actual=${kBReal}kB)`]
+        }
+
+        // optional check mime
+        if (args.expectedMime) {
+          if (theFile.type != args.expectedMime) {
+            return [false, `file needs correct mimetype "${args.expectedMime}"`]
+          }
+        }
+
+        // optional check extension
+        if (args.expectedFileExt) {
+          let extMatch = theFile.name.match(/\.([^.]{1,6})$/)
+          if (!extMatch) {
+            return [false, `filename has no extension (expected: "${args.expectedFileExt}")`]
+          }
+          else {
+            let ext = extMatch[1]
+            if (ext != args.expectedFileExt) {
+              return [false, `file needs correct extension ${args.expectedFileExt}`]
+            }
+          }
+        }
+        return [true, "file OK"]
+      }
+    }
+
+    // POSSible use smaller functions: checkBlob + file read + GUI effects
     cC.uform.checkShowPic = function (aForm, doHighlight) {
         // TEMPORARY initial size already 500 kB, user has to do it himself
-        var max_size = 512000
+        var max_size = 524288
 
         // TODO  max source image size before resizing
         //       see libs or stackoverflow.com/a/24015367
@@ -856,6 +952,6 @@ var cmxClt = (function() {
     // ========= end of advanced form controls ===========
 
     return cC
-}()) ;
+}(cmxClt)) ;
 
 console.log("user shared load OK")

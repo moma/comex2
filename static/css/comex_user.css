@@ -58,11 +58,11 @@ div.uform-white .ccsection-uform-body {
     border-right: 1px solid #ccc;;
 }
 
-button.clean-btn
+button.clean-btn {}
 
-/* not used at present but could be useful for autompleted inputs */
-.autocomp {
-}
+/* high z-index to go above any modal (some bootstrap modals are at 1050) */
+.autocomp { z-index: 1051 ;}
+.ui-autocomplete { z-index: 1051 ;}
 
 /* a "subpage" container UNUSED */
 .subpage {
@@ -137,6 +137,16 @@ input.readonly {
   margin: 0;
 }
 
+.mega-legend {
+  font-family: Cambria, serif;
+  color: #554 ;
+  font-style: italic;
+  text-align:left;
+  font-size: 150%;
+  padding: .5em 0 0em .5em ;
+  margin: 0;
+}
+
 /* floats on the right of the question if set after it */
 .legend-float {
   float:right;
@@ -153,6 +163,11 @@ input.readonly {
   font-size: 120%;
   padding-bottom: 1em;
   font-weight: 500;
+}
+
+/* for strikout */
+.strikeout {
+  text-decoration: line-through;
 }
 
 /* for code blocks or urls */

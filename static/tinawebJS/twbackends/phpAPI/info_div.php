@@ -22,6 +22,7 @@ if ($dbtype == "CortextDB") {
 else {
   // to index: the union of "searchable columns" qcols for all nodetypes
   $idxcolsbytype = [];
+  $altcsvsep = $csvsep;
   for ($i = 0; $i < $ntypes ; $i++) {
 
     // if nodetype is active
@@ -35,6 +36,15 @@ else {
             but your servermenu file does not provide any information about
             the CSV or DB table to query for related documents
             (on nodetypeId ".$i.")</p>");
+      }
+
+      // optional conf items: separator
+        // FIXME: since conf is defined by node type,
+        //  only the last separator will be taken into account
+        //  but allowing two different separators contradicts
+        //  the 1-base-per-graph structure in csv_indexation
+      if (array_key_exists('delim', $my_conf["node".$i][$dbtype])) {
+        $altcsvsep = $my_conf["node".$i][$dbtype]['delim'];
       }
     }
   }
@@ -69,19 +79,21 @@ else {
       // echodump("filename CSV", $mainpath.$graphdb);
       $csv_search_base = parse_and_index_csv($mainpath.$graphdb,
                                              $idxcolsbytype,
-                                            $csvsep, $csvquote);
+                                            $altcsvsep, $csvquote);
       // -------------------------------------------------------------------------------
 
       if(class_exists('Memcached')){
-        // **store** in cache for 1/2h
-        $mcd->set(mem_entry_name($graphdb), json_encode($csv_search_base), 1800);
+        // **store** in cache for 2 min
+        $mcd->set(mem_entry_name($graphdb), json_encode($csv_search_base), 120);
       }
     }
 
     $base = $csv_search_base[0];
     $postings = $csv_search_base[1];
+    $idfvals = $csv_search_base[2];
     // echodump("postings", $postings);
     // echodump("base", $base);
+    // echodump("idfvals", $idfvals);
 
 
     // DO THE SEARCH
@@ -89,7 +101,7 @@ else {
     $searchcols = $my_conf["node".$ntid][$dbtype]['qcols'];
 
     // a - split the query
-    $qtokens = preg_split('/\W/', $_GET["query"]);
+    $qtokens = preg_split('/[\p{Z}\p{P}\p{C}]+/u', $_GET["query"]);
 
     // b - compute freq similarity per doc
     $sims = array();
@@ -102,6 +114,8 @@ else {
       if (! strlen($tok)) {
         continue;
       }
+
+      $tok = strtolower($tok);
 
       // echodump("tok", $tok);
       // echodump("searchcols", $searchcols);
@@ -118,16 +132,16 @@ else {
           // matches
           $matching_docs = $searchable[$tok];
 
-          foreach ($matching_docs as $doc_id => $freq) {
+          foreach ($matching_docs as $doc_id => $tf) {
 
-            // echodump("tok freq in this doc", $freq);
+            // echodump("tok freq in this doc", $tf);
 
             // cumulated freq of tokens per doc
             if (array_key_exists($doc_id, $sims)) {
-              $sims[$doc_id]++;
+              $sims[$doc_id] += $tf * $idfvals[$tok];
             }
             else {
-              $sims[$doc_id] = 1;
+              $sims[$doc_id] = $tf * $idfvals[$tok];
             }
           }
         }

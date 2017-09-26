@@ -1,21 +1,31 @@
 <?php
 
-$html_tail_imports = '
-<script type="text/javascript" src="/static/js/bootstrap-native-1.1.min.js"></script>
+$init_uinfo_js = 'var uinfo = null';
+if ($comex_user_id) {
+  $init_uinfo_js = "var uinfo = {'luid': '$comex_user_id'}";
+}
+
+$html_tail_imports = "
+<script type=\"text/javascript\" src=\"/static/js/bootstrap-native-1.1.min.js\"></script>
+<script type=\"text/javascript\" src=\"/static/js/whoswho.js\"></script>
 
 <!--  our js for auth and login: to be able to login via popup anywhere -->
-<script src="/static/js/comex_user_shared.js"></script>
-<script src="/static/js/comex_user_shared_auth.js"></script>
-<script src="/static/js/comex_lib_elts.js"></script>
-<script src="/static/js/comex_menubar_login_controllers.js"></script>
-';
+<script src=\"/static/js/comex_user_shared.js\"></script>
+<script src=\"/static/js/comex_user_shared_auth.js\"></script>
+<script src=\"/static/js/comex_lib_elts.js\"></script>
+<script src=\"/static/js/comex_menubar_login_controllers.js\"></script>
+<script type=\"text/javascript\">
+  cmxClt.elts.topbar.create({$comex_user_id})
+  $init_uinfo_js  // <= if user logged in, init uinfo for whoswho
+</script>
+";
 
 
 $footer = '<footer>
     <!-- This directory is maintained by the <a href="http://cssociety.org" target="blank">Complex Systems Society</a>
          and the <a href="http://iscpif.fr" target="blank">Complex Systems Institute of Paris Ile-de-France</a>.<br/>-->
     <center>
-        <a href="/about.html"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
+        <a href="https://iscpif.fr/projects/community-explorer/" target="_blank"><span class="glyphicon glyphicon-question-sign"></span> About</a> -
         <!-- <a href="http://moma.csregistry.org/feedback" target="BLANK"><span class="glyphicon glyphicon-repeat"></span> Feedback</a> - -->
         <a href="/about/privacy"> <span class="glyphicon glyphicon-list-alt"></span> Privacy</a>
         <br>

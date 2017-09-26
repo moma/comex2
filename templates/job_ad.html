@@ -1,0 +1,72 @@
+{% extends "base_layout.html" %}
+
+{% block headers %}
+  {% if not existing_jobinfo %}
+  <title>Community Explorer: new job ad form</title>
+  {% else %}
+  <title>Community Explorer: job ad</title>
+  {% endif %}
+  <meta name="description" content="Formulaire d'ajout d'offre d'emploi sur la plateforme Community Explorer (ISCPIF CNRS UPS 3611)">
+  <meta name="keywords" content="complex systems, community, job ads, job-board">
+{% endblock %}
+
+<!-- ======================================================================= -->
+
+{% block main_content %}
+  <div class="row">
+    <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
+    <div class="my-centering-box col-lg-8 col-md-10 col-sm-12">
+
+      <!-- INTRODUCTION TEXT -->
+      <div id="intro">
+        <h2 class="oldstyle">Job Ad</h2>
+            {% if not existing_jobinfo %}
+            <p class="mini-hero">
+                Fill this <strong>job ad creation form</strong> to add a job ad to the <a href="/services/jobboard">Community Explorer Job-board</a>.
+                <br> (All fields are mandatory, except the pdf attachment.)
+            </p>
+            {% endif %}
+      </div>
+
+      <!-- job form: filled by js -->
+      <div id="job-container" class="uform-white">
+      </div>
+
+    </div>
+
+    <div class="spacer col-lg-2 col-md-1 hidden-sm-down">&nbsp;</div>
+  </div>
+
+  <div class="menu-left-fixed">
+    <!-- main validation message -->
+    <p id="main_message" class="legend" style="display:none"></p>
+  </div>
+{% endblock %}
+
+<!-- ======================================================================= -->
+
+{% block last_imports %}
+    <!--  our js  -->
+    <script src="{{ url_for('static', filename='js/comex_user_autocompletes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/comex_jobad_elements.js') }}"></script>
+    {% if not existing_jobinfo %}
+    <script>
+      let jobadForm = createJobForm(
+        'job-container',
+        {'user': uinfo, 'can_edit': true}
+      )
+    </script>
+    {% else %}
+    <script type="text/javascript">
+      // a frozen copy of a possible preexisting job
+      var existingJobinfo = {{ existing_jobinfo | safe }}
+      Object.freeze(existingJobinfo)
+      let jobadForm = createJobForm(
+        'job-container', {
+          'user': uinfo,
+          'job': existingJobinfo,
+          'can_edit': false
+      })
+    </script>
+    {% endif %}
+{% endblock %}

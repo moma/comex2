@@ -84,7 +84,7 @@ SOURCE_FIELDS = [
          ("luid",                  False,        None),
          ("doors_uid",             False,        None),
          ("email",                  True,        None),
-         ("country",                True,        None),
+         ("country",                True,      "scountry"),
          ("first_name",             True,        None),
          ("middle_name",            True,        None),
          ("last_name",              True,        None),
@@ -99,7 +99,7 @@ SOURCE_FIELDS = [
          ("job_looking_date",       True,       "sdate"),
          ("home_url",               True,       "surl"),  # scholar's homepage
          ("pic_url",                True,       "surl"),
-         ("pic_file",              False,        None),   # saved separately
+         ("pic_file",              False,       "sblob", "pic", "pic_fname"), # saved separately
          # => for *scholars* table (optional)
 
          ("lab_label",              True,       "sorg"),  # ~ /name (acro)?/
@@ -117,8 +117,22 @@ SOURCE_FIELDS = [
       ]
 # NB password values have already been sent by ajax to Doors
 
-# mandatory minimum of keywords
-MIN_KW = 5
+# sanitization params
+JOB_FIELDS = [
+#             NAME,              SANITIZE?    sanitizing specificity
+         ("uid",                   False,        None),
+         ("jtitle",                 True,        None),
+         ("mission_text",           True,        None),
+         ("recruiter_org_text",     True,        None),
+         ("email",                  True,        None),
+         ("locname",                True,        None),
+         ("job_valid_date",         True,       "sdate"),
+         ("pdf_attachment",         True,       "sblob", "pdf", "pdf_fname"), # saved separately
+         # => for *jobs* table
+
+         ("keywords",               True,        None)
+         # => for *keywords* table (after split str)
+      ]
 
 # ============= context =============
 @app.context_processor
@@ -130,13 +144,15 @@ def inject_doors_params():
           (base_layout-rendered templates need it for login popup)
     """
     if 'DOORS_PORT' not in config or config['DOORS_PORT'] in ['80', '443']:
-        context_dict = dict(
-            doors_connect= config['DOORS_HOST']
-        )
+        context_dict = {
+            'doors_connect': config['DOORS_HOST'],
+            'doors_scheme': 'http:' if config['DOORS_NOSSL'] else 'https:'
+        }
     else:
-        context_dict = dict(
-            doors_connect= config['DOORS_HOST']+':'+config['DOORS_PORT']
-        )
+        context_dict = {
+            'doors_connect': config['DOORS_HOST']+':'+config['DOORS_PORT'],
+            'doors_scheme': 'http:' if config['DOORS_NOSSL'] else 'https:'
+        }
 
     return context_dict
 
@@ -151,7 +167,9 @@ def unauthorized():
     return render_template(
         "message.html",
         message = """
-            Please <strong><a href="%(login)s">login here</a></strong>.
+            Please <strong>
+            <a onclick="cmxClt.elts.box.toggleBox('auth_modal',{'nextPage':'%(tgt)s'})">login here</a>
+            </strong>.
             <br/><br/>
             The page <span class='code'>%(tgt)s</span> is only available after login.
             """ % {'tgt': request.path,
@@ -793,44 +811,56 @@ def register():
             """ % {'luid': luid })
 
 
-# /services/jobad/
-@app.route(config['PREFIX'] + '/jobad/', methods=['GET','POST'])
+# /services/job/
+@app.route(config['PREFIX'] + '/job/<string:provided_job_id>', methods=['GET'])
+def seejob(provided_job_id):
+    err_msg = ''
+    if provided_job_id:
+        jobs = dbcrud.get_jobs(job_id = provided_job_id)
+        mlog("DEBUG", "got request with provided_job_id", provided_job_id,
+                      "dbcrud retrieved jobs:", jobs)
+        if len(jobs) == 1:
+            return render_template("job_ad.html", existing_jobinfo=dumps(tools.prejsonize(jobs[0])))
+        else:
+            err_msg = 'No matching jobs for id=%s.' % provided_job_id
+    else:
+        err_msg = 'You need to provide a job id to consult the job.'
+
+    return render_template(
+        "message.html",
+        message = """
+            We couldn't find the corresponding job.<br>
+            %s <br>
+            Please refer to <a href="/services/jobboard/"> the job-market </a> for a complete list of available jobs.
+            """ % err_msg
+    )
+
+
+# /services/addjob/
+@app.route(config['PREFIX'] + '/addjob/', methods=['GET','POST'])
 @fresh_login_required
-def jobad():
+def addjob():
 
     # debug
     # mlog("DEBUG", "register route: ", config['PREFIX'] + config['USR_ROUTE'] + '/register')
 
     # show form
     if request.method == 'GET':
-        return render_template("jobad_form.html")
+        return render_template("job_ad.html", existing_jobinfo=False)
 
     # save form
     elif request.method == 'POST':
-        # sanitization params
-        job_fields = [
-        #             NAME,              SANITIZE?    sanitizing specificity
-                 ("uid",                   False,        None),
-                 ("mission_text",           True,        None),
-                 ("recruiter_org_text",     True,        None),
-                 ("email",                  True,        None),
-                 ("job_valid_date",         True,       "sdate"),
-                 # => for *jobs* table
-
-                 ("keywords",               True,        None)
-                 # => for *keywords* table (after split str)
-              ]
-
-        clean_records = read_record_from_request(request, job_fields)
+        clean_records = read_record_from_request(request, JOB_FIELDS)
 
         # exemple clean_records
         # {'uid': '4206', 'job_valid_date': '2017/09/30', 'mission_text': 'In the town where I was born Lived a man who sailed the sea', 'email': 'romain.loth@truc.org', 'recruiter_org_text': 'We all live in a yellow submarine'}
 
+        mlog("DEBUG", 'job record contents:', clean_records)
         jobid = dbcrud.save_job( clean_records )
 
         # save associated keywords
         kwids = dbcrud.get_or_create_tokitems(clean_records['keywords'])
-        dbcrud.save_pairs_sch_tok(
+        dbcrud.save_pairs_fkey_tok(
             [(jobid, kwid) for kwid in kwids],
             map_table = "job_kw"
         )
@@ -877,6 +907,7 @@ def jobboard():
 
 # /services/user/myjobs/
 @app.route(config['PREFIX'] + config['USR_ROUTE'] + '/myjobs/', methods=['GET'])
+@fresh_login_required
 def myjobs():
 
     # jobs filtered by uid
@@ -887,7 +918,7 @@ def myjobs():
     return render_template(
                 "job_board.html",
                 message = """
-                This is the list of jobs you entered. They are available to all from <a href="/services/jobboard/">the open job-board</a> page. You are the admin of this list and can add or remove items.
+                This is the list of jobs you entered. You are the admin of this list and can add, edit or remove items.
                 """,
                 jobs_table = json_rows,
                 can_edit = 1
@@ -896,30 +927,83 @@ def myjobs():
 
 # /services/api/jobs
 @fresh_login_required
-@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['DELETE'])
-def api_delete_job():
-    jobid = request.args.get('jobid')
-    job_author_uid = request.args.get('author')
-    mlog("DEBUG",
-         'received api delete job:', jobid, job_author_uid)
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobs/', methods=['POST', 'DELETE'])
+def api_job():
+    # check if login ok
+    if not hasattr(current_user, 'uid'):
+        return unauthorized()
 
-    # double condition to prevent tampering with requests
-    # 1) the person who asked should be the same as the cookies' current_user.uid to prove the request is legit
-    # 2) this job author uid should be the same as the one we have in jobs table => cf. try below
+    # testing if cookie user is the same as payload data user
+    if request.method == 'POST':
+        jobid = request.form.get('jobid')
+        job_author_uid = request.form.get('uid')
+    elif request.method == 'DELETE':
+        jobid = request.args.get('jobid')
+        job_author_uid = request.args.get('author')
 
+    # proceed...
     if (jobid and (str(job_author_uid) == str(current_user.uid))):
-        try:
-            deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
+        # ...updating an existing job
+        if request.method == 'POST':
+            mlog("DEBUG",
+                 'received api POST job:', jobid, job_author_uid)
+            if 'jobid' in request.form:
+                new_data = read_record_from_request(request, JOB_FIELDS)
+                try:
+                    # compare with previous pdf
+                    # and remove from filesystem if changed
+                    if 'pdf_fname' in new_data:
+                        old_pdf_fname = dbcrud.find_jobs_pdf(jobid)
+                        if (old_pdf_fname and new_data['pdf_fname'] != old_pdf_fname):
+                            remove(path.join(
+                                *tools.BLOB_SAVING_POINT,
+                                old_pdf_fname
+                            ))
+
+                    # update job
+                    dbcrud.save_job(new_data, jobid)
+
+                    # update associated keywords
+                    dbcrud.delete_pairs_fkey_tok(jobid, map_table = "job_kw")
+                    kwids = dbcrud.get_or_create_tokitems(new_data['keywords'])
+                    dbcrud.save_pairs_fkey_tok(
+                        [(jobid, kwid) for kwid in kwids],
+                        map_table = "job_kw"
+                    )
+
+                except Exception as dberr:
+                    return Response(
+                        response=dumps({'error': tools.format_err(dberr)}),
+                        status=500,
+                        mimetype="application/json")
+                return Response(
+                    response=dumps({'updated': jobid}),
+                    status=200,
+                    mimetype="application/json")
+
+        # ...or just deleting it
+        elif request.method == 'DELETE':
+            mlog("DEBUG",
+                 'received api delete job:', jobid, job_author_uid)
+            try:
+                # remove pdf if any
+                old_pdf_fname = dbcrud.find_jobs_pdf(jobid)
+                if old_pdf_fname:
+                    remove(path.join(*tools.BLOB_SAVING_POINT, old_pdf_fname))
+
+                # remove job itself
+                deleted_jobid = dbcrud.delete_job(jobid, job_author_uid)
+            except Exception as dberr:
+                return Response(
+                    response=dumps({'error': tools.format_err(dberr)}),
+                    status=500,
+                    mimetype="application/json")
             return Response(
                 response=dumps({'deleted': deleted_jobid}),
                 status=200,
                 mimetype="application/json")
 
-        except Exception as dberr:
-            return Response(
-                response=dumps({'error': tools.format_err(dberr)}),
-                status=500,
-                mimetype="application/json")
+    # if user id doesn't match, fake message just in case
     else:
         return Response(
             response=dumps({'error': 'the provided arguments did not match any job resource'}),
@@ -927,6 +1011,7 @@ def api_delete_job():
             mimetype="application/json")
 
 
+# ==============================================================================
 
 # any static pages with topbar are set in /about prefix
 
@@ -935,6 +1020,10 @@ def api_delete_job():
 def show_privacy():
     return render_template("privacy.html")
 
+# /about/tips
+@app.route('/about/tips')
+def show_tips():
+    return render_template("tips.html")
 
 
 ########### SUBS ###########
@@ -1118,9 +1207,9 @@ def save_form(clean_records, update_flag=False, previous_user_info=None):
                 # TODO class User method !!
                 # POSS selective delete ?
             if update_flag:
-                dbcrud.delete_pairs_sch_tok(luid, reg_db, map_table)
+                dbcrud.delete_pairs_fkey_tok(luid, reg_db, map_table)
 
-            dbcrud.save_pairs_sch_tok(
+            dbcrud.save_pairs_fkey_tok(
                 [(luid, tokid) for tokid in tokids],
                 reg_db,
                 map_table
@@ -1151,8 +1240,8 @@ def read_record_from_request(request, optional_fields = None):
         input SOURCE_FIELDS data ~> normalized {COLS:values}
 
         Custom made for comex registration forms
-            - sanitization + string normalization as needed
-            - pic_file field ~~> save to fs + pic_fname col
+            - request.form fields: sanitization + string normalization as needed
+            - request.files blob: save to fs + keep ref in filename col
     """
     # init var
     clean_records = {}
@@ -1178,12 +1267,24 @@ def read_record_from_request(request, optional_fields = None):
                 else:
                     # mysql will want None instead of ''
                     val = None
-            # this one is done separately at the end
-            elif field == "pic_file":
-                continue
             # any other fields that don't need sanitization (ex: menu options)
             else:
                 clean_records[field] = request.form[field]
+
+        # these ones have a blob treatment: saved + replaced by filename
+        elif (hasattr(request, "files")
+              and field in request.files
+              and request.files[field]     # <= to test if file not empty
+              and spec_type == "sblob"):
+            # read 2 additional attributes: fileext and tgt dbfield
+            file_type = field_info[3]
+            ref_fieldname = field_info[4]
+            new_filename = tools.save_blob_and_get_filename(
+                request.files[field],
+                file_type
+            )
+            clean_records[ref_fieldname] = new_filename
+            mlog("DEBUG", "new blob with fname", new_filename)
 
     # special treatment for "other" subquestions
     if 'inst_type' in clean_records:
@@ -1202,15 +1303,6 @@ def read_record_from_request(request, optional_fields = None):
                     temp_array.append(tok)
             # replace str by array
             clean_records[tok_field] = temp_array
-
-            if tok_field == 'keywords' and len(temp_array) < MIN_KW:
-                mlog('WARNING', 'only %i keywords instead of %i' % (len(temp_array), MIN_KW))
-
-    # special treatment for pic_file
-    if hasattr(request, "files") and 'pic_file' in request.files and request.files['pic_file']:
-        new_fname = tools.pic_blob_to_filename(request.files['pic_file'])
-        clean_records['pic_fname'] = new_fname
-        mlog("DEBUG", "new pic with fname", new_fname)
 
     return clean_records
 

@@ -20,19 +20,20 @@ TW.conf = (function(TW){
   TWConf.sourcemode = "api"   // accepted: "api" | "serverfile" | "servermenu" | "localfile"
 
   // ...or remote bridge to default source api ajax queries
-  TWConf.sourceAPI={};
-  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph";
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph";
+  TWConf.sourceAPI={}
+  TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
+  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
 
   // Related documents (topPapers) data source
   // -----------------------------------------
 
-  TWConf.getRelatedDocs = false
+  TWConf.getRelatedDocs = false           // TURNED OFF FOR COMEX
   TWConf.relatedDocsMax = 10
 
   // fallback type (if no detailed source-by-source conf from db.json)
-  TWConf.relatedDocsType = "csv"          // accepted: "twitter" | "csv" | "CortextDB"
+  TWConf.relatedDocsType = "twitter"      // accepted: "twitter" | "csv" | "CortextDB"
                                           // POSSible: "elastic"
 
   // routes by corresponding type
@@ -50,85 +51,70 @@ TW.conf = (function(TW){
   // =======================
   // to process node attributes values from data
   //    => colors   (continuous numeric attributes)
-  //    => clusters (discrete numeric or str attributes),
+  //    => clusters (discrete numeric or str attributes)
+
+  // cf. also "Configuring facets" in the doc under Introduction/project_config
 
   // create facets ?
-  TWConf.scanClusters = true
+  TWConf.scanAttributes = true
 
-  // facetOptions: choose here the visual result of your node attributes
-  // -------------------------------------------------------------------
-  // 3 possible coloring functions
-  //   - cluster   (contrasted colors for attributes describing *classes*)
-  //   - gradient  (uniform map from a numeric attribute to red/yellow gradient)
-  //   - heatmap   (from blue to red, centered on a white "neutral" color)
-  // 3 possible binning modes
-  //   - 'samerange':  constant intervals between each bin
-  //   - 'samepop':    constant cardinality inside each class (~ quantiles)
-  //   - 'off'  :       no binning (each distinct value will be a legend item)
-  TWConf.facetOptions = {
+  // use a facet for default color
+  TWConf.defaultColoring = "country"
 
-    // attr title
-    'age'             : {
-                         'col': "gradient",       // coloring function
-                         'binmode': 'samerange',  // binning mode
-                         'n': 4,                  // custom number of bins
-                         'menutransl': "Date initiale d'apparition du terme dans le corpus"
-                      },
-    'growth_rate'     : {
-                        'col': "heatmap",
-                        'binmode': 'samepop',
-                        'n': 5,
-                        'menutransl': 'Tendances et oubliés de la semaine'
-                      },
-    'PageRank'        : {
-                         'col': "gradient",
-                         'binmode': 'samerange',
-                         'n': 6,
-                         'menutransl': 'Importance dans le réseau, méthode Google',
-                       },
-   'Modularity Class' : { // <== exemple with no binning
-                         'col': "cluster",
+  // facetOptions: choose here the default visual result of your node attributes
+  // ---------------------------------------------------------------------------
+  // (values overridden by data/myproject/project_conf.json "facets" if present)
+  TWConf.defaultFacetOptions = {
+
+    // attr title          coloring fun       nbins       binning strategy       label in menus
+    'auto-size'       : {'col': "gradient", 'n': 6,  'binmode': 'samerange', 'legend': 'Auto Size'  },
+    'auto-degree'     : {'col': "heatmap",  'n': 7,  'binmode': 'samepop',   'legend': 'Auto Degree'},
+    'auto-indegree'   : {'col': "heatmap",  'n': 7,  'binmode': 'samepop', 'legend': 'Auto InDegree'},
+    'auto-outdegree'  : {'col': "heatmap",  'n': 7,  'binmode': 'samepop', 'legend': 'Auto OutDegree'},
+    'cluster_index'   : {'col': "cluster" ,          'binmode': 'off'        },
+    'clust_louvain'   : {'col': "cluster" ,          'binmode': 'off',
+                         'legend':'Louvain clustering', 'titlingMetric': 'auto-outdegree'},
+    'country':{
+                         'col':"cluster" ,
                          'binmode': 'off',
-                         'menutransl': 'Groupes de voisins, méthode des classes de modularité'
-                       },
-   'Eigenvector Centrality':{
+                         'legend': 'Country',
+                         'titlingMetric': 'off'
+              },
+
+    'normfactor':{
                          'col':"heatmap" ,
                          'binmode': 'samepop',
-                         'n': 9,
-                         'menutransl': 'Centralité par vecteurs propres'
+                         'n': 5,
+                         'legend': 'Focused keywords'
                        },
-
-    'numuniform'      : {'col': "heatmap",  'n': 7,  'binmode': 'samepop'  },
-    'numpareto'       : {'col': "gradient", 'n': 5,  'binmode': 'samerange'},
-    'intfewvalues'    : {'col': "cluster" , 'n': 4,  'binmode': 'samerange'},
-    'period'          : {'col': "cluster" ,          'binmode': 'off'},
-    'in-degree'       : {'col': "heatmap" , 'n': 3,  'binmode': 'samepop'  },
-    'cluster_index'   : {'col': "cluster" ,          'binmode': 'off'},
-    'cluster_label'   : {'col': "cluster" ,          'binmode': 'off'},
-    'betweeness'      : {'col': "gradient", 'n': 4,  'binmode': 'samepop'  },
-    'level'           : {'col': "heatmap" ,          'binmode': 'off'  },
-    'weight'          : {'col': "heatmap" , 'n': 5,  'binmode': 'samerange'  },
-    'Weighted Degree' : {'col': "heatmap", 'n': 8,  'binmode': 'samerange'  },
-    'out-degree'      : {'col': "heatmap" , 'n': 3,  'binmode': 'samepop'  },
-    'country'         : {'col': "cluster" ,          'binmode': 'off'},
-    'ACR'             : {'col': "cluster" ,          'binmode': 'off'},
-'cluster_universal_index': {'col': "cluster" ,         'binmode': 'off'      },
-       'community_orphan' : {'col': "cluster" ,        'binmode': 'off'      }
-
+    'ACR':{
+                         'col':"cluster" ,
+                         'binmode': 'off',
+                         'legend': 'Affiliation',
+                         'titlingMetric': 'off'
+                       },
+    'nbjobs':{
+                         'col':"heatmap" ,
+                         'binmode': 'samerange',
+                         'n': 2,
+                         'legend': 'Number of related job ads'
+                       },
+    'total_occurrences':{
+                         'col':"heatmap" ,
+                         'binmode': 'samerange',
+                         'n': 3,
+                         'legend': 'Total occurrences'
+                       }
   }
+  // NB we keep the defaults here for API sourcemode as it has no "project_conf"
 
-  // NB  other cases with no binning:
+  // NB  automatic cases with no binning:
   //     - if data type is not numeric
-  //     - if there is less than distinct values that facetOptions[attr][n]
-
+  //     - if there is less than distinct values that maxDiscreteValues
 
   // NB for heatmapColoring:
-  //     - you should prefer odd number of bins
-  //     - if the number of bins is even, the 2 classes in the middle get white
+  //     - if number of bins is even, the 2 classes in the middle get white
   //     - the maximum number of bins is 24
-
-  // other POSS option: display attribute value in label or not ?
-
 
   // when coloring method is "cluster", should the colors change each time ?
   TWConf.randomizeClusterColors = true
@@ -136,8 +122,7 @@ TW.conf = (function(TW){
   // default clustering attribute (<---> used for initial node colors)
   TWConf.nodeClusAtt = "modularity_class"
 
-
-  // for binning decision and nbins (fallbacks <=> if the attr is not in facetOptions)
+  // for binning decision and nbins (fallbacks if attr is not in facetOptions)
   TWConf.maxDiscreteValues = 15
   TWConf.legendsBins = 7
 
@@ -151,21 +136,21 @@ TW.conf = (function(TW){
   // =============
 
   // Node typology: categories (resp. 0 and 1) will get these default labels
-  TWConf.catSem = "NGram";
-  TWConf.catSoc = "Document";
+  TWConf.catSem = "Keywords";
+  TWConf.catSoc = "Scholars";
   // NB: these labels may be superseded by:
   //   - the input data's node types values cf. sortNodeTypes()
-  //   - in servermenu mode, by the node0 & node1 properties
+  //   - in project_conf.md the node0 & node1 properties
 
   // Modules path
   // ------------
   TWConf.paths = {
     'ourlibs':   'static/tinawebJS/twlibs',
-    'templates': 'static/tinawebJS/twlibs/hit_templates',
-    'modules':   'twmodules',
+    'modules':   'static/tinawebJS/twmodules',
+    'templates': 'static/tinawebJS/twlibs/default_hit_templates',
 
-    'sourceFile': "",           // server-side .gexf|.json default source
-    'sourceMenu': "db.json"     // ...or server-side gexf default source list
+    'sourceFile': null,              // server: 1 default gexf|json graph source
+    'sourceMenu': "static/tinawebJS/server_menu.json" // ...or server: a gexf|json sources list
   }
   Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
 
@@ -175,11 +160,13 @@ TW.conf = (function(TW){
   // flag name is div class to be removed if false
   //        *and* subdirectory of modules path to import if true
   // see also activateModules()
-  TWConf.ModulesFlags["histogramModule"] = false ;
-  TWConf.ModulesFlags["histogramDailyVariantModule"] = false ;
-  // TODO more generic module integrating the variants cf. experiments/histogramModule_STUB_GENERIQUE
-  TWConf.ModulesFlags["crowdsourcingModule"] = true ;
+  TWConf.ModulesFlags["multivacV1HistogramModule"] = false ;
 
+  // cf. twmodules/multivacV2HistogramModule/multivacV2Settings.js for settings
+  TWConf.ModulesFlags["multivacV2HistogramModule"] = false ;
+
+  // cf. twmodules/crowdsourcingModule/README.md to initialize the associated db
+  TWConf.ModulesFlags["crowdsourcingModule"] = false ;
 
   // Other GUI options
   // ------------------
@@ -197,14 +184,7 @@ TW.conf = (function(TW){
   TWConf.histogramStartThreshold = 10 ;   // for daily histo module
                                           // (from how many docs are significant)
 
-
-  // £TODO these exist only in git branches
-  //       (geomap: ademe, timeline: tweetoscope)
-  //       ==> ask if need to be restored
-  // TW.geomap = false;
-  // TW.twittertimeline = false;
-
-  TWConf.maxPastStates = 5 ;      // number of TW.states to remember (~CTRL-Z)
+  TWConf.maxPastStates = 15 ;      // number of TW.states to remember (~CTRL-Z)
 
 
   // Layout options
@@ -215,7 +195,7 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=10000;    // duration of auto-run
+    TWConf.fa2Milliseconds=4000;    // duration of auto-run
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
 
 
@@ -244,38 +224,38 @@ TW.conf = (function(TW){
   TWConf.sigmaJsDrawingProperties = {
       // nodes
       defaultNodeColor: "#ddd",
-      twNodeRendBorderSize: 1,           // node borders (only iff ourRendering)
+      twNodeRendBorderSize: 0.5,          // node borders (only iff ourRendering)
       twNodeRendBorderColor: "#222",
 
       // edges
       minEdgeSize: 1,                    // in fact used in tina as edge size
       defaultEdgeType: 'curve',          // 'curve' or 'line' (curve only iff ourRendering)
-      twEdgeDefaultOpacity: 0.4,         // initial opacity added to src/tgt colors
+      twEdgeDefaultOpacity: .4,         // initial opacity added to src/tgt colors
 
       // labels
       font: "Droid Sans",                // font params
       fontStyle: "bold",
       defaultLabelColor: '#000',         // labels text color
       labelSizeRatio: 1,                 // label size in ratio of node size
-      labelThreshold: 4,                 // min node cam size to start showing label
+      labelThreshold: 3.5,               // min node cam size to start showing label
                                          // (old tina: showLabelsIfZoom)
 
       // hovered nodes
       defaultHoverLabelBGColor: '#fff',
       defaultHoverLabelColor: '#000',
-      borderSize: 2.5,                   // for ex, bigger border when hover
+      borderSize: 1,                     // for ex, bigger border when hover
       nodeBorderColor: "node",           // choices: 'default' color vs. node color
       defaultNodeBorderColor: "black",   // <- if nodeBorderColor = 'default'
 
 
       // selected nodes <=> special label
       twSelectedColor: "default",     // "node" for a label bg like the node color,
-                                   // "default" for note-like yellow
+                                      // "default" for white background
 
       // not selected <=> (1-greyness)
       twNodesGreyOpacity: .5,                       // smaller value: more grey
       twBorderGreyColor: "rgba(100, 100, 100, 0.5)",
-      twEdgeGreyColor: "rgba(100, 100, 100, 0.3)",
+      twEdgeGreyColor: "rgba(100, 100, 100, 0.25)",
   };
   // NB: sigmaJsDrawingProperties are available as 'settings' in all renderers
   // cf. https://github.com/jacomyal/sigma.js/wiki/Settings#renderers-settings
@@ -289,7 +269,7 @@ TW.conf = (function(TW){
 
   // mouse captor zoom limits
   TWConf.zoomMin = .015625         // for zoom IN   (ex: 1/64 to allow zoom x64)
-  TWConf.zoomMax = 2               // for zoom OUT
+  TWConf.zoomMax = 4               // for zoom OUT
 
   // circle selection cursor
   TWConf.circleSizeMin = 0;
@@ -305,8 +285,8 @@ TW.conf = (function(TW){
 
   // relative sizes (iff ChangeType == both nodetypes)
   TWConf.sizeMult = [];
-  TWConf.sizeMult[0] = 1.0;     // ie for node type 0 (<=> sem)
-  TWConf.sizeMult[1] = 10.0;     // ie for node type 1 (<=> soc)
+  TWConf.sizeMult[0] = 2.0;     // ie for node type 0 (<=> sem)
+  TWConf.sizeMult[1] = 3.0;     // ie for node type 1 (<=> soc)
 
 
   // ===========
@@ -316,7 +296,7 @@ TW.conf = (function(TW){
     initialShowAll: false,           // show all nodes on bipartite case init (docs + terms in one view)
 
     // show verbose console logs...
-    logFetchers: false,               // ...about ajax/fetching of graph data
+    logFetchers: false,              // ...about ajax/fetching of graph data
     logParsers: false,               // ...about parsing said data
     logFacets: false,                // ...about parsing node attribute:value facets
     logSettings: false,              // ...about settings at Tina and Sigma init time
@@ -327,3 +307,5 @@ TW.conf = (function(TW){
 
   return TWConf
 })()
+
+console.log("TW.conf load OK")
