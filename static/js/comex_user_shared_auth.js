@@ -25,8 +25,14 @@ cmxClt = (function(cC) {
     // #doors_connect.value ~~> like a @classparam for uauthforms
     // :str: "doors_hostname:doors_port"
     cC.uauth.doorsParam = {}
-    cC.uauth.doorsParam.connect = document.getElementById('doors_connect').value
-    cC.uauth.doorsParam.htscheme = document.getElementById('doors_scheme').value
+    cC.uauth.doorsParam.connect = 'doors.iscpif.fr'
+    cC.uauth.doorsParam.htscheme = 'https:'
+    if (document.getElementById('doors_connect')) {
+      cC.uauth.doorsParam.connect = document.getElementById('doors_connect').value
+    }
+    if (document.getElementById('doors_scheme')) {
+      cC.uauth.doorsParam.htscheme = document.getElementById('doors_scheme').value
+    }
     Object.freeze(cC.uauth.doorsParam)
 
     // param for "realperson" widget generation & validation
