@@ -310,15 +310,15 @@ $(document).ready(function() {
   changeTargetId = function(nodeId) {
       document.getElementById('print2').onclick = function() {
         if (uinfo && uinfo.luid) {
-          return window.open("/print_scholar_directory.php?query=" + nodeId + "&user="+uinfo.luid);
+          window.location = "/print_scholar_directory.php?query=" + nodeId + "&user="+uinfo.luid;
         }
         else {
-          return window.open("/print_scholar_directory.php?query=" + nodeId);
+          window.location = "/print_scholar_directory.php?query=" + nodeId;
         }
       }
       document.getElementById('generate2').onclick = function() {
         // POSS add user in url params and find a way to load and call cmxClt.elts.topbar.create
-        return window.open('/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam="' + nodeId + '"');
+        window.location = '/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam="' + nodeId + '"';
       }
   }
 
@@ -344,7 +344,7 @@ $(document).ready(function() {
           }
           return null
       }
-      return window.open('/explorerjs.html?sourcemode="api"&type="filter"&nodeidparam="' + escape(query) +'"');
+      window.location = '/explorerjs.html?sourcemode="api"&type="filter"&nodeidparam="' + escape(query) +'"';
       //return loadGraph("getgraph.php?query=" + query);
     });
   });
@@ -354,10 +354,10 @@ $(document).ready(function() {
       // debug
       // console.log("collected filters: " + query);
       if (uinfo && uinfo.luid) {
-        return window.open("/print_directory.php?query=" + query + "&user="+uinfo.luid);
+        window.location = "/print_directory.php?query=" + query + "&user="+uinfo.luid;
       }
       else {
-        return window.open("/print_directory.php?query=" + query);
+        window.location = "/print_directory.php?query=" + query;
       }
     });
   });
