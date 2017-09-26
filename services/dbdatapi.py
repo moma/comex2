@@ -22,9 +22,13 @@ from json      import loads
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db
+    from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                                    DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db
+    from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                               DBHashtags, DBCountries
 
 
 # col are for str stats api
@@ -73,6 +77,185 @@ FIELDS_FRONTEND_TO_SQL = {
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
 
+# multimatch(obj_type_1, obj_type_2)
+# ================================================================
+# obj_type_1, obj_type_2 ∈ {sch, lab, inst, kw, ht, job, country}²
+# ================================================================
+def multimatch(source_type, target_type, pivot_filters = []):
+    """
+    Returns a list of edges between the objects of type 1 and those of type 2,
+    via their matching scholars (used as pivot and for filtering)
+    """
+
+    type_map = {
+        "sch" :  DBScholars,
+        "lab" :  DBLabs,
+        "inst" : DBInsts,
+        "kw" :   DBKeywords,
+        "ht" :   DBHashtags,
+        "country" :   DBCountries,
+    }
+
+    # unsupported entities
+    if ( source_type not in type_map
+      or target_type not in type_map ):
+        return []
+
+    # instanciating appropriate DBEntity class
+    o1 = type_map[source_type]()
+    o2 = type_map[target_type]()
+
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+
+    # idea: we can always (SELECT subq1)
+    #       and JOIN with (SELECT subq2)
+    #       because they both expose pivotID
+    subq1 = o1.toPivot()
+    subq2 = o2.toPivot()
+
+    # also: count(pivotID) is our weight
+    #       for instance: if we match laboratories <=> keywords
+    #                     the weight of the labX -- kwA link is the
+    #                     number of scholars from labX with kwA
+    threshold = 1 if 'sch' not in [source_type, target_type] else 0
+
+    matchq = """
+    -- matching part
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table AS (
+        SELECT * FROM (
+            SELECT count(sources.pivotID) as weight,
+                   sources.entityID AS sourceID,
+                   targets.entityID AS targetID
+            FROM (%s) AS sources
+            LEFT JOIN (%s) AS targets
+                ON sources.pivotID = targets.pivotID
+            GROUP BY sourceID, targetID
+            ) AS match_table
+        WHERE match_table.weight > %i
+          AND sourceID IS NOT NULL
+          AND targetID IS NOT NULL
+    );
+    CREATE INDEX mt1idx ON match_table(sourceID, targetID)
+    """ % (subq1, subq2, threshold)
+
+    print(matchq)
+
+    # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
+    db_c.execute(matchq)
+
+    # 1 - fetch it
+    db_c.execute("SELECT * FROM match_table")
+    edges_XR = db_c.fetchall()
+
+    # 2 - matrix product XR·XR⁻¹ to build 'sameside' edges
+    #                         A
+    #                x  B [        ]
+    #             B       [   XR   ]
+    #         [      ]
+    #      A  [  XR  ]       square
+    #         [      ]      sameside
+
+    # 2a we'll need a copy of the XR table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
+        SELECT * FROM match_table
+    );
+    CREATE INDEX mt2idx ON match_table_2(sourceID, targetID)
+    """)
+
+    # nid_type is A and transi_type is B
+    sameside_format = """
+        SELECT * FROM (
+            SELECT
+                match_table.%(nid_type)s   AS nid_i,
+                match_table_2.%(nid_type)s AS nid_j,
+                sum(
+                    match_table.weight * match_table_2.weight
+                ) AS dotweight
+            FROM match_table
+            JOIN match_table_2
+                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+            GROUP BY nid_i, nid_j
+        ) AS dotproduct
+        WHERE nid_i != nid_j
+    """
+
+    # 2b sameside edges type1 <=> type1
+    edges_00_q = sameside_format % {'nid_type': "sourceID",
+                                   'transi_type': "targetID"}
+    # print("DEBUGSQL", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
+
+
+    # 2c sameside edges type2 <=> type2
+    edges_11_q = sameside_format % {'nid_type': "targetID",
+                                   'transi_type': "sourceID"}
+    # print("DEBUGSQL", "edges_11_q", edges_11_q)
+    db_c.execute(edges_11_q)
+    edges_11 = db_c.fetchall()
+
+    # 3 - we use DBEntity.getInfos() to build node sets
+    get_nodes_format = """
+        SELECT entity_infos.* FROM match_table
+        LEFT JOIN (%s) AS entity_infos
+            ON entity_infos.entityID = match_table.%s
+        GROUP BY entity_infos.entityID
+    """
+    src_nds_q = get_nodes_format % (o1.getInfos(), 'sourceID')
+    db_c.execute(src_nds_q)
+    nodes_src = db_c.fetchall()
+
+    tgt_nds_q = get_nodes_format % (o2.getInfos(), 'targetID')
+    db_c.execute(tgt_nds_q)
+    nodes_tgt = db_c.fetchall()
+
+    # connection close also removes the temp tables
+    db.close()
+
+    # build the graph structure (POSS: reuse Sam's networkx Graph object ?)
+    graph = {}
+    graph["nodes"] = {}
+    graph["links"] = {}
+
+    for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
+        for nd in ndata:
+            nid = make_node_id(ntype, nd['entityID'])
+            graph["nodes"][nid] = {
+              'label': nd['label'],
+              'type': ntype,
+              'size': log1p(nd['nodeweight']),
+              'color': '243,183,19' if ntype == source_type else '139,28,28'
+            }
+
+
+    for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
+        for ed in edata:
+            nidi = make_node_id(endtype, ed['nid_i'])
+            nidj = make_node_id(endtype, ed['nid_j'])
+            eid  =  nidi+';'+nidj
+            graph["links"][eid] = {
+              's': nidi,
+              't': nidj,
+              'w': log1p(int(ed['dotweight']))
+            }
+
+    for ed in edges_XR:
+        nidi = make_node_id(source_type, ed['sourceID'])
+        nidj = make_node_id(target_type, ed['targetID'])
+        eid  =  nidi+';'+nidj
+        graph["links"][eid] = {
+          's': nidi,
+          't': nidj,
+          'w': int(ed['weight'])
+        }
+
+    return graph
+
+
+def make_node_id(type, id):
+    return str(type)+'::'+str(id)
 
 # TODO also add paging as param and to postfilters
 def get_field_aggs(a_field,
