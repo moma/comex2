@@ -28,7 +28,46 @@ gexf = "";
 // module fragment to expose selected functions
 var whoswho = {};
 
+var tath
 whoswho = (function(ww) {
+
+    // selected types
+    ww.nodetypes = ["kw", "sch"]
+    ww.allowedTypes = {
+      "kw": "Keywords",
+      "ht": "Community tags",
+      "sch": "Scholars",
+      "lab": "Labs",
+      "inst": "Orgs",
+      "country": "Countries"
+    }
+
+    ww.select = function(typeId, opt) {
+      let itype = parseInt(typeId)
+      if (isNaN(itype) || itype < 0 || itype > whoswho.nodetypes.length - 1) {
+        console.warn("ww.select: incorrect typeId", typeId)
+        return
+      }
+
+      if (! (opt in whoswho.allowedTypes)) {
+        console.warn("ww.select: incorrect optval", opt)
+        return
+      }
+      else {
+        // store into our main var
+        ww.nodetypes[itype] = opt
+
+        // display label in html
+        let label = whoswho.allowedTypes[opt]
+        let ntButton = document.getElementById("selected-node"+itype)
+        if (ntButton) {
+          ntButton.innerText = label
+        }
+
+        // store in sessionStorage
+        sessionStorage.setItem("whoswhotypes",JSON.stringify(whoswho.nodetypes))
+      }
+    }
 
     // filter type => label
     ww.filters = {
@@ -167,28 +206,26 @@ whoswho = (function(ww) {
       };
       // console.log("reading filters forms..");
 
-
+      // for multimatch
       query = {
-
-      // TODO in the future multiple categories
-      // categorya: $.trim($("#categorya :selected").text()),
-      // categoryb: $.trim($("#categoryb :selected").text()),
-
-      // TODO in the future coloredby
+        '_node0': whoswho.nodetypes[0],
+        '_node1': whoswho.nodetypes[1]
+      }
+      // POSS in the future coloredby
       // query.coloredby =  []
 
-      }
-
+      let nFilters = 0
       for (filterName of ["keywords", "countries", "laboratories", "tags", "institutions"]) {
           var filterValuesArray = collect(filterName)
 
           // we add only if something to add :)
           if (filterValuesArray.length) {
               query[filterName] = filterValuesArray
+              nFilters ++
           }
       }
 
-      console.log("raw query: ", query);
+      // console.log("raw query: ", query);
 
       query = JSON.stringify(query);
 
@@ -198,7 +235,7 @@ whoswho = (function(ww) {
       if (cb && typeof cb == "function") {
         // debug
         // console.log("calling callback with encoded query:", query)
-        return cb(encodeURIComponent(query));
+        return cb(encodeURIComponent(query), nFilters);
       }
       else {
         return query
@@ -318,7 +355,7 @@ $(document).ready(function() {
       }
       document.getElementById('generate2').onclick = function() {
         // POSS add user in url params and find a way to load and call cmxClt.elts.topbar.create
-        window.location = '/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam="' + nodeId + '"';
+        window.location = '/explorerjs.html?sourcemode="api"&type="uid"&srcparams="' + nodeId + '"';
       }
   }
 
@@ -327,11 +364,11 @@ $(document).ready(function() {
   $("#generate").click(function() {
     // console.log("clicked on generate")
     // console.log("initiating graphexplorer")
-    return whoswho.collectFilters(function(query) {
+    return whoswho.collectFilters(function(query, nFilters) {
       // debug
-      // console.log("collected filters: " + query);
+      // console.log("collected filters: " + decodeURI(query));
       // empty query => no map + warning
-      if (query == "" || decodeURI(query) == "{}") {
+      if (nFilters == 0) {
           if (document.getElementById('refine-warning')) {
             cmxClt.elts.box.toggleBox("refine-warning")
           }
@@ -344,13 +381,15 @@ $(document).ready(function() {
           }
           return null
       }
-      window.location = '/explorerjs.html?sourcemode="api"&type="filter"&nodeidparam="' + escape(query) +'"';
-      //return loadGraph("getgraph.php?query=" + query);
+      else {
+        // load the graph URL
+        window.location = '/explorerjs.html?sourcemode="api"&type="filter"&srcparams="' + escape(query) +'"';
+      }
     });
   });
   $("#print").click(function() {
     // console.log("clicked on print");
-    return whoswho.collectFilters(function(query) {
+    return whoswho.collectFilters(function(query, nFilters) {
       // debug
       // console.log("collected filters: " + query);
       if (uinfo && uinfo.luid) {
@@ -361,9 +400,8 @@ $(document).ready(function() {
       }
     });
   });
-  $("#loading").hide();
 
-  // retrieve last whoswho query from cache
+  // retrieve last whoswho types and query from cache
   var whoswhoq = {}
   if (sessionStorage.hasOwnProperty("whoswhoq")) {
     try {
@@ -373,14 +411,21 @@ $(document).ready(function() {
       whoswhoq = {}
     }
   }
-  // console.log("whoswhoq", whoswhoq)
+  console.log("whoswhoq", whoswhoq)
 
-  // reinstate any cached filters
+  // reinstate any cached types and filters
   for (var filterName in whoswhoq) {
-    for (var i in whoswhoq[filterName]) {
-      var filterVal = whoswhoq[filterName][i]
-      console.log("whoswho: pop from session cache", filterName, filterVal)
-      whoswho.popfilter(filterName, {'prefill':filterVal})
+    if (/^_node[0-1]$/.test(filterName)) {
+      let itype = parseInt(filterName.charAt(filterName.length-1))
+      let opt = whoswhoq[filterName]
+      whoswho.select(itype, opt)
+    }
+    else {
+      for (var i in whoswhoq[filterName]) {
+        var filterVal = whoswhoq[filterName][i]
+        // console.log("whoswho: pop from session cache", filterName, filterVal)
+        whoswho.popfilter(filterName, {'prefill':filterVal})
+      }
     }
   }
 

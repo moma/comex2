@@ -56,7 +56,7 @@ var cmxClt = (function(cC) {
       if (luid && !args.empty) {
         baseMenus = `
           <li class="comex-nav-item">
-              <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="${luid}"'> Your Map </a>
+              <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;srcparams="${luid}"'> Your Map </a>
           </li>
           <li class="comex-nav-item">
               <a class="topbarlink" href='/print_scholar_directory.php?query=${luid}&user=${luid}'> Your Directory </a>
@@ -332,7 +332,7 @@ var cmxClt = (function(cC) {
                   let explorerFilter = {}
                   explorerFilter[explorerParam] = [labl]
                   let encodedFilter = escape(encodeURIComponent(JSON.stringify(explorerFilter)))
-                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&nodeidparam=\"" + encodedFilter +"\"')"
+                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&srcparams=\"" + encodedFilter +"\"')"
 
                   // using em instead of px to allow global x% resize at css box level
                   let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; line-height:'+fontSize/6+'em; padding:'+2.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';

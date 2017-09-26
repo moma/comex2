@@ -171,6 +171,11 @@ input.name {
     }
 }
 
+p.topbarselect {
+  font-size: 16px;
+  font-weight: bold;
+}
+
 .nav > li > a.topbarlink:hover {
      /* prevents white of hover bg (ugly on black topbar) */
     background-color: inherit !important;
@@ -200,8 +205,8 @@ input.name {
     text-shadow: none !important ;
     font-weight: normal;
 
-    padding: 2px 4px !important ;
-    margin: .4em 1em;
+    padding: 3px 5px !important ;
+    margin: .5em 1em .3em 1em;
 
     box-sizing: border-box;
 
