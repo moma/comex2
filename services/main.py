@@ -84,7 +84,7 @@ SOURCE_FIELDS = [
          ("luid",                  False,        None),
          ("doors_uid",             False,        None),
          ("email",                  True,        None),
-         ("country",                True,        None),
+         ("country",                True,      "scountry"),
          ("first_name",             True,        None),
          ("middle_name",            True,        None),
          ("last_name",              True,        None),

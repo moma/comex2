@@ -1,172 +1,173 @@
-AE	u arab emirates									
-AF	afghanistan									
-AL										
-AM	armenia									
-AO										
-AR	argentina									
-AT	austria									
-AU	australia	Norfolk Island								
-AZ										
-BA	bosnia and herzegovina									
-BD	bangladesh									
-BE	belgium									
-BF	burkina faso									
-BG	bulgaria									
-BI	burundi									
-BJ	benin									
-BN										
-BO	la paz - bolivia	Bolivia								
-BR	883 fundos sidil divinópolis mg brasil	rua meaipe . condominio valparaiso i. bloco c1. apt 204. laranjeiras - serra- es	rua itapecerica	avenida josé assis de vasconcelos	brazil	brasil	viçosa mg	325 - bethânia - ipatinga - minas gerais - brasil	rio de janeiro	883 sidil divinópolis mg brasil
-BT										
-BW	botswana	btbswb								
-BY	belarus									
-BZ										
-CA	canada									
-CD										
-CF										
-CG	democratic republic of the congo	democratic republic of congo	congo democratic republic of							
-CH	switzerland	geneva								
-CI										
-CL	chile									
-CM	cameroun	cameroon								
-CN	shanghai	china	hong kong	中国						
-CO	colombia									
-CR	costa rica									
-CU										
-CY										
-CZ										
-DE	germany									
-DJ										
-DK	denmark									
-DO	dominican republic									
-DZ										
-EC										
-EE										
-EG	egypt									
-EH										
-ER										
-ES	spain									
-ET	ethiopia									
-FI										
-FJ										
-FK										
-FR	france	guadeloupe	ile de france							
-GA										
-GB	united kingdom	united kingdon	england	u.k.	uk	britain				
-GE										
-GF										
-GH	ghana	accraghana								
-GL										
-GM	the gambia									
-GN										
-GQ										
-GR	greece									
-GT	guatemala	guatemala city								
-GW										
-GY										
-HN	honduras									
-HR										
-HT	haiti									
-HU										
-ID	yogyakarta	indonesia								
-IE	ireland									
-IL	israel									
-IN	184-1 thiruvikanagar street	tamilnadu st.india	184/1 thiruvikanagar .harur tk.dharmapuri.tamilnadu st	dist.udalguri.p.o. dimakuchi.vill.no 2 sonajuli	dharmapuri dt	nagaland india	harur tk & po	state assam	india	
-IQ										
-IR	iran									
-IS										
-IT	italy									
-JM										
-JO	jordan									
-JP										
-KE	kenyan	kenya	kenya.							
-KG	kyrgyzstan									
-KH	cambodia									
-KP										
-KR	south korea									
-KW										
-KZ										
-LA										
-LB	lebanon									
-LK	sri lanka									
-LR										
-LS										
-LT	lithuania									
-LU	Luxemburg									
-LV										
-LY										
-MA										
-MD	moldova									
-MG										
-MK	macedonia									
-ML	mali									
-MM										
-MN										
-MR										
-MW	malawi									
-MX	dona ana	méxico	osvaldoalbuquerque65@hotmail.com	mexico						
-MY	malaysia									
-MZ	mozambique									
-NA	namibia									
-NC										
-NE										
-NG	abuja-nigeria	nigeria	nigeria/australia							
-NI										
-NL	the netherlands and egypt	netherlands	the netherlands							
-NO	norway									
-NP	nepal									
-NZ	new zealand									
-OM	oman									
-PA	panama									
-PE	peru									
-PG	papua new guinea									
-PH	philippines									
-PK	pakistan									
-PL										
-PR										
-PS	palestine									
-PT										
-PY	paraguay									
-QA	qatar									
-RO	romania									
-RS	republic of serbia	serbia								
-RU	russian federation									
-RW	rwanda									
-SA										
-SB										
-SD										
-SE	sverige	sweden								
-SG	singapore									
-SI	slovenia									
-SJ										
-SK										
-SL										
-SN										
-SO	somalia	united state somalia diaspora								
-SR										
-SV	el salvador									
-SY										
-SZ	swaziland									
-TD										
-TG	togo									
-TH	thailand									
-TJ										
-TL										
-TM										
-TN										
-TR	uftu	turkey								
-TW	taiwan									
-TZ	tanzania in east africa	tanzania	usa & tanzania							
-UA	Украина.Одесса									
-UG	uganda-africa	uganda								
-US	united state of america	united states of america	17 dennison st	usa	united states	atlanta ga	waltham ma	us	u.s.a.	america
-UY										
-UZ										
-VE	venezuela									
-VN	vietnam									
-VU										
-XK	kosovo									
-YE										
-ZA	republic of south africa	south africa								
-ZM	zambia and south africa	zambia								
-ZW	zimbabwe									
+AD	andorre
+AE	eau	u arab emirates	uae
+AF	afghanistan
+AL	albanie
+AM	arménie	armenia
+AO
+AR	argentine	argentina
+AT	autriche	austria
+AU	australia	australie
+AZ
+BA	bosnia	bosnia and herzegovina	bosnie-herzegovine
+BD	bangladesh
+BE	belgium	belgique
+BF	burkina faso
+BG	bulgarie	bulgaria
+BI	burundi
+BJ	benin
+BN	brunei darussalam
+BO	bolivie	bolivia	Plurinational State of Bolivia
+BR	brasil	brésil	bresil
+BT	bhoutan
+BW	botswana
+BY	biélorussie	belarus	bielorussia
+BZ
+CA	canada
+CD	democratic republic of the congo	democratic republic of congo	congo democratic republic of	RDC
+CF	république centrafricaine	centreafrique
+CG	république du congo	congo-brazzaville
+CH	switzerland	suisse	république helvétique
+CI	côte d'ivoire
+CL	chile	chili
+CM	cameroun	cameroon
+CN	chine	china	中国
+CO	colombia	colombie
+CR	costa rica
+CU
+CY	chypre
+CZ	tchéquie	république tchèque
+DE	germany	allemagne	deutschland
+DJ
+DK	denmark
+DO	dominican republic	republica dominicana
+DZ	algérie	algerie
+EC	équateur	equateur
+EE	estonie
+EG	égypte
+EH
+ER
+ES	spain	espagne	españa
+ET	ethiopia
+FI	Finlande
+FJ
+FK
+FR	france	guadeloupe	fr
+GA
+GB	united kingdom	united kingdon	england	u.k.	uk	britain
+GE
+GF	guyane
+GH	ghana
+GL	groenland
+GM	gambie	the gambia
+GN	guinée
+GQ	guinée équatoriale
+GR	grèce	greece
+GT	guatemala
+GW	guinée bissau
+GY
+HN	honduras
+HR	croatie
+HT	haïti	haiti
+HU	magyar	hongrie
+ID	indonesia	indonésie
+IE	irlande	ireland
+IL	israel
+IN	india	inde
+IQ	irak
+IR	Islamic Republic of Iran
+IS	islande
+IT	italie	italia
+JM
+JO	jordanie	jordan
+JP	japon	日本
+KE	kenya
+KG	kyrgyzstan
+KH	cambodia
+KP	Korea, North	Democratic People's Republic of Korea	DPRK
+KR	Korea, South	south korea	korea, south	Republic of Korea	RK	korea
+KW	koweit
+KZ
+LA	Lao People's Democratic Republic	LPDR
+LB	liban	lebanon
+LK	sri lanka
+LR
+LS
+LT	lithuania
+LU	Luxemburg
+LV
+LY
+MA	maroc
+MD	moldavie	Republic of Moldova
+MG
+MK	macédoine	Former Yugoslav Republic of Macedonia	makedonia
+ML	mali	mali
+MM	birmanie	burma
+MN	mongolie
+MR	mauritanie
+MW	malawi
+MX	méxico	mexico	mexique
+MY	malaysia
+MZ	mozambique
+NA	namibia
+NC
+NE
+NG	abuja-nigeria	nigeria	nigeria/australia
+NI
+NL	pays-bas	the netherlands and egypt	netherlands	the netherlands
+NO	norvège	norway
+NP	népal	nepal
+NZ	nouvelle- zélande	new zealand
+OM	oman
+PA	panama
+PE	pérou	peru
+PG	papua new guinea	Papouasie-Nouvelle-Guinée
+PH	philippines
+PK	pakistan
+PL	polska	pologne
+PR	porto rico
+PS	palestine
+PT
+PY	paraguay
+QA	qatar
+RO	roumanie	romania
+RS	serbie	republic of serbia	republika srpska
+RU	russie	russian federation	Росси́я	Россия	россия
+RW	rwanda
+SA	arabie saoudite
+SB
+SD
+SE	suède	sverige	sweden
+SG	singapour	singapore
+SI	slovénie	slovenia
+SJ
+SK	slovaquie
+SL	Sierra Leone
+SN	sénégal
+SO	somalie	somalia
+SR	surinam
+SV	salvador	el salvador
+SY	syrie	syrian arab republic	sar
+SZ	swaziland
+TD	Tchad
+TG	togo
+TH	thailande	thailand
+TJ
+TL
+TM
+TN	tunisie
+TR	turquie	turkey
+TW	taiwan	Province of China Taiwan
+TZ	tanzanie	tanzania in east africa	tanzania	usa & tanzania
+UA	ukraina	Украина.Одесса
+UG	Ouganda	uganda-africa	uganda
+US	USA	united state of america	united states of america	usa	united states	us	u.s.a.	america
+UY
+UZ
+VE	Bolivarian Republic of Venezuela
+VN	viet nam	vietnam
+VU	Vanuatu
+XK	kosovo
+YE
+ZA	republic of south africa	south africa	rsa
+ZM	zambia and south africa	zambia
+ZW	zimbabwe
