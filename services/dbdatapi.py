@@ -13,7 +13,7 @@ from MySQLdb.cursors  import DictCursor
 
 from networkx  import Graph, DiGraph
 from random    import randint
-from math      import floor, log, log1p
+from math      import floor, log, log1p, sqrt
 from cgi       import escape
 from re        import sub, match
 from traceback import format_tb
@@ -159,7 +159,6 @@ def rest_filters_to_sql(filter_dict):
         ]
 
     """
-    print("hello filter_dict", filter_dict)
     sql_constraints = []
 
     for key in filter_dict:
@@ -281,6 +280,8 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #       for instance: if we match laboratories <=> keywords
     #                     the weight of the labX -- kwA link is the
     #                     number of scholars from labX with kwA
+
+    # threshold = 1 if target_type != 'sch' else 0
     threshold = 0
 
     matchq = """
@@ -304,6 +305,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         WHERE match_table.weight > %i
           AND sourceID IS NOT NULL
           AND targetID IS NOT NULL
+
     );
     CREATE INDEX mt1idx ON match_table(sourceID, targetID)
     """ % (
@@ -313,7 +315,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         threshold
         )
 
-    mlog("DEBUG", "multimatch sql query", matchq)
+    # mlog("DEBUG", "multimatch sql query", matchq)
 
     # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
     db_c.execute(matchq)
@@ -321,6 +323,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     # 1 - fetch it
     db_c.execute("SELECT * FROM match_table")
     edges_XR = db_c.fetchall()
+    len_XR = len(edges_XR)
 
     # 2 - matrix product XR·XR⁻¹ to build 'sameside' edges
     #                         A
@@ -353,20 +356,28 @@ def multimatch(source_type, target_type, pivot_filters = []):
             GROUP BY nid_i, nid_j
         ) AS dotproduct
         WHERE nid_i != nid_j
+          AND dotweight > %(threshold)i
     """
 
-    # 2b sameside edges type1 <=> type1
+    # 2b sameside edges type0 <=> type0
+    dot_threshold = floor(.5 + len_XR/3000)
     edges_00_q = sameside_format % {'nid_type': "sourceID",
-                                   'transi_type': "targetID"}
+                                   'transi_type': "targetID",
+                                   'threshold': dot_threshold}
     # print("DEBUGSQL", "edges_00_q", edges_00_q)
+    mlog("DEBUG", "multimatch src dot_threshold src", dot_threshold, len_XR)
     db_c.execute(edges_00_q)
     edges_00 = db_c.fetchall()
 
 
-    # 2c sameside edges type2 <=> type2
+    # 2c sameside edges type1 <=> type1
+    # dot_threshold = floor(10*sqrt(len_XR)) if target_type != 'sch' else 0
+    dot_threshold = floor(len_XR/3000)
     edges_11_q = sameside_format % {'nid_type': "targetID",
-                                   'transi_type': "sourceID"}
+                                   'transi_type': "sourceID",
+                                   'threshold': dot_threshold}
     # print("DEBUGSQL", "edges_11_q", edges_11_q)
+    mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
 
@@ -412,7 +423,9 @@ def multimatch(source_type, target_type, pivot_filters = []):
             graph["links"][eid] = {
               's': nidi,
               't': nidj,
-              'w': log1p(int(ed['dotweight']))
+            #   'w': log1p(int(ed['dotweight']))
+              'w': sqrt(int(ed['dotweight']))
+            #   'w': float(ed['dotweight'])
             }
 
     for ed in edges_XR:
@@ -422,7 +435,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': int(ed['weight'])
+          'w': int(ed['weight']*100)
         }
 
     return graph

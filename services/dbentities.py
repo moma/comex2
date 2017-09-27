@@ -48,7 +48,7 @@ class DBLabs(DBEntity):
         FROM sch_org
         LEFT JOIN orgs
             ON orgs.orgid = sch_org.orgid
-        WHERE orgs.class = "lab"
+        WHERE orgs.class = "lab" AND orgs.name != "_NULL"
         """
 
     def getInfos(self):
