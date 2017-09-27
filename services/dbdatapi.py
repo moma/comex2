@@ -77,6 +77,146 @@ FIELDS_FRONTEND_TO_SQL = {
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
 
+
+# NB we must cascade join because
+#    orgs, hashtags and keywords are one-to-many
+full_scholar_sql = """
+    SELECT
+        sch_org_n_tags.*,
+
+        -- kws info
+        GROUP_CONCAT(keywords.kwstr) AS keywords_list
+
+    FROM (
+        SELECT
+            scholars_and_orgs.*,
+            -- hts info
+            GROUP_CONCAT(hashtags.htstr) AS hashtags_list
+
+        FROM (
+          SELECT scholars.*,
+                 -- org info
+                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
+                 GROUP_CONCAT(orgs_set.label) AS orgs_list
+          FROM scholars
+          LEFT JOIN sch_org ON luid = sch_org.uid
+          LEFT JOIN (
+            SELECT * FROM orgs
+          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
+          GROUP BY luid
+        ) AS scholars_and_orgs
+        LEFT JOIN sch_ht
+            ON uid = luid
+        LEFT JOIN hashtags
+            ON sch_ht.htid = hashtags.htid
+        GROUP BY luid
+    ) AS sch_org_n_tags
+
+    -- two step JOIN for keywords
+    LEFT JOIN sch_kw
+        ON uid = luid
+    -- we directly exclude scholars with no keywords here
+    JOIN keywords
+        ON sch_kw.kwid = keywords.kwid
+
+    WHERE (
+        record_status = 'active'
+        OR
+        (record_status = 'legacy' AND valid_date >= NOW())
+    )
+
+    GROUP BY luid
+"""
+
+# explorer REST "filters" syntax => sql "WHERE" constraints on scholars
+# =====================================================================
+
+def rest_filters_to_sql(filter_dict):
+    """
+    Returns WHERE clauses from dict representing an input URL query like:
+
+      filter_dict = tools.restparse(
+        "?type0=ht&type1=inst&keywords[]=love&keywords[]=natural hazards&countries[]=France&countries[]=Italy".decode()
+        )
+
+    exemple input: dict = {
+           'type0': 'ht'
+           'type1': 'inst',
+            'keywords': [
+                 'natural hazards',
+                 'love'
+             ],
+            'countries': [
+                 'Italy',
+                 'France'
+             ],
+            'qtype': 'filters'
+         }
+
+    exemple output: array of SQL constraints = [
+            "(country IN ('France', 'Italy'))",
+            "(keywords_list LIKE '%%natural hazards%%' OR keywords_list LIKE '%%love%%')"
+        ]
+
+    """
+    print("hello filter_dict", filter_dict)
+    sql_constraints = []
+
+    for key in filter_dict:
+        known_filter = None
+        sql_column = None
+
+        if key not in FIELDS_FRONTEND_TO_SQL:
+            continue
+        else:
+            known_filter = key
+            sql_field = FIELDS_FRONTEND_TO_SQL[key]['grouped']
+
+            # "LIKE_relation" or "EQ_relation"
+            rel_type = FIELDS_FRONTEND_TO_SQL[key]['type']
+
+        # now create the constraints
+        val = filter_dict[known_filter]
+
+        if len(val):
+            # clause exemples
+            # "col IN (val1, val2)"
+            # "col = val"
+            # "col LIKE '%escapedval%'"
+
+            if (not isinstance(val, list)
+              and not isinstance(val, tuple)):
+                mlog("WARNING", "direct graph api query without tina")
+                clause = sql_field + type_to_sql_filter(val)
+
+            # normal case
+            # tina sends an array of str filters
+            else:
+                tested_array = [x for x in val if x]
+                mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
+                if len(tested_array):
+                    if rel_type == "EQ_relation":
+                        qwliststr = repr(tested_array)
+                        qwliststr = sub(r'^\[', '(', qwliststr)
+                        qwliststr = sub(r'\]$', ')', qwliststr)
+                        clause = sql_field + ' IN '+qwliststr
+                        # ex: country IN ('France', 'USA')
+
+                    elif rel_type == "LIKE_relation":
+                        like_clauses = []
+                        for singleval in tested_array:
+                            if type(singleval) == str and len(singleval):
+                                like_clauses.append(
+                                   sql_field+" LIKE '%"+quotestr(singleval)+"%'"
+                                )
+                        clause = " OR ".join(like_clauses)
+
+            if len(clause):
+                sql_constraints.append("(%s)" % clause)
+
+    return sql_constraints
+
+
 # multimatch(obj_type_1, obj_type_2)
 # ================================================================
 # obj_type_1, obj_type_2 ∈ {sch, lab, inst, kw, ht, job, country}²
@@ -114,11 +254,34 @@ def multimatch(source_type, target_type, pivot_filters = []):
     subq1 = o1.toPivot()
     subq2 = o2.toPivot()
 
+    # for filtering: the middle pivot step allows us to filter pivors by any information that can be related to it
+
+    subqmidfilters = ''
+    if (len(pivot_filters)):
+        subqmidfilters = "WHERE " + " AND ".join(pivot_filters)
+
+    # make some columns available for filtering
+    # luid
+    # country
+    # job_looking
+    # job_looking_date
+    # orgs_list
+    # hashtags_list
+    # keywords_list
+    subqmid =  """
+                SELECT * FROM (
+                    %s
+                ) AS full_scholar
+                -- our filtering constraints fit here
+                %s
+    """ % (full_scholar_sql, subqmidfilters)
+
+
     # also: count(pivotID) is our weight
     #       for instance: if we match laboratories <=> keywords
     #                     the weight of the labX -- kwA link is the
     #                     number of scholars from labX with kwA
-    threshold = 1 if 'sch' not in [source_type, target_type] else 0
+    threshold = 0
 
     matchq = """
     -- matching part
@@ -128,6 +291,12 @@ def multimatch(source_type, target_type, pivot_filters = []):
                    sources.entityID AS sourceID,
                    targets.entityID AS targetID
             FROM (%s) AS sources
+
+            -- inner join as filter
+            JOIN (%s) AS pivot_filtered_ids
+                ON sources.pivotID = pivot_filtered_ids.luid
+
+            -- target entities as type1 nodes
             LEFT JOIN (%s) AS targets
                 ON sources.pivotID = targets.pivotID
             GROUP BY sourceID, targetID
@@ -137,9 +306,14 @@ def multimatch(source_type, target_type, pivot_filters = []):
           AND targetID IS NOT NULL
     );
     CREATE INDEX mt1idx ON match_table(sourceID, targetID)
-    """ % (subq1, subq2, threshold)
+    """ % (
+        subq1,
+        subqmid,
+        subq2,
+        threshold
+        )
 
-    print(matchq)
+    mlog("DEBUG", "multimatch sql query", matchq)
 
     # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
     db_c.execute(matchq)
@@ -643,118 +817,18 @@ class BipartiteExtractor:
 
                     # build constraints from the args
                     # ================================
-                    sql_constraints = []
-
-                    for key in filter_dict:
-                        known_filter = None
-                        sql_column = None
-
-                        if key not in FIELDS_FRONTEND_TO_SQL:
-                            continue
-                        else:
-                            known_filter = key
-                            sql_field = FIELDS_FRONTEND_TO_SQL[key]['grouped']
-
-                            # "LIKE_relation" or "EQ_relation"
-                            rel_type = FIELDS_FRONTEND_TO_SQL[key]['type']
-
-                        # now create the constraints
-                        val = filter_dict[known_filter]
-
-                        if len(val):
-                            # clause exemples
-                            # "col IN (val1, val2)"
-                            # "col = val"
-                            # "col LIKE '%escapedval%'"
-
-                            if (not isinstance(val, list)
-                              and not isinstance(val, tuple)):
-                                mlog("WARNING", "direct graph api query without tina")
-                                clause = sql_field + type_to_sql_filter(val)
-
-                            # normal case
-                            # tina sends an array of str filters
-                            else:
-                                tested_array = [x for x in val if x]
-                                mlog("DEBUG", "tested_array", tested_array)
-                                if len(tested_array):
-                                    if rel_type == "EQ_relation":
-                                        qwliststr = repr(tested_array)
-                                        qwliststr = sub(r'^\[', '(', qwliststr)
-                                        qwliststr = sub(r'\]$', ')', qwliststr)
-                                        clause = sql_field + ' IN '+qwliststr
-                                        # ex: country IN ('France', 'USA')
-
-                                    elif rel_type == "LIKE_relation":
-                                        like_clauses = []
-                                        for singleval in tested_array:
-                                            if type(singleval) == str and len(singleval):
-                                                like_clauses.append(
-                                                   sql_field+" LIKE '%"+quotestr(singleval)+"%'"
-                                                )
-                                        clause = " OR ".join(like_clauses)
-
-                            if len(clause):
-                                sql_constraints.append("(%s)" % clause)
+                    sql_constraints = rest_filters_to_sql(filter_dict)
 
                     # use constraints as WHERE-clause
-
-                    # NB we must cascade join because
-                    #    orgs, hashtags and keywords are one-to-many
-                    #   => it renames tables into 'full_scholar'
                     sql_query = """
                     SELECT * FROM (
-                        SELECT
-                            sch_org_n_tags.*,
-
-                            -- kws info
-                            GROUP_CONCAT(keywords.kwstr) AS keywords_list
-
-                        FROM (
-                            SELECT
-                                scholars_and_orgs.*,
-                                -- hts info
-                                GROUP_CONCAT(hashtags.htstr) AS hashtags_list
-
-                            FROM (
-                              SELECT scholars.*,
-                                     -- org info
-                                     -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
-                                     GROUP_CONCAT(orgs_set.label) AS orgs_list
-                              FROM scholars
-                              LEFT JOIN sch_org ON luid = sch_org.uid
-                              LEFT JOIN (
-                                SELECT * FROM orgs
-                              ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
-                              GROUP BY luid
-                            ) AS scholars_and_orgs
-                            LEFT JOIN sch_ht
-                                ON uid = luid
-                            LEFT JOIN hashtags
-                                ON sch_ht.htid = hashtags.htid
-                            GROUP BY luid
-                        ) AS sch_org_n_tags
-
-                        -- two step JOIN for keywords
-                        LEFT JOIN sch_kw
-                            ON uid = luid
-                        -- we directly exclude scholars with no keywords here
-                        JOIN keywords
-                            ON sch_kw.kwid = keywords.kwid
-
-                        WHERE (
-                            record_status = 'active'
-                            OR
-                            (record_status = 'legacy' AND valid_date >= NOW())
-                        )
-
-                        GROUP BY luid
+                        %s
 
                     ) AS full_scholar
                     -- our filtering constraints fit here
                     WHERE  %s
 
-                    """ % " AND ".join(sql_constraints)
+                    """ % (full_scholar_sql, " AND ".join(sql_constraints))
 
                 mlog("DEBUGSQL", "getScholarsList SELECT:  ", sql_query)
 

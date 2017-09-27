@@ -260,7 +260,24 @@ def multimatch_graph_api():
 
         supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
         if type0 in supported_types and type1 in supported_types:
-            graph = dbdatapi.multimatch(type0, type1)
+
+            sql_filters = []
+            print ("multimatch_graph_api types", type0, type1, request.args)
+
+            if 'qtype' in request.args and request.args['qtype'] == 'filters':
+
+                filterq_dict = tools.restparse(
+                                request.query_string.decode()
+                                )
+
+                sql_filters = dbdatapi.rest_filters_to_sql(filterq_dict)
+                print("query => SQL", sql_filters)
+
+            graph = dbdatapi.multimatch(
+                        type0,
+                        type1,
+                        sql_filters
+                    )
 
     return(
         Response(
