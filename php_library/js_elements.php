@@ -92,7 +92,7 @@ function tagcloud_snippet($sorted_key_val_array) {
               // console.log("php htmlfied_tagcloud (",kwstr,") freq",frec," fontSize", fontSize)
 
               // using em instead of px to allow global x% resize at css box level
-              let htmlLabel = "<span class=\"tagcloud-item\" style=\"font-size:"+fontSize+"em;\" title=\""+kwstr+" ("+frec+")"+"\">"+ kwstr + "</span>";
+              let htmlLabel = "<span class=\"tagcloud-item-directory\" style=\"font-size:"+fontSize+"em;\" title=\""+kwstr+" ("+frec+")"+"\">"+ kwstr + "</span>";
               resHtmlArr.push(htmlLabel)
           }
           resHtml = resHtmlArr.join("\n")

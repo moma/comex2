@@ -61,7 +61,7 @@ whoswho = (function(ww) {
         let label = whoswho.allowedTypes[opt]
         let ntButton = document.getElementById("selected-node"+itype)
         if (ntButton) {
-          ntButton.innerText = label
+          ntButton.innerHTML = label + '<i class="caret"></i>'
         }
 
         // store in sessionStorage

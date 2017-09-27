@@ -137,6 +137,12 @@
   display: block;
   float: left;
 }
+.topbar .nav > li > a:hover, .topbar .nav > li > a:focus, .topbar .nav > li > a:active  {
+     /* prevents white of hover bg (ugly on black topbar) */
+    background-color: inherit !important;
+    color: #fff;
+}
+
 .topbar div > ul a, .topbar .nav a {
   display: block;
   float: none;

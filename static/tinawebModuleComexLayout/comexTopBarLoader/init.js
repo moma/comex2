@@ -10,7 +10,6 @@ module_name="comexTopBarLoader"
 // ---- INIT main part -------- (listing all things to load)
 
 // 1 - load dependencies (paths assume we are within comex project)
-loadCSS("/static/css/bootstrap.min.css") ;
 loadCSS("/static/css/topbar_bootstrap_retrocompatibility.css") ;
 loadCSS("/static/js/jquery-ui-1.12.1/jquery-ui.min.css") ;
 loadCSS("/static/css/whoswho.css") ;

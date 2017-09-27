@@ -136,7 +136,7 @@ div.my-centering-box > * {
 }
 
 /* similar to tina, but with no link, for print_directory.php */
-.tagcloud-item{
+.tagcloud-item-directory{
     display:inline-block;
     border:solid 1px;
     border-radius: 6px;
@@ -258,21 +258,11 @@ div.my-centering-box > * {
   text-shadow: .2px .3px #333;
 }
 
-
+/* dropdowns */
 .navlink, .navlink:focus {
   font-size: 1.2em;
   font-weight: bold;
   margin: 3px 0 0 6px;
-  background-color: transparent !important;
-}
-
-.navlink:hover {
-  color: white;
-  background-color: transparent !important;
-}
-
-.nav>li>a:focus {
-  background-color: transparent !important;
 }
 
 /* for code blocks or urls */
