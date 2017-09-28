@@ -216,14 +216,15 @@ def rest_filters_to_sql(filter_dict):
     return sql_constraints
 
 
-# multimatch(obj_type_1, obj_type_2)
-# ================================================================
-# obj_type_1, obj_type_2 ∈ {sch, lab, inst, kw, ht, job, country}²
-# ================================================================
+# multimatch(nodetype_1, nodetype_2)
+# ==================================
 def multimatch(source_type, target_type, pivot_filters = []):
     """
     Returns a list of edges between the objects of type 1 and those of type 2,
     via their matching scholars (used as pivot and for filtering)
+
+    src_type ∈ {kw, ht}
+    tgt_type ∈ {sch, lab, inst, country}
     """
 
     type_map = {
@@ -253,8 +254,8 @@ def multimatch(source_type, target_type, pivot_filters = []):
     subq1 = o1.toPivot()
     subq2 = o2.toPivot()
 
-    # for filtering: the middle pivot step allows us to filter pivors by any information that can be related to it
-
+    # additional filter step: the middle pivot step allows filtering pivots
+    #                         by any information that can be related to it
     subqmidfilters = ''
     if (len(pivot_filters)):
         subqmidfilters = "WHERE " + " AND ".join(pivot_filters)
@@ -275,11 +276,49 @@ def multimatch(source_type, target_type, pivot_filters = []):
                 %s
     """ % (full_scholar_sql, subqmidfilters)
 
+    # ------------------------------------------------------------  Explanations
+    #
+    # At this point in matrix representation:
+    #  - subq1 is M1 [source_type x filtered_scholars]
+    #  - subq2 is M2 [filtered_scholars x target_type]
+    #
+    #
+    # The SQL match_table built below will correspond to the cross-relations XR:
+    #
+    #   M1 o M2 = XR [source_type x target_type]      aka "opposite neighbors"
+    #                                                      in ProjectExplorer
+    #
+    # Finally we will have two possibilities to build the "sameside neighbors"
+    # (let Neighs_11 represent them within type 1, Neighs_22 within type 2)
+    #
+    # (i) using all transitions (ie via pivot edges and via opposite type edges)
+    #  Neighs_11 = XR o XR⁻¹   = (M1 o M2)   o (M1 o M2)⁻¹
+    #  Neighs_22 = XR⁻¹ o XR   = (M1 o M2)⁻¹ o (M1 o M2)
+    #
+    # (ii) or via pivot edges only
+    #  Neighs_11 = M1 o M1⁻¹
+    #  Neighs_22 = M2⁻¹ o M2
+    #
+    # In practice, we will use formula (ii) for Neighs_11,
+    #                      and formula (i)  for Neighs_22,
+    #   because:
+    #     - type_1 ∈ {kw, ht}
+    #       The app's allowed source_types (keywords, community tags) tend to
+    #       have a ???-to-many relationship with pivot (following only pivot
+    #       edges already yields meaningful connections for Neighs_11)
+    #
+    #     - type_2 ∈ {sch, lab, inst, country}
+    #       Allowed target_types (scholars, labs, orgs, countries) tend to have
+    #       a ???-to-1 relation with pivot (a scholar has usually one country,
+    #       one lab..) (using pivot edges only wouldn't create much links)
+    #
+    # Finally count(pivotID) is our weight
+    #   for instance: if we match keywords <=> laboratories
+    #                 the weight of the  kw1 -- lab2 edge is
+    #                 the number of scholars from lab2 with kw1
+    #
+    # ------------------------------------------------------------ /Explanations
 
-    # also: count(pivotID) is our weight
-    #       for instance: if we match laboratories <=> keywords
-    #                     the weight of the labX -- kwA link is the
-    #                     number of scholars from labX with kwA
 
     # threshold = 1 if target_type != 'sch' else 0
     threshold = 0
