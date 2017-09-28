@@ -22,7 +22,7 @@ TW.conf = (function(TW){
   // ...or remote bridge to default source api ajax queries
   TWConf.sourceAPI={}
   TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
-  TWConf.sourceAPI["forNormalQuery"] = "services/api/multimatch"
+  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
   TWConf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
 
 
@@ -259,7 +259,7 @@ TW.conf = (function(TW){
   // -----------------------------------
   // normal and meso level background colors
   TWConf.normalBackground = '#fff'             // <= should match css default
-  TWConf.mesoBackground = '#fcfcea'
+  TWConf.mesoBackground = '#fcfcd5'
 
   // mouse captor zoom limits
   TWConf.zoomMin = .015625         // for zoom IN   (ex: 1/64 to allow zoom x64)
