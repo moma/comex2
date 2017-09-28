@@ -2,6 +2,9 @@
 // =======================
 // Allows loading special topbar
 
+// POSS: works well but would be more efficient with an explorer template
+//       (an html version just for comex: not as modular but lighter)
+
 // Our module_name is simultaneously 3 things:
 //   - a DivsFlag for settings_explorerjs
 //   - our current dir for this module's files (and this init.js)
@@ -55,6 +58,7 @@ var topB = document.querySelector("#comex-top > .topbar-inner")
 var cTools = document.getElementById("toolbar")
 var cSigmaBox = document.getElementById("sigma-contnr")
 var cSidebar = document.getElementById("sidebar")
+var cLeftBox = document.getElementById("lefttopbox")
 
 let topResize = function() {
   if (topB) {
@@ -67,6 +71,9 @@ let topResize = function() {
 
     if (cSigmaBox)
       cSigmaBox.style.top = midline + "px"
+
+    if (cLeftBox)
+      cLeftBox.style.top = (midline + 30) + "px"
 
     if (cSidebar) {
       if (window.innerWidth > 768) {
@@ -88,7 +95,9 @@ window.addEventListener('resize', function(ev){
   winResizeTopbarTimeout = setTimeout(topResize, 300)
 }, true)
 
-// call once in 1s
-setTimeout(topResize, 1000)
+// replace whoswho's shiftPage
+if (whoswho && whoswho.shiftPage) {
+  whoswho.shiftPage = topResize
+}
 
 console.log("OK LOADED " + module_name) ;
