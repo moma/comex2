@@ -118,7 +118,7 @@ function createJobForm(containerId, args) {
                   placeholder="Name here the position type and possibly the field of research or location"
                   >
           </div>
-          <p class="legend">(80 chars max)</p>
+          ${args.can_edit ? '<p class="legend">(80 chars max)</p>' : ''}
         </div>
 
 
@@ -137,7 +137,7 @@ function createJobForm(containerId, args) {
                      onblur="cmxClt.makeBold(this)" onfocus="cmxClt.makeNormal(this)" ${rw}
                      >${args.job ? args.job.mission_text : ''}</textarea>
          </div>
-         <p class="legend">~30 lines max (2400 chars)</p>
+         ${args.can_edit ? '<p class="legend">~30 lines max (2400 chars)</p>' : ''}
         </div>
 
         <div class="question">
@@ -166,7 +166,7 @@ function createJobForm(containerId, args) {
                      onblur="cmxClt.makeBold(this)" onfocus="cmxClt.makeNormal(this)"
                      >${args.job ? args.job.recruiter_org_text : ''}</textarea>
          </div>
-         <p class="legend">Optional, ~30 lines max (2400 chars)</p>
+         ${args.can_edit ? '<p class="legend">Optional, ~30 lines max (2400 chars)</p>' : ''}
         </div>
 
         <div class="question">
@@ -178,7 +178,7 @@ function createJobForm(containerId, args) {
                   type="text" class="form-control autocomp" ${rw}
                   value="${args.job && args.job.locname ? args.job.locname : ''}">
           </div>
-          <p class="legend">The main location of the job (eg. "Paris, France").</p>
+          ${args.can_edit ? '<p class="legend">The main location of the job (eg. "Paris, France").</p>' : ''}
         </div>
 
         <div class="question">
@@ -190,7 +190,7 @@ function createJobForm(containerId, args) {
                   type="text" class="form-control" ${rw}
                   value="${args.job ? args.job.email : (args.user ? args.user.email : '')}">
           </div>
-          <p class="legend">Your email or any other contact email for the job.</p>
+          ${args.can_edit ? '<p class="legend">Your email or any other contact email for the job.</p>' : ''}
         </div>
 
         <div class="question">
@@ -200,7 +200,7 @@ function createJobForm(containerId, args) {
                    type="text" class="form-control" placeholder="ex: 2017/09/30"
                    value="${args.job ? args.job.job_valid_date.replace(/-/g,'/') : ''}">
           </div>
-          <p class="legend">You can always remove the job manually before this date.</p>
+          ${args.can_edit ? '<p class="legend">You can always remove the job manually before this date.</p>' : ''}
         </div>
 
         ${pdfSection}
