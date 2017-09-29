@@ -4,10 +4,7 @@ var completion, gexf, ids;
 var whoswho = {};
 
 // create or retrieve a tab id
-if (sessionStorage.tabid) {
-  whoswho.tabid = sessionStorage.tabid
-}
-else {
+if (!sessionStorage.tabid) {
   sessionStorage.tabid = ""+parseInt(performance.now()*1000)
 }
 
@@ -215,7 +212,7 @@ whoswho = (function(ww) {
       query = JSON.stringify(query);
 
       // cache
-      sessionStorage.setItem("whoswhoq-"+ww.tabid, query)
+      sessionStorage.setItem("whoswhoq-"+sessionStorage.tabid, query)
 
       if (cb && typeof cb == "function") {
         // debug
@@ -380,9 +377,9 @@ $(document).ready(function() {
 
   // retrieve last whoswho types and query from cache
   var whoswhoq = {}
-  if (sessionStorage.hasOwnProperty("whoswhoq-"+whoswho.tabid)) {
+  if (sessionStorage.hasOwnProperty("whoswhoq-"+sessionStorage.tabid)) {
     try {
-      whoswhoq = JSON.parse(sessionStorage["whoswhoq-"+whoswho.tabid])
+      whoswhoq = JSON.parse(sessionStorage["whoswhoq-"+sessionStorage.tabid])
     }
     catch(e) {
       whoswhoq = {}
