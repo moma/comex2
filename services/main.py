@@ -243,6 +243,51 @@ def aggs_api():
     else:
         raise TypeError("aggs API query is missing 'field' argument")
 
+
+
+# /services/api/multimatch
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/multimatch')
+def multimatch_graph_api():
+    """
+    API to provide json extracts of the DB to tinaweb
+    (uses the new approach dbdatapi.multimatch)
+    """
+    graph = {'links':{}, 'nodes':{}}
+    if 'type0' in request.args and 'type1' in request.args:
+        type0 = request.args['type0']
+        type1 = request.args['type1']
+        mlog("INFO", "multimatch query for", type0, type1)
+
+        supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
+        if type0 in supported_types and type1 in supported_types:
+
+            sql_filters = []
+            print ("multimatch_graph_api types", type0, type1, request.args)
+
+            if 'qtype' in request.args and request.args['qtype'] == 'filters':
+
+                filterq_dict = tools.restparse(
+                                request.query_string.decode()
+                                )
+
+                sql_filters = dbdatapi.rest_filters_to_sql(filterq_dict)
+                print("query => SQL", sql_filters)
+
+            graph = dbdatapi.multimatch(
+                        type0,
+                        type1,
+                        sql_filters
+                    )
+
+    return(
+        Response(
+            response=dumps(graph),
+            status=200,
+            mimetype="application/json")
+        )
+
+
+
 # /services/api/graph
 @app.route(config['PREFIX'] + config['API_ROUTE'] + '/graph')
 def graph_api():
@@ -773,7 +818,7 @@ def register():
                   </li>
                   <li>
                       <span class="glyphicon glyphicon-eye-open"></span>&nbsp;&nbsp;
-                      <a href='/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam=%(luid)i'> Your Map </a>
+                      <a href='/explorerjs.html?sourcemode="api"&type="uid"&srcparams=%(luid)i'> Your Map </a>
                   </li>
                   <li>
                       <span class="glyphicon glyphicon glyphicon-stats"></span>&nbsp;&nbsp;

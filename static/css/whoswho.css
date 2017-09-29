@@ -171,10 +171,9 @@ input.name {
     }
 }
 
-.nav > li > a.topbarlink:hover {
-     /* prevents white of hover bg (ugly on black topbar) */
-    background-color: inherit !important;
-    color: #fff;
+p.topbarselect {
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .nav-legend {
@@ -186,7 +185,7 @@ input.name {
 }
 
 /* dropdown buttons should look like just menu select (based on select.small) */
-.nav-inline-selectable {
+a.nav-inline-selectable {
     display: inline-block;
     align-items: center;
     cursor: default;
@@ -200,8 +199,8 @@ input.name {
     text-shadow: none !important ;
     font-weight: normal;
 
-    padding: 2px 4px !important ;
-    margin: .4em 1em;
+    padding: 3px 5px !important ;
+    margin: .5em 1em .3em 1em;
 
     box-sizing: border-box;
 
@@ -209,17 +208,19 @@ input.name {
     border-radius: 3px;
 }
 
-.nav-inline-selectable .caret {
+a.nav-inline-selectable .caret {
     opacity: 1;
 }
-.nav-inline-selectable:hover .caret, .nav-inline-selectable:active .caret {
+a.nav-inline-selectable:hover .caret, a.nav-inline-selectable:focus .caret, a.nav-inline-selectable:active .caret {
     background-color: rgb(220,255,220) ;
 }
 
-.nav-inline-selectable:hover, .nav-inline-selectable:active {
+.topbar .nav > li > a.nav-inline-selectable:hover,
+.topbar .nav > li > a.nav-inline-selectable:focus,
+.topbar .nav > li > a.nav-inline-selectable:active {
     display: inline-block;
     cursor: pointer;
-    background-color: #fff ;
+    background-color: #fff !important ;
     border: 2px solid rgb(170,255,120) ;
     border-radius: 3px;
     text-shadow: none !important ;

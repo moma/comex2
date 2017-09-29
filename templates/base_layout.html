@@ -14,7 +14,6 @@
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/whoswho.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex_user.css') }}">
   <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
-  <link type=text/css rel=stylesheet href="{{ url_for('static', filename='css/comex.css') }}">
 
   <!--   for topbar search/refine   -->
 
@@ -96,14 +95,68 @@
 
 
                 <!-- MAIN SEARCH/REFINE NAVBAR -->
-                <li id="mapping" class="comex-nav-item">
-                    <p class='topbarlink'>
-                        <strong>SELECT Keywords AND Scholars</strong>
-                    </p>
+                <li class="comex-nav-item">
+                    <p class='topbarselect'>SELECT</p>
+                </li>
+                <li class="dropdown comex-nav-item">
+                  <a id="selected-node0"
+                     class="btn-default nav-inline-selectable"
+                     onclick='$(this).next(".dropdown-menu").toggle();'
+                     >Keywords<i class="caret"></i>
+                  </a>
+                  <ul id="select-node0" class="dropdown-menu">
+                      <li>
+                          <a class="node0-choice" href="#"  data-optval="kw"
+                              onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                              Keywords
+                          </a>
+                      </li>
+                      <li>
+                          <a class="node0-choice" href="#" data-optval="ht"
+                             onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                             Community Tags
+                           </a>
+                      </li>
+                  </ul>
+                </li>
+                <li class="comex-nav-item">
+                    <p class='topbarselect'>AND</p>
+                </li>
+                <li class="dropdown comex-nav-item">
+                  <a id="selected-node1"
+                     class="btn-default nav-inline-selectable"
+                     onclick='$(this).next(".dropdown-menu").toggle();'
+                     >Scholars<i class="caret"></i>
+                  </a>
+                  <ul id="select-node1" class="dropdown-menu">
+                      <li>
+                          <a class="node1-choice" href="#" data-optval="sch"
+                              onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                              Scholars
+                          </a>
+                      </li>
+                      <li>
+                          <a class="node1-choice" href="#" data-optval="inst"
+                              onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                              Orgs
+                          </a>
+                      </li>
+                      <li>
+                          <a class="node1-choice" href="#" data-optval="lab"
+                              onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                              Labs
+                          </a>
+                      </li>
+                      <li>
+                          <a class="node1-choice" href="#" data-optval="country"
+                              onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                              Countries
+                          </a>
+                      </li>
+                  </ul>
                 </li>
                 <li id="refine" class="dropdown comex-nav-item">
                     <a class="btn-default nav-inline-selectable"
-                       style="padding-top: 1em"
                        onclick='$(this).next(".dropdown-menu").toggle();'
                        >refine<i class="caret"></i></a>
                     <ul class="dropdown-menu">
@@ -151,7 +204,7 @@
               <ul class="white nav navbar-nav navbar-right">
                 {% if current_user and not current_user.is_anonymous and not current_user.empty %}
                   <li class="comex-nav-item">
-                      <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="{{ current_user.uid }}"'> Your Map </a>
+                      <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;srcparams="{{ current_user.uid }}"'> Your Map </a>
                   </li>
                   <li class="comex-nav-item">
                       <a class="topbarlink" href='/print_scholar_directory.php?query={{ current_user.uid }}&amp;user={{ current_user.uid }}'> Your Directory </a>
@@ -213,7 +266,7 @@
                           </li>
                           {% endif %}
                           <li>
-                              <a href='/services/user/logout/'> Logout </a>
+                              <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
                           </li>
                       {% else %}
                       <li>
@@ -305,6 +358,7 @@
       //               ---------
       var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
       Object.freeze(uinfo)
+      sessionStorage.uinfo = JSON.stringify(uinfo)
   </script>
 
   <!--  our js for auth and login: to be able to login via popup anywhere -->

@@ -12,6 +12,7 @@ Use this only if you want to recreate the app's tables manually, say, for develo
 mysql -uroot -pvery-safe-pass -h $SQL_HOST -P 3306
 
 # --- after connection to mysql
+
 CREATE DATABASE comex_shared CHARACTER SET utf8 COLLATE utf8_general_ci ;
 USE comex_shared ;
 CREATE TABLE scholars (
@@ -227,5 +228,6 @@ CREATE TABLE job_kw(
     FOREIGN KEY (jobid)  REFERENCES jobs(jobid) ON DELETE CASCADE,
     FOREIGN KEY (kwid) REFERENCES keywords(kwid)
 );
+
 
 ```

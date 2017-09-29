@@ -13,7 +13,7 @@ from MySQLdb.cursors  import DictCursor
 
 from networkx  import Graph, DiGraph
 from random    import randint
-from math      import floor, log, log1p
+from math      import floor, log, log1p, sqrt
 from cgi       import escape
 from re        import sub, match
 from traceback import format_tb
@@ -22,9 +22,13 @@ from json      import loads
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db
+    from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                                    DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db
+    from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
+                               DBHashtags, DBCountries
 
 
 # col are for str stats api
@@ -73,6 +77,411 @@ FIELDS_FRONTEND_TO_SQL = {
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
 
+
+# NB we must cascade join because
+#    orgs, hashtags and keywords are one-to-many
+full_scholar_sql = """
+    SELECT
+        sch_org_n_tags.*,
+
+        -- kws info
+        GROUP_CONCAT(keywords.kwstr) AS keywords_list
+
+    FROM (
+        SELECT
+            scholars_and_orgs.*,
+            -- hts info
+            GROUP_CONCAT(hashtags.htstr) AS hashtags_list
+
+        FROM (
+          SELECT scholars.*,
+                 -- org info
+                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
+                 GROUP_CONCAT(orgs_set.label) AS orgs_list
+          FROM scholars
+          LEFT JOIN sch_org ON luid = sch_org.uid
+          LEFT JOIN (
+            SELECT * FROM orgs
+          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
+          GROUP BY luid
+        ) AS scholars_and_orgs
+        LEFT JOIN sch_ht
+            ON uid = luid
+        LEFT JOIN hashtags
+            ON sch_ht.htid = hashtags.htid
+        GROUP BY luid
+    ) AS sch_org_n_tags
+
+    -- two step JOIN for keywords
+    LEFT JOIN sch_kw
+        ON uid = luid
+    -- we directly exclude scholars with no keywords here
+    JOIN keywords
+        ON sch_kw.kwid = keywords.kwid
+
+    WHERE (
+        record_status = 'active'
+        OR
+        (record_status = 'legacy' AND valid_date >= NOW())
+    )
+
+    GROUP BY luid
+"""
+
+# explorer REST "filters" syntax => sql "WHERE" constraints on scholars
+# =====================================================================
+
+def rest_filters_to_sql(filter_dict):
+    """
+    Returns WHERE clauses from dict representing an input URL query like:
+
+      filter_dict = tools.restparse(
+        "?type0=ht&type1=inst&keywords[]=love&keywords[]=natural hazards&countries[]=France&countries[]=Italy".decode()
+        )
+
+    exemple input: dict = {
+           'type0': 'ht'
+           'type1': 'inst',
+            'keywords': [
+                 'natural hazards',
+                 'love'
+             ],
+            'countries': [
+                 'Italy',
+                 'France'
+             ],
+            'qtype': 'filters'
+         }
+
+    exemple output: array of SQL constraints = [
+            "(country IN ('France', 'Italy'))",
+            "(keywords_list LIKE '%%natural hazards%%' OR keywords_list LIKE '%%love%%')"
+        ]
+
+    """
+    sql_constraints = []
+
+    for key in filter_dict:
+        known_filter = None
+        sql_column = None
+
+        if key not in FIELDS_FRONTEND_TO_SQL:
+            continue
+        else:
+            known_filter = key
+            sql_field = FIELDS_FRONTEND_TO_SQL[key]['grouped']
+
+            # "LIKE_relation" or "EQ_relation"
+            rel_type = FIELDS_FRONTEND_TO_SQL[key]['type']
+
+        # now create the constraints
+        val = filter_dict[known_filter]
+
+        if len(val):
+            # clause exemples
+            # "col IN (val1, val2)"
+            # "col = val"
+            # "col LIKE '%escapedval%'"
+
+            if (not isinstance(val, list)
+              and not isinstance(val, tuple)):
+                mlog("WARNING", "direct graph api query without tina")
+                clause = sql_field + type_to_sql_filter(val)
+
+            # normal case
+            # tina sends an array of str filters
+            else:
+                tested_array = [x for x in val if x]
+                mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
+                if len(tested_array):
+                    if rel_type == "EQ_relation":
+                        qwliststr = repr(tested_array)
+                        qwliststr = sub(r'^\[', '(', qwliststr)
+                        qwliststr = sub(r'\]$', ')', qwliststr)
+                        clause = sql_field + ' IN '+qwliststr
+                        # ex: country IN ('France', 'USA')
+
+                    elif rel_type == "LIKE_relation":
+                        like_clauses = []
+                        for singleval in tested_array:
+                            if type(singleval) == str and len(singleval):
+                                like_clauses.append(
+                                   sql_field+" LIKE '%"+quotestr(singleval)+"%'"
+                                )
+                        clause = " OR ".join(like_clauses)
+
+            if len(clause):
+                sql_constraints.append("(%s)" % clause)
+
+    return sql_constraints
+
+
+# multimatch(nodetype_1, nodetype_2)
+# ==================================
+def multimatch(source_type, target_type, pivot_filters = []):
+    """
+    Returns a list of edges between the objects of type 1 and those of type 2,
+    via their matching scholars (used as pivot and for filtering)
+
+    src_type ∈ {kw, ht}
+    tgt_type ∈ {sch, lab, inst, country}
+    """
+
+    type_map = {
+        "sch" :  DBScholars,
+        "lab" :  DBLabs,
+        "inst" : DBInsts,
+        "kw" :   DBKeywords,
+        "ht" :   DBHashtags,
+        "country" :   DBCountries,
+    }
+
+    # unsupported entities
+    if ( source_type not in type_map
+      or target_type not in type_map ):
+        return []
+
+    # instanciating appropriate DBEntity class
+    o1 = type_map[source_type]()
+    o2 = type_map[target_type]()
+
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+
+    # idea: we can always (SELECT subq1)
+    #       and JOIN with (SELECT subq2)
+    #       because they both expose pivotID
+    subq1 = o1.toPivot()
+    subq2 = o2.toPivot()
+
+    # additional filter step: the middle pivot step allows filtering pivots
+    #                         by any information that can be related to it
+    subqmidfilters = ''
+    if (len(pivot_filters)):
+        subqmidfilters = "WHERE " + " AND ".join(pivot_filters)
+
+    # make some columns available for filtering
+    # luid
+    # country
+    # job_looking
+    # job_looking_date
+    # orgs_list
+    # hashtags_list
+    # keywords_list
+    subqmid =  """
+                SELECT * FROM (
+                    %s
+                ) AS full_scholar
+                -- our filtering constraints fit here
+                %s
+    """ % (full_scholar_sql, subqmidfilters)
+
+    # ------------------------------------------------------------  Explanations
+    #
+    # At this point in matrix representation:
+    #  - subq1 is M1 [source_type x filtered_scholars]
+    #  - subq2 is M2 [filtered_scholars x target_type]
+    #
+    #
+    # The SQL match_table built below will correspond to the cross-relations XR:
+    #
+    #   M1 o M2 = XR [source_type x target_type]      aka "opposite neighbors"
+    #                                                      in ProjectExplorer
+    #
+    # Finally we will have two possibilities to build the "sameside neighbors"
+    # (let Neighs_11 represent them within type 1, Neighs_22 within type 2)
+    #
+    # (i) using all transitions (ie via pivot edges and via opposite type edges)
+    #  Neighs_11 = XR o XR⁻¹   = (M1 o M2)   o (M1 o M2)⁻¹
+    #  Neighs_22 = XR⁻¹ o XR   = (M1 o M2)⁻¹ o (M1 o M2)
+    #
+    # (ii) or via pivot edges only
+    #  Neighs_11 = M1 o M1⁻¹
+    #  Neighs_22 = M2⁻¹ o M2
+    #
+    # In practice, we will use formula (ii) for Neighs_11,
+    #                      and formula (i)  for Neighs_22,
+    #   because:
+    #     - type_1 ∈ {kw, ht}
+    #       The app's allowed source_types (keywords, community tags) tend to
+    #       have a ???-to-many relationship with pivot (following only pivot
+    #       edges already yields meaningful connections for Neighs_11)
+    #
+    #     - type_2 ∈ {sch, lab, inst, country}
+    #       Allowed target_types (scholars, labs, orgs, countries) tend to have
+    #       a ???-to-1 relation with pivot (a scholar has usually one country,
+    #       one lab..) (using pivot edges only wouldn't create much links)
+    #
+    # Finally count(pivotID) is our weight
+    #   for instance: if we match keywords <=> laboratories
+    #                 the weight of the  kw1 -- lab2 edge is
+    #                 the number of scholars from lab2 with kw1
+    #
+    # ------------------------------------------------------------ /Explanations
+
+
+    # threshold = 1 if target_type != 'sch' else 0
+    threshold = 0
+
+    matchq = """
+    -- matching part
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table AS (
+        SELECT * FROM (
+            SELECT count(sources.pivotID) as weight,
+                   sources.entityID AS sourceID,
+                   targets.entityID AS targetID
+            FROM (%s) AS sources
+
+            -- inner join as filter
+            JOIN (%s) AS pivot_filtered_ids
+                ON sources.pivotID = pivot_filtered_ids.luid
+
+            -- target entities as type1 nodes
+            LEFT JOIN (%s) AS targets
+                ON sources.pivotID = targets.pivotID
+            GROUP BY sourceID, targetID
+            ) AS match_table
+        WHERE match_table.weight > %i
+          AND sourceID IS NOT NULL
+          AND targetID IS NOT NULL
+
+    );
+    CREATE INDEX mt1idx ON match_table(sourceID, targetID)
+    """ % (
+        subq1,
+        subqmid,
+        subq2,
+        threshold
+        )
+
+    # mlog("DEBUG", "multimatch sql query", matchq)
+
+    # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
+    db_c.execute(matchq)
+
+    # 1 - fetch it
+    db_c.execute("SELECT * FROM match_table")
+    edges_XR = db_c.fetchall()
+    len_XR = len(edges_XR)
+
+    # 2 - matrix product XR·XR⁻¹ to build 'sameside' edges
+    #                         A
+    #                x  B [        ]
+    #             B       [   XR   ]
+    #         [      ]
+    #      A  [  XR  ]       square
+    #         [      ]      sameside
+
+    # 2a we'll need a copy of the XR table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
+        SELECT * FROM match_table
+    );
+    CREATE INDEX mt2idx ON match_table_2(sourceID, targetID)
+    """)
+
+    # nid_type is A and transi_type is B
+    sameside_format = """
+        SELECT * FROM (
+            SELECT
+                match_table.%(nid_type)s   AS nid_i,
+                match_table_2.%(nid_type)s AS nid_j,
+                sum(
+                    match_table.weight * match_table_2.weight
+                ) AS dotweight
+            FROM match_table
+            JOIN match_table_2
+                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+            GROUP BY nid_i, nid_j
+        ) AS dotproduct
+        WHERE nid_i != nid_j
+          AND dotweight > %(threshold)i
+    """
+
+    # 2b sameside edges type0 <=> type0
+    dot_threshold = floor(.5 + len_XR/3000)
+    edges_00_q = sameside_format % {'nid_type': "sourceID",
+                                   'transi_type': "targetID",
+                                   'threshold': dot_threshold}
+    # print("DEBUGSQL", "edges_00_q", edges_00_q)
+    mlog("DEBUG", "multimatch src dot_threshold src", dot_threshold, len_XR)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
+
+
+    # 2c sameside edges type1 <=> type1
+    # dot_threshold = floor(10*sqrt(len_XR)) if target_type != 'sch' else 0
+    dot_threshold = floor(len_XR/3000)
+    edges_11_q = sameside_format % {'nid_type': "targetID",
+                                   'transi_type': "sourceID",
+                                   'threshold': dot_threshold}
+    # print("DEBUGSQL", "edges_11_q", edges_11_q)
+    mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
+    db_c.execute(edges_11_q)
+    edges_11 = db_c.fetchall()
+
+    # 3 - we use DBEntity.getInfos() to build node sets
+    get_nodes_format = """
+        SELECT entity_infos.* FROM match_table
+        LEFT JOIN (%s) AS entity_infos
+            ON entity_infos.entityID = match_table.%s
+        GROUP BY entity_infos.entityID
+    """
+    src_nds_q = get_nodes_format % (o1.getInfos(), 'sourceID')
+    db_c.execute(src_nds_q)
+    nodes_src = db_c.fetchall()
+
+    tgt_nds_q = get_nodes_format % (o2.getInfos(), 'targetID')
+    db_c.execute(tgt_nds_q)
+    nodes_tgt = db_c.fetchall()
+
+    # connection close also removes the temp tables
+    db.close()
+
+    # build the graph structure (POSS: reuse Sam's networkx Graph object ?)
+    graph = {}
+    graph["nodes"] = {}
+    graph["links"] = {}
+
+    for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
+        for nd in ndata:
+            nid = make_node_id(ntype, nd['entityID'])
+            graph["nodes"][nid] = {
+              'label': nd['label'],
+              'type': ntype,
+              'size': log1p(nd['nodeweight']),
+              'color': '243,183,19' if ntype == source_type else '139,28,28'
+            }
+
+
+    for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
+        for ed in edata:
+            nidi = make_node_id(endtype, ed['nid_i'])
+            nidj = make_node_id(endtype, ed['nid_j'])
+            eid  =  nidi+';'+nidj
+            graph["links"][eid] = {
+              's': nidi,
+              't': nidj,
+            #   'w': log1p(int(ed['dotweight']))
+              'w': sqrt(int(ed['dotweight']))
+            #   'w': float(ed['dotweight'])
+            }
+
+    for ed in edges_XR:
+        nidi = make_node_id(source_type, ed['sourceID'])
+        nidj = make_node_id(target_type, ed['targetID'])
+        eid  =  nidi+';'+nidj
+        graph["links"][eid] = {
+          's': nidi,
+          't': nidj,
+          'w': int(ed['weight']*100)
+        }
+
+    return graph
+
+
+def make_node_id(type, id):
+    return str(type)+'::'+str(id)
 
 # TODO also add paging as param and to postfilters
 def get_field_aggs(a_field,
@@ -460,118 +869,18 @@ class BipartiteExtractor:
 
                     # build constraints from the args
                     # ================================
-                    sql_constraints = []
-
-                    for key in filter_dict:
-                        known_filter = None
-                        sql_column = None
-
-                        if key not in FIELDS_FRONTEND_TO_SQL:
-                            continue
-                        else:
-                            known_filter = key
-                            sql_field = FIELDS_FRONTEND_TO_SQL[key]['grouped']
-
-                            # "LIKE_relation" or "EQ_relation"
-                            rel_type = FIELDS_FRONTEND_TO_SQL[key]['type']
-
-                        # now create the constraints
-                        val = filter_dict[known_filter]
-
-                        if len(val):
-                            # clause exemples
-                            # "col IN (val1, val2)"
-                            # "col = val"
-                            # "col LIKE '%escapedval%'"
-
-                            if (not isinstance(val, list)
-                              and not isinstance(val, tuple)):
-                                mlog("WARNING", "direct graph api query without tina")
-                                clause = sql_field + type_to_sql_filter(val)
-
-                            # normal case
-                            # tina sends an array of str filters
-                            else:
-                                tested_array = [x for x in val if x]
-                                mlog("DEBUG", "tested_array", tested_array)
-                                if len(tested_array):
-                                    if rel_type == "EQ_relation":
-                                        qwliststr = repr(tested_array)
-                                        qwliststr = sub(r'^\[', '(', qwliststr)
-                                        qwliststr = sub(r'\]$', ')', qwliststr)
-                                        clause = sql_field + ' IN '+qwliststr
-                                        # ex: country IN ('France', 'USA')
-
-                                    elif rel_type == "LIKE_relation":
-                                        like_clauses = []
-                                        for singleval in tested_array:
-                                            if type(singleval) == str and len(singleval):
-                                                like_clauses.append(
-                                                   sql_field+" LIKE '%"+quotestr(singleval)+"%'"
-                                                )
-                                        clause = " OR ".join(like_clauses)
-
-                            if len(clause):
-                                sql_constraints.append("(%s)" % clause)
+                    sql_constraints = rest_filters_to_sql(filter_dict)
 
                     # use constraints as WHERE-clause
-
-                    # NB we must cascade join because
-                    #    orgs, hashtags and keywords are one-to-many
-                    #   => it renames tables into 'full_scholar'
                     sql_query = """
                     SELECT * FROM (
-                        SELECT
-                            sch_org_n_tags.*,
-
-                            -- kws info
-                            GROUP_CONCAT(keywords.kwstr) AS keywords_list
-
-                        FROM (
-                            SELECT
-                                scholars_and_orgs.*,
-                                -- hts info
-                                GROUP_CONCAT(hashtags.htstr) AS hashtags_list
-
-                            FROM (
-                              SELECT scholars.*,
-                                     -- org info
-                                     -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
-                                     GROUP_CONCAT(orgs_set.label) AS orgs_list
-                              FROM scholars
-                              LEFT JOIN sch_org ON luid = sch_org.uid
-                              LEFT JOIN (
-                                SELECT * FROM orgs
-                              ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
-                              GROUP BY luid
-                            ) AS scholars_and_orgs
-                            LEFT JOIN sch_ht
-                                ON uid = luid
-                            LEFT JOIN hashtags
-                                ON sch_ht.htid = hashtags.htid
-                            GROUP BY luid
-                        ) AS sch_org_n_tags
-
-                        -- two step JOIN for keywords
-                        LEFT JOIN sch_kw
-                            ON uid = luid
-                        -- we directly exclude scholars with no keywords here
-                        JOIN keywords
-                            ON sch_kw.kwid = keywords.kwid
-
-                        WHERE (
-                            record_status = 'active'
-                            OR
-                            (record_status = 'legacy' AND valid_date >= NOW())
-                        )
-
-                        GROUP BY luid
+                        %s
 
                     ) AS full_scholar
                     -- our filtering constraints fit here
                     WHERE  %s
 
-                    """ % " AND ".join(sql_constraints)
+                    """ % (full_scholar_sql, " AND ".join(sql_constraints))
 
                 mlog("DEBUGSQL", "getScholarsList SELECT:  ", sql_query)
 

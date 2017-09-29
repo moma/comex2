@@ -28,7 +28,46 @@ gexf = "";
 // module fragment to expose selected functions
 var whoswho = {};
 
+var tath
 whoswho = (function(ww) {
+
+    // selected types
+    ww.nodetypes = ["kw", "sch"]
+    ww.allowedTypes = {
+      "kw": "Keywords",
+      "ht": "Community tags",
+      "sch": "Scholars",
+      "lab": "Labs",
+      "inst": "Orgs",
+      "country": "Countries"
+    }
+
+    ww.select = function(typeId, opt) {
+      let itype = parseInt(typeId)
+      if (isNaN(itype) || itype < 0 || itype > whoswho.nodetypes.length - 1) {
+        console.warn("ww.select: incorrect typeId", typeId)
+        return
+      }
+
+      if (! (opt in whoswho.allowedTypes)) {
+        console.warn("ww.select: incorrect optval", opt)
+        return
+      }
+      else {
+        // store into our main var
+        ww.nodetypes[itype] = opt
+
+        // display label in html
+        let label = whoswho.allowedTypes[opt]
+        let ntButton = document.getElementById("selected-node"+itype)
+        if (ntButton) {
+          ntButton.innerHTML = label + '<i class="caret"></i>'
+        }
+
+        // store in sessionStorage
+        sessionStorage.setItem("whoswhotypes",JSON.stringify(whoswho.nodetypes))
+      }
+    }
 
     // filter type => label
     ww.filters = {
@@ -95,7 +134,7 @@ whoswho = (function(ww) {
         })
 
         $("" + id1).hide();
-        show("#" + id1);
+        $("#" + id1).show();
         $("#" + id2).focus();
         whoswho.shiftPage()
         return false;
@@ -109,7 +148,12 @@ whoswho = (function(ww) {
           // start transition
           tgtBox.style.opacity = 0
           // remove box
-          setTimeout(function(){tgtBox.remove(); whoswho.shiftPage();}, 500)
+          setTimeout(function(){
+            tgtBox.remove(); whoswho.shiftPage();
+            // re-collect filters to update cache
+            whoswho.collectFilters()
+          }, 500)
+
           return true
       }
       else {
@@ -134,20 +178,85 @@ whoswho = (function(ww) {
       }
     }
 
+    // main form collect function
+    ww.collectFilters = function(cb) {
+      var collect, query;
+      collect = function(k) {
+        var t;
+        t = [];
+        // console.log("collecting .filter:" + k);
+        $(".filter" + k).each(function(i, e) {
+          var value;
+
+          // debug
+          // console.log('collecting (filter '+k+') from elt:' + e)
+
+          value = $(e).val();
+          if (value != null && value != "") {
+            // console.log("got: " + value);
+            value = $.trim(value);
+            // console.log("sanitized: " + value);
+            if (value !== " " || value !== "") {
+              // console.log("keeping " + value);
+              return t.push(value);
+            }
+          }
+        });
+        return t;
+      };
+      // console.log("reading filters forms..");
+
+      // for multimatch
+      query = {
+        '_node0': whoswho.nodetypes[0],
+        '_node1': whoswho.nodetypes[1]
+      }
+      // POSS in the future coloredby
+      // query.coloredby =  []
+
+      let nFilters = 0
+      for (filterName of ["keywords", "countries", "laboratories", "tags", "institutions"]) {
+          var filterValuesArray = collect(filterName)
+
+          // we add only if something to add :)
+          if (filterValuesArray.length) {
+              query[filterName] = filterValuesArray
+              nFilters ++
+          }
+      }
+
+      // console.log("raw query: ", query);
+
+      query = JSON.stringify(query);
+
+      // cache
+      sessionStorage.setItem("whoswhoq", query)
+
+      if (cb && typeof cb == "function") {
+        // debug
+        // console.log("calling callback with encoded query:", query)
+        return cb(encodeURIComponent(query), nFilters);
+      }
+      else {
+        return query
+      }
+
+    };
+
     return ww;
 })(whoswho);
 
 $(document).ready(function() {
-  var cache, closeBox, collectFilters, loadGraph;
-  log("document ready.. installing whoswho");
+  var closeBox, loadGraph;
+  console.log("document ready.. installing whoswho");
   loadGraph = function(g) {
     gexf = g;
-    log("url query: " + g);
-    log("injecting applet");
+    console.log("url query: " + g);
+    console.log("injecting applet");
     if ($('#frame').length === 0) {
       return $("#visualization").html("<iframe src=\"tinaframe.html" + (location.search != null ? location.search : '') + "\" class=\"frame\" border=\"0\" frameborder=\"0\" scrolling=\"no\" id=\"frame\" name=\"frame\"></iframe>");
     } else {
-      return log("applet already exists");
+      return console.log("applet already exists");
     }
   };
 
@@ -158,7 +267,7 @@ $(document).ready(function() {
   }), function() {
     return $(this).css("cursor", "auto");
   });
-  hide("#search-form");
+  $("#search-form").hide();
   $(".topbar").hover((function() {
     return $(this).stop().animate({
       opacity: 0.98
@@ -238,88 +347,28 @@ $(document).ready(function() {
   changeTargetId = function(nodeId) {
       document.getElementById('print2').onclick = function() {
         if (uinfo && uinfo.luid) {
-          return window.open("/print_scholar_directory.php?query=" + nodeId + "&user="+uinfo.luid);
+          window.location = "/print_scholar_directory.php?query=" + nodeId + "&user="+uinfo.luid;
         }
         else {
-          return window.open("/print_scholar_directory.php?query=" + nodeId);
+          window.location = "/print_scholar_directory.php?query=" + nodeId;
         }
       }
       document.getElementById('generate2').onclick = function() {
         // POSS add user in url params and find a way to load and call cmxClt.elts.topbar.create
-        return window.open('/explorerjs.html?sourcemode="api"&type="uid"&nodeidparam="' + nodeId + '"');
+        window.location = '/explorerjs.html?sourcemode="api"&type="uid"&srcparams="' + nodeId + '"';
       }
   }
-
-  // main form collect function
-  collectFilters = function(cb) {
-    var collect, query;
-    collect = function(k) {
-      var t;
-      t = [];
-      log("collecting .filter:" + k);
-      $(".filter" + k).each(function(i, e) {
-        var value;
-
-        // debug
-        // console.log('collecting (filter '+k+') from elt:' + e)
-
-        value = $(e).val();
-        if (value != null && value != "") {
-          log("got: " + value);
-          value = $.trim(value);
-          log("sanitized: " + value);
-          if (value !== " " || value !== "") {
-            log("keeping " + value);
-            return t.push(value);
-          }
-        }
-      });
-      return t;
-    };
-    log("reading filters forms..");
-
-
-    query = {
-
-    // TODO in the future multiple categories
-    // categorya: $.trim($("#categorya :selected").text()),
-    // categoryb: $.trim($("#categoryb :selected").text()),
-
-    // TODO in the future coloredby
-    // query.coloredby =  []
-
-    }
-
-    for (filterName of ["keywords", "countries", "laboratories", "tags", "institutions"]) {
-        var filterValuesArray = collect(filterName)
-
-        // we add only if something to add :)
-        if (filterValuesArray.length) {
-            query[filterName] = filterValuesArray
-        }
-    }
-
-    log("raw query: ");
-    log(query);
-
-    query = encodeURIComponent(JSON.stringify(query));
-
-    // debug
-    // console.log("calling callback with encoded query:", query)
-
-    return cb(query);
-  };
 
 
   // refine filters => tinawebjs graphexplorer
   $("#generate").click(function() {
-    console.log("clicked on generate")
+    // console.log("clicked on generate")
     // console.log("initiating graphexplorer")
-    return collectFilters(function(query) {
+    return whoswho.collectFilters(function(query, nFilters) {
       // debug
-      // console.log("collected filters: " + query);
+      // console.log("collected filters: " + decodeURI(query));
       // empty query => no map + warning
-      if (query == "" || decodeURI(query) == "{}") {
+      if (nFilters == 0) {
           if (document.getElementById('refine-warning')) {
             cmxClt.elts.box.toggleBox("refine-warning")
           }
@@ -332,24 +381,53 @@ $(document).ready(function() {
           }
           return null
       }
-      return window.open('/explorerjs.html?sourcemode="api"&type="filter"&nodeidparam="' + escape(query) +'"');
-      //return loadGraph("getgraph.php?query=" + query);
+      else {
+        // load the graph URL
+        window.location = '/explorerjs.html?sourcemode="api"&type="filter"&srcparams="' + escape(query) +'"';
+      }
     });
   });
   $("#print").click(function() {
-    console.log("clicked on print");
-    return collectFilters(function(query) {
+    // console.log("clicked on print");
+    return whoswho.collectFilters(function(query, nFilters) {
       // debug
       // console.log("collected filters: " + query);
       if (uinfo && uinfo.luid) {
-        return window.open("/print_directory.php?query=" + query + "&user="+uinfo.luid);
+        window.location = "/print_directory.php?query=" + query + "&user="+uinfo.luid;
       }
       else {
-        return window.open("/print_directory.php?query=" + query);
+        window.location = "/print_directory.php?query=" + query;
       }
     });
   });
-  hide("#loading");
-  cache = {};
-  return xhrs = {};
+
+  // retrieve last whoswho types and query from cache
+  var whoswhoq = {}
+  if (sessionStorage.hasOwnProperty("whoswhoq")) {
+    try {
+      whoswhoq = JSON.parse(sessionStorage.whoswhoq)
+    }
+    catch(e) {
+      whoswhoq = {}
+    }
+  }
+  console.log("whoswhoq", whoswhoq)
+
+  // reinstate any cached types and filters
+  for (var filterName in whoswhoq) {
+    if (/^_node[0-1]$/.test(filterName)) {
+      let itype = parseInt(filterName.charAt(filterName.length-1))
+      let opt = whoswhoq[filterName]
+      whoswho.select(itype, opt)
+    }
+    else {
+      for (var i in whoswhoq[filterName]) {
+        var filterVal = whoswhoq[filterName][i]
+        // console.log("whoswho: pop from session cache", filterName, filterVal)
+        whoswho.popfilter(filterName, {'prefill':filterVal})
+      }
+    }
+  }
+
+  return;
 });

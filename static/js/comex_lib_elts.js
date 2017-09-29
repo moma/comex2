@@ -30,6 +30,7 @@ var cmxClt = (function(cC) {
     // a topbar creation function from template
     //   ------
     cC.elts.topbar = {}
+    cC.elts.topbar.prepare
     cC.elts.topbar.create
 
     // a tagcloud-like div with proportional labels
@@ -47,14 +48,15 @@ var cmxClt = (function(cC) {
     cC.elts.box.postAuthBox
     cC.elts.box.authBox = null
 
-    cC.elts.topbar.create = function(luid, empty) {
+    // generate html content for a new topbar
+    cC.elts.topbar.prepare = function(luid, args = {'empty': false}) {
       let baseMenus = ''
 
       // for active users that are not empty
-      if (luid && !empty) {
+      if (luid && !args.empty) {
         baseMenus = `
           <li class="comex-nav-item">
-              <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;nodeidparam="${luid}"'> Your Map </a>
+              <a class="topbarlink" href='/explorerjs.html?type="uid"&amp;srcparams="${luid}"'> Your Map </a>
           </li>
           <li class="comex-nav-item">
               <a class="topbarlink" href='/print_scholar_directory.php?query=${luid}&user=${luid}'> Your Directory </a>
@@ -101,14 +103,14 @@ var cmxClt = (function(cC) {
 
       let dropDownContent = ''
       if (luid) {
-        if (empty) {
+        if (args.empty) {
           // special case for returning users
           dropDownContent = `
             <li>
                 <a href="/services/user/profile"> Create your Profile !</a>
             </li>
             <li>
-                <a href='/services/user/logout/'> Logout </a>
+                <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
             </li>
           `
         }
@@ -119,28 +121,40 @@ var cmxClt = (function(cC) {
                 <a href="/services/user/profile"> Your Profile </a>
             </li>
             <li>
-                <a href='/services/user/logout/'> Logout </a>
+                <a onclick="sessionStorage.removeItem('uinfo')" href='/services/user/logout/'> Logout </a>
             </li>
           `
         }
       }
       // unlogged case
       else {
-        dropDownContent = `
-          <li>
-              <div class="dropdown-a-like" id="poplogin"
-                data-toggle="dropdown"
-                onclick="cmxClt.elts.box.toggleBox('auth_modal')">
-                Login </div>
-          </li>
-          <li>
-              <a href="/services/user/register"> Register </a>
-          </li>
-        `
+        if (args.classicLogin) {
+          dropDownContent = `
+            <li>
+                <a href="/services/user/login"> Login </a>
+            </li>
+            <li>
+                <a href="/services/user/register"> Register </a>
+            </li>
+          `
+        }
+        else {
+          dropDownContent = `
+            <li>
+                <div class="dropdown-a-like" id="poplogin"
+                  data-toggle="dropdown"
+                  onclick="cmxClt.elts.box.toggleBox('auth_modal')">
+                  Login </div>
+            </li>
+            <li>
+                <a href="/services/user/register"> Register </a>
+            </li>
+          `
+        }
       }
 
       let topbarHtml = `
-        <div class="topbar" style="opacity: 0.9;" id="helloworld">
+        <div class="topbar" style="opacity: 0.9;" id="comex-top">
             <div class="topbar-inner">
                 <div class="container-fluid">
                     <ul class="white nav navbar-nav navbar-left">
@@ -155,17 +169,69 @@ var cmxClt = (function(cC) {
                               Community Explorer
                             </a>
                         </li>
-
-
                       <!-- MAIN SEARCH/REFINE NAVBAR -->
-                      <li id="mapping" class="comex-nav-item">
-                          <p class='topbarlink'>
-                              <strong>SELECT Keywords AND Scholars</strong>
-                          </p>
+                      <li class="comex-nav-item">
+                          <p class='topbarselect'>SELECT</p>
+                      </li>
+                      <li class="dropdown comex-nav-item">
+                        <a id="selected-node0"
+                           class="btn-default nav-inline-selectable"
+                           onclick='$(this).next(".dropdown-menu").toggle();'
+                           >Keywords<i class="caret"></i>
+                        </a>
+                        <ul id="select-node0" class="dropdown-menu">
+                            <li>
+                                <a class="node0-choice" href="#"  data-optval="kw"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                                    Keywords
+                                </a>
+                            </li>
+                            <li>
+                                <a class="node0-choice" href="#" data-optval="ht"
+                                   onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                                   Community Tags
+                                 </a>
+                            </li>
+                        </ul>
+                      </li>
+                      <li class="comex-nav-item">
+                          <p class='topbarselect'>AND</p>
+                      </li>
+                      <li class="dropdown comex-nav-item">
+                        <a id="selected-node1"
+                           class="btn-default nav-inline-selectable"
+                           onclick='$(this).next(".dropdown-menu").toggle();'
+                           >Scholars<i class="caret"></i>
+                        </a>
+                        <ul id="select-node1" class="dropdown-menu">
+                            <li>
+                                <a class="node1-choice" href="#" data-optval="sch"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                                    Scholars
+                                </a>
+                            </li>
+                            <li>
+                                <a class="node1-choice" href="#" data-optval="inst"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                                    Orgs
+                                </a>
+                            </li>
+                            <li>
+                                <a class="node1-choice" href="#" data-optval="lab"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                                    Labs
+                                </a>
+                            </li>
+                            <li>
+                                <a class="node1-choice" href="#" data-optval="country"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
+                                    Countries
+                                </a>
+                            </li>
+                        </ul>
                       </li>
                       <li id="refine" class="dropdown comex-nav-item">
                           <a class="btn-default nav-inline-selectable"
-                             style="padding-top: 1em"
                              onclick='$(this).next(".dropdown-menu").toggle();'
                              >refine<i class="caret"></i></a>
                           <ul class="dropdown-menu">
@@ -231,6 +297,13 @@ var cmxClt = (function(cC) {
             </div>
         </div>
       `
+
+      return topbarHtml
+    }
+
+    // create in dom
+    cC.elts.topbar.create = function(luid, args) {
+      let topbarHtml = cmxClt.elts.topbar.prepare(luid, args)
 
       // append as body's first child
       let topbar = document.createElement('div')
@@ -311,7 +384,7 @@ var cmxClt = (function(cC) {
                   let explorerFilter = {}
                   explorerFilter[explorerParam] = [labl]
                   let encodedFilter = escape(encodeURIComponent(JSON.stringify(explorerFilter)))
-                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&nodeidparam=\"" + encodedFilter +"\"')"
+                  let jspart = "onclick=window.open('/explorerjs.html?sourcemode=\"api\"&type=\"filter\"&srcparams=\"" + encodedFilter +"\"')"
 
                   // using em instead of px to allow global x% resize at css box level
                   let htmlLabel = '<span title="'+labl+' ['+frec+']" class="tagcloud-item-front" style="font-size:'+fontSize+'em; line-height:'+fontSize/6+'em; padding:'+2.5*fontSize+'px" '+jspart+'>'+ labl+ '</span>';

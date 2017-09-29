@@ -32,7 +32,7 @@ body {
     vertical-align: middle;
     line-height: 2em;
     height: 2em;
-    margin-top: .2em;
+    margin-top: .3em;
 
     /* good for scaffolding
     border: 2px solid white;
@@ -136,10 +136,13 @@ div.my-centering-box > * {
 }
 
 /* similar to tina, but with no link, for print_directory.php */
-.tagcloud-item{
+.tagcloud-item-directory{
     display:inline-block;
     border:solid 1px;
     border-radius: 6px;
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+    -khtml-border-radius: 6px;
     border-color:#BDBDBD;
     padding:5px 4px 3px 4px;
     margin:1px 0px 1px 0px;
@@ -255,21 +258,11 @@ div.my-centering-box > * {
   text-shadow: .2px .3px #333;
 }
 
-
+/* dropdowns */
 .navlink, .navlink:focus {
   font-size: 1.2em;
   font-weight: bold;
   margin: 3px 0 0 6px;
-  background-color: transparent !important;
-}
-
-.navlink:hover {
-  color: white;
-  background-color: transparent !important;
-}
-
-.nav>li>a:focus {
-  background-color: transparent !important;
 }
 
 /* for code blocks or urls */
