@@ -197,7 +197,7 @@ function syncRemoteGraphData () {
           // Assigning name for the network
           if (! mapLabel) {
               elements = []
-              queryarray = JSON.parse(ourGetUrlParam.srcparams)
+              queryarray = JSON.parse(ourGetUrlParam.nodeidparam)
               for(var i in queryarray) {
                   item = queryarray[i]
                   if(Array.isArray(item) && item.length>0) {

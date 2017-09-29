@@ -986,10 +986,8 @@ function dictfyGexf( gexf , categories ){
                                               source, target )
 
 
-              // boost crossrels edges => better bipa maps
-              if (edge.categ == "XR") {
-                edge.weight *= 10
-              }
+              // boost crossrels edges
+              if (edge.categ == "XR")   edge.weight *= 1.5
 
               // save
               if(!edges[target+";"+source])
@@ -1262,8 +1260,8 @@ function dictfyJSON( data , categories ) {
                                           typestring,
                                           source, target )
 
-          // boost crossrels edges => better bipa maps
-          if (edge.categ == "XR")   edge.weight *= 10
+          // boost crossrels edges
+          if (edge.categ == "XR")   edge.weight *= 1.5
 
           // save
           if(!edges[target+";"+source])
