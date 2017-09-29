@@ -54,16 +54,6 @@ let gridFields = [
      css:"jtitle"
    },
    {
-     name: "mission_text",
-     title:"Mission",
-     type: "text",
-     width: 70,
-     css:"mission",
-     itemTemplate: function(value) {
-       return value.replace(/\n/g, '<br>')
-     }
-   },
-   {
      name: "keywords",
      title:"Keywords",
      type: "text",
@@ -84,23 +74,12 @@ let gridFields = [
      }
    },
    {
-     name: "recruiter_org_text",
-     title:"Organization",
+     name: "country",
+     title:"Country",
      type: "text",
-     width: 70,
+     width: 45,
      align: "center",
-     css:"recr-org",
-     itemTemplate: function(value) {
-       return value.replace(/\n/g, '<br>')
-     }
-   },
-   {
-     name: "email",
-     title:"Contact",
-     type: "text",
-     width: 50,
-     align: "center",
-     css:"email"
+     css:"job-country"
    },
    {
      name: "locname",
@@ -112,7 +91,7 @@ let gridFields = [
    },
    {
      name: "job_valid_date",
-     title:"Until",
+     title:"Deadline",
      type: "text",
      width: 30,
      align: "center",

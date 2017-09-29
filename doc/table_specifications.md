@@ -213,6 +213,7 @@ CREATE TABLE jobs (
     email                varchar(255) not null,
     job_valid_date       date,
     locname              varchar(120),   -- POSS: connect this field to locs
+    country              varchar(60),
     pdf_fname            varchar(120),   -- locally saved pdf (basename)
     jtitle               varchar(80) not null,
 

@@ -69,6 +69,7 @@ JOB_COLS = [
          ("recruiter_org_text", True,    2400,    False),
          ("email",               True,    255,    False),  # job contact mail
          ("locname",            False,    120,    False),
+         ("country",            False,     60,    False),
          ("job_valid_date",      True,   None,    False),
          ("pdf_fname",          False,    120,    False)
          # 'last_modified'       timestamp added by DB itself
