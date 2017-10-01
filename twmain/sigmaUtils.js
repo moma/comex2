@@ -41,9 +41,14 @@ var SigmaUtils = function () {
 
                 i++
             }
+            else {
+              n.hidden = true
+              graph.nodes.push(n)
+            }
         }
 
         // the typestrings in activereltypes are the key to stored Relations (<=> edges)
+        let checker = {}
         for (var k in initialActivereltypes) {
           let reltype = initialActivereltypes[k]
           for(let srcnid in TW.Relations[reltype]) {
@@ -53,9 +58,17 @@ var SigmaUtils = function () {
                   if(e) {
                       if(e.source != e.target) {
                           graph.edges.push( e);
+                          checker[e.id] = true
                       }
                   }
               }
+          }
+        }
+        for (var eid in TW.Edges) {
+          if (! checker[eid]) {
+            let e = TW.Edges[eid]
+            e.hidden = true
+            graph.edges.push(e)
           }
         }
         return graph;
@@ -539,11 +552,14 @@ var SigmaUtils = function () {
       // factorized: forceAtlas2 supervisor call with:
       //  - togglability (ie. turns FA2 off if called again)
       //  - custom expiration duration
-      //  - conditions on graph size (£TODO use these to slowDown small graphs)
+      //  - conditions on graph size (args.adapt uses these to slow down small graphs)
       //  - edges management (turns them off and restores them after finished)
+
+      // POSS: use n.fixed flag https://github.com/jacomyal/sigma.js/issues/884
       this.smartForceAtlas = function (args) {
         if (TW.conf.fa2Available) {
           if (!args)             args = {}
+          if (!args.adapt)       args.adapt = true     // adapt speed to gr size
           if (!args.manual)      args.manual = false
           if (!args.duration)    args.duration = parseInt(TW.conf.fa2Milliseconds) || 4000
 
@@ -556,6 +572,7 @@ var SigmaUtils = function () {
           else {
               if (TW.conf.fa2Enabled) {
 
+                // auto run
                 if (! args.manual) {
                   if (TW.partialGraph.graph.nNodes() < TW.conf.minNodesForAutoFA2)
                     return
@@ -563,11 +580,37 @@ var SigmaUtils = function () {
                     setTimeout(function(){sigma_utils.ourStopFA2()},args.duration)
                 }
 
+                // size adjust
+                if (args.adapt) {
+                  // POSS make always true & do this only once at FillGraph time
+                  let nNdsVizbl = getVisibleNodes().length
+                  // let nNdsVizbl = TW.partialGraph.graph.nNodes()
+                  // slowDown default is 1.5 but optimal effect is when adapting
+                  TW.FA2Params.slowDown = Math.max(.1,parseInt(30000/nNdsVizbl)/100)
+                  // slowDown of 300/n:                         ^^^^^^^^^
+                  //                                       100    for    3 nodes
+                  //                                        20    for   15 nodes
+                  //                                        12.5  for   24 nodes
+                  //                                          .6  for  500 nodes
+                  //                                          .15 for 2000 nodes
+
+                  // when very large graphs, wait more iterations b/w each render
+                  if (nNdsVizbl > 3000) {
+                    TW.FA2Params.iterationsPerRender = 2*parseInt(Math.sqrt(nNdsVizbl)/6 - 2)
+                  }
+                  TW.partialGraph.configForceAtlas2(TW.FA2Params)
+
+                  // console.log("nVNodes, slowDown", nNdsVizbl, TW.FA2Params.slowDown)
+                  // console.log("iterationsPerRender", parseInt(TW.FA2Params.iterationsPerRender))
+                }
+
                 // hide edges during work for smaller cpu load
                 if (TW.partialGraph.settings('drawEdges')) {
                   this.toggleEdges(false)
                 }
 
+
+                // console.error("running")
                 try {
                   TW.partialGraph.startForceAtlas2();
                 } catch(e) {return}
@@ -787,7 +830,7 @@ function gradientColoring(daclass, forTypes) {
               // (possible skip due to changeLevel or filters)
               for (var k = nidList.length-1 ; k >= 0 ; k--) {
                 let nd = TW.partialGraph.graph.nodes(nidList[k])
-                if (nd) {
+                if (nd && !nd.hidden) {
                   bins.invIdx[i].col = nd.customAttrs.alt_color
                   break
                 }
@@ -825,7 +868,7 @@ function repaintEdges() {
       else {
         let e = TW.partialGraph.graph.edges(eid)
 
-        if (e) {
+        if (e && !e.hidden) {
           let src = TW.partialGraph.graph.nodes(idPair[0])
           let tgt = TW.partialGraph.graph.nodes(idPair[1])
 
@@ -937,7 +980,7 @@ function heatmapColoring(daclass, forTypes) {
         // color the referred nodes
         for (var j in tickThresholds[k].nids) {
           let n = TW.partialGraph.graph.nodes(tickThresholds[k].nids[j])
-          if (n) {
+          if (n && !n.hidden) {
             n.customAttrs.alt_color = binColors[k]
             n.customAttrs.altgrey_color = "rgba("+rgbColStr+",0.4)"
 
@@ -1046,7 +1089,7 @@ function clusterColoring(daclass, forTypes) {
               let rgbColStr = hex2rgba(theColor).slice(0,3).join(',')
               for (let j in valGroup.nids) {
                 let theNode = TW.partialGraph.graph.nodes(valGroup.nids[j])
-                if (theNode) {
+                if (theNode && !theNode.hidden) {
                   theNode.customAttrs.alt_color = theColor
                   theNode.customAttrs.altgrey_color = "rgba("+rgbColStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")"
                 }
@@ -1064,7 +1107,7 @@ function clusterColoring(daclass, forTypes) {
             let nid = nids[j]
             let the_node = TW.partialGraph.graph.nodes(nid)
 
-            if (the_node) {
+            if (the_node && !the_node.hidden) {
 
               // POSS: use "hidden" in filters instead of remove/readd
               //  typeName     then this condition would be more useful here
@@ -1084,7 +1127,6 @@ function clusterColoring(daclass, forTypes) {
                   theColor = colList[ someRepresentativeInt ]
                 }
 
-                // TW.partialGraph.graph.nodes(nid).color = theColor
                 the_node.customAttrs.alt_color = theColor
                 the_node.customAttrs.altgrey_color = "rgba("+(hex2rgba(theColor).slice(0,3).join(','))+",0.4)"
               }
