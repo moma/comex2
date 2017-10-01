@@ -7,7 +7,7 @@ UPDATE scholars
 
 UPDATE scholars
     SET valid_date = CURDATE() + INTERVAL 3 MONTH
-    WHERE old_itemid IS NOT NULL ;  -- here the same criterion as before
+    WHERE record_status = 'legacy' ;  -- here the same criterion as before
 
 
 -- 2) preparing a batch of secret return tokens

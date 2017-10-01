@@ -1,0 +1,1 @@
+ALTER TABLE jobs ADD COLUMN country VARCHAR(60) ;

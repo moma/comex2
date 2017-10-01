@@ -574,8 +574,8 @@ function mainStartGraph(inFormat, inData, twInstance) {
 
         // global behavior -----------
         linLogMode: true,
-        edgeWeightInfluence: .4,
-        gravity: .3,
+        edgeWeightInfluence: .5,
+        gravity: .7,
         strongGravityMode: false,
         scalingRatio: 1,
         skipHidden: false,      // if true fa2 initial filter nodes

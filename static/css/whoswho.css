@@ -10,50 +10,6 @@ opacity: 0.93;
 box-shadow: 0 0px 10px rgba(0,0,0,.70);
 }
 
-#search-form #search-query {
-border: 1px solid black;
--moz-border-radius: 4px;
--webkit-border-radius: 4px;
-font: 13px Arial, sans-serif;
-width: 180px;
-padding: 6px 25px 4px 6px;
-color: #ccc;
-background: #666;
--webkit-box-shadow: 0 1px 0 #444;
--moz-box-shadow: 0 1px 0 #444;
-box-shadow: 0 1px 0 #444;
-}
-#search-form #search-query:hover {
-background: #777;
-color: #fff;
-}
-#search-form span.glass {
-display: block;
-position: absolute;
-cursor: pointer;
-display: block;
-right: 0;
-padding: 7px 8px 5px 8px;
-}
-#search-form span.glass i {
-background-image: url(sprite-icons.png);
-background-position: -224px -96px;
-width: 14px;
-height: 14px;
-display: block;
-font-size: 0;
-}
-#search-form #search-query:focus, #search-form #search-query.focused {
-outline: none;
-background: #eee;
-color: #333;
-text-shadow: 0 1px 0 #fff;
-border: 1px solid #eee;
--webkit-box-shadow: 0 0 3px #000;
--moz-box-shadow: 0 0 3px #000;
-box-shadow: 0 0 3px #000;
-}
-
 .filterselect {
 background: rgba(220,220,220, 0.70);
 border-color: rgba(0,0,0,0.2);
