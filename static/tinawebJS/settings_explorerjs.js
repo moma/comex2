@@ -128,7 +128,7 @@ TW.conf = (function(TW){
 
   // to normalize node sizes (larger range does increase visual size difference)
   TWConf.desirableNodeSizeMin=1;
-  TWConf.desirableNodeSizeMax=10;
+  TWConf.desirableNodeSizeMax=2;
 
 
   // =============
@@ -212,6 +212,11 @@ TW.conf = (function(TW){
 
   TWConf.overSampling = true      // hi-def rendering (true => pixelRatio x 2)
                                   // (/!\ costly)
+
+  TWConf.stablePositions = true    // remember overall positions for all types
+                                   //    (and when layouts are called,
+                                   //     all types are moving together
+                                   //      even when some are hidden)
 
   // sigma rendering settings
   // ------------------------
