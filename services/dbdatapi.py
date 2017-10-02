@@ -384,7 +384,54 @@ def multimatch(source_type, target_type, pivot_filters = []):
     edges_XR = db_c.fetchall()
     len_XR = len(edges_XR)
 
-    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+
+    # intermediate step: create marginal sums (for each source its cardinality in pivots)
+    #                                         (for each target its cardinality in pivots)
+    #
+    # => these sums will be used as |Ai| and |Bj|
+    #     to "jaccardize" the cooc similarities
+    #    (cooc sims are equivalent to |Ai ∩ Bj|)
+
+    src_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS source_sums AS (
+            SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
+        );
+        CREATE INDEX ssums_idx ON source_sums(sourceID, card);
+        -- to do the operations in python
+        -- SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
+    """
+    tgt_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS target_sums AS (
+            SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
+        );
+        CREATE INDEX tsums_idx ON target_sums(targetID, card);
+        -- to do the operations in python
+        -- SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
+    """
+
+    do_copies = """
+            CREATE TEMPORARY TABLE IF NOT EXISTS source_sums_2 AS (
+                SELECT * FROM source_sums
+            );
+            CREATE INDEX ssums2_idx ON source_sums_2(sourceID, card);
+            CREATE TEMPORARY TABLE IF NOT EXISTS target_sums_2 AS (
+                SELECT * FROM target_sums
+            );
+            CREATE INDEX tsums2_idx ON target_sums_2(targetID, card);
+    """
+
+    # mlog("DEBUG", "margsums sources sql query", src_sumsq)
+    # mlog("DEBUG", "margsums targets sql query", tgt_sumsq)
+
+    db_c.execute(src_sumsq)
+    db_c.execute(tgt_sumsq)
+    db_c.execute(do_copies)   # <= because apparently can't use an alias ?
+
+    # ...or to do the operations in python
+    # src_sums = db_c.fetchall()
+    # tgt_sums = db_c.fetchall()
 
     # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
     #                           A
@@ -394,20 +441,25 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #      A  [  M1  ]         square
     #         [      ]        sameside
     sameside_direct_format = """
-        SELECT result.nid_i, result.nid_j,
+        SELECT result.*,
                -- keywords.kwstr, k2.kwstr,
-               coocWeight AS dotweight
+               -- log(1+coocWeight)/(log(1+sum_i) + log(1+sum_j)-log(1+coocWeight)) AS testWeight
+               coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
         FROM (
             SELECT * FROM (
                 SELECT
                     sources.entityID   AS nid_i,
                     sources_2.entityID AS nid_j,
-                    count(*) AS coocWeight    -- how often each distinct pairs i,j was used
-
+                    count(*) AS coocWeight,     -- here: how often each distinct pairs i,j was used
+                    max(source_sums.card) AS sum_i,
+                    max(source_sums_2.card) AS sum_j
                 FROM sources
                 JOIN sources_2
                     ON sources.pivotID = sources_2.pivotID
-
+                LEFT JOIN source_sums
+                    ON source_sums.sourceID = sources.entityID
+                LEFT JOIN source_sums_2
+                    ON source_sums_2.sourceID = sources_2.entityID
                 GROUP BY nid_i, nid_j
             ) AS dotproduct
             WHERE nid_i != nid_j
@@ -415,7 +467,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         ) AS result
         -- JOIN keywords ON nid_i = keywords.kwid
         -- JOIN keywords AS k2 ON nid_j = k2.kwid
-        -- ORDER BY dotweight DESC
+        -- ORDER BY testWeight DESC
     """
 
     # 2a we'll need a copy of the M1 table
@@ -447,27 +499,33 @@ def multimatch(source_type, target_type, pivot_filters = []):
     # nid_type is the output (eg entity type B)
     # transi_type disappears in the operation
     sameside_indirect_format = """
-        SELECT dotproduct.nid_i, dotproduct.nid_j,
+        SELECT dotproduct.*,
                -- scholars.email, s2.email,
-               coocWeight AS dotweight
+               -- log(1+coocWeight)/(log(1+sum_i) + log(1+sum_j)-log(1+coocWeight)) AS testWeight
+               coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
         FROM (
             SELECT
                 match_table.%(nid_type)s   AS nid_i,
                 match_table_2.%(nid_type)s AS nid_j,
                 sum(
                     match_table.weight * match_table_2.weight
-                ) AS coocWeight
+                ) AS coocWeight,
+                max(sums_1.card) AS sum_i,
+                max(sums_2.card) AS sum_j
             FROM match_table
             JOIN match_table_2
                 ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
-
+            LEFT JOIN %(nid_type_sums)s AS sums_1
+                ON sums_1.%(nid_type)s = match_table.%(nid_type)s
+            LEFT JOIN %(nid_type_sums)s_2 AS sums_2
+                ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
             GROUP BY nid_i, nid_j
         ) AS dotproduct
                 -- JOIN scholars ON nid_i = scholars.luid
                 -- JOIN scholars AS s2 ON nid_j = s2.luid
         WHERE nid_i != nid_j
                 --  AND coocWeight > %(threshold)i
-                -- ORDER BY dotweight DESC
+                -- ORDER BY testWeight DESC
     """
 
     # 3a we'll need a copy of the XR table
@@ -484,6 +542,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
 
     edges_11_q = sameside_indirect_format % {'nid_type': "targetID",
                                           'transi_type': "sourceID",
+                                        'nid_type_sums': "target_sums",
                                             'threshold': dot_threshold}
     mlog("DEBUG", "edges_11_q", edges_11_q)
     db_c.execute(edges_11_q)
@@ -533,7 +592,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
               's': nidi,
               't': nidj,
             #   'w': float(round(ed['coocWeight'], 3))
-              'w': float(round(ed['dotweight'], 3))
+              'w': float(round(ed['testWeight'], 3))
             }
 
     for ed in edges_XR:
@@ -811,9 +870,11 @@ class BipartiteExtractor:
         self.unique_id = {}
 
 
-    def jaccard(self,cooc,occ1,occ2):
+    def pseudojaccard(self,cooc,occ1,occ2):
         """
-        Used for SOC edges (aka nodes1 or edgesA)
+        Was used for SOC edges (aka nodes1 or edgesA)
+
+        NB: in fact not a real jaccard (products instead sum, no intersection)!
 
         (Cooc normalized by total scholars occs)
         """
@@ -822,14 +883,20 @@ class BipartiteExtractor:
         else:
             return cooc*cooc/float(occ1*occ2)
 
-    def log_sim(self,cooc,occ1,occ2):
+
+    def comex_sim(self,cooc,occ1,occ2):
         """
-        Alternative for SOC edges
-            => preserves monotony
-            => + log scale (=> good for display !!)
+        For SOC edges
+
+        TODO 1 add intersect vs union appartenance
+        TODO 2 occ_i could be replaced by (occ_i / total_occ_i)
+
+             Sum[i ∈ ∩] ( 1 / log(occ_i))                <= coocs
+            ------------------------------
+               Sum[j ∈ ∪] (log(occ_j))                   <= total occs area
         """
-        return log1p(self.jaccard(cooc,
-                                  occ1,occ2))
+        pass
+
 
     def getScholarsList(self,qtype,filter_dict):
         """
@@ -1322,7 +1389,7 @@ class BipartiteExtractor:
                         source=str(scholar)
                         target=str(neigh)
                         # scholar--scholar weight: number of common terms / (total keywords of scholar 1 x total keywords of scholar 2)
-                        weight=self.jaccard(neighbors[str(neigh)],
+                        weight=self.pseudojaccard(neighbors[str(neigh)],
                                                 scholarsMatrix[nodeId1]['occ'],
                                                 scholarsMatrix[neigh]['occ'])
                         #mlog("DEBUG", "\t"+source+","+target+" = "+str(weight))
