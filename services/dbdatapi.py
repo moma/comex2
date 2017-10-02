@@ -324,35 +324,55 @@ def multimatch(source_type, target_type, pivot_filters = []):
     threshold = 0
 
     matchq = """
-    -- matching part
+    -- filtered pivot
+    CREATE TEMPORARY TABLE IF NOT EXISTS pivot_filtered_ids AS (
+        SELECT luid FROM ( %(pfiltersq)s ) AS filtered_on_infos
+    );
+    CREATE INDEX filteridx ON pivot_filtered_ids(luid);
+
+    -- eg: kw to pivot
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources AS (
+        SELECT * FROM (%(sourcesq)s) AS sem_matrix
+        JOIN pivot_filtered_ids
+            ON sem_matrix.pivotID = pivot_filtered_ids.luid
+    );
+    CREATE INDEX semidx ON sources(pivotID, entityID);
+
+    -- eg: pivot to orgs
+    CREATE TEMPORARY TABLE IF NOT EXISTS targets  AS (
+        SELECT * FROM (%(targetsq)s) AS soc_matrix
+        JOIN pivot_filtered_ids
+            ON soc_matrix.pivotID = pivot_filtered_ids.luid
+    );
+    CREATE INDEX socidx ON targets(pivotID, entityID);
+
+
+    -- =============
+    -- matching part (aka XR table)
+    -- =============
     CREATE TEMPORARY TABLE IF NOT EXISTS match_table AS (
         SELECT * FROM (
             SELECT count(sources.pivotID) as weight,
                    sources.entityID AS sourceID,
                    targets.entityID AS targetID
-            FROM (%s) AS sources
-
-            -- inner join as filter
-            JOIN (%s) AS pivot_filtered_ids
-                ON sources.pivotID = pivot_filtered_ids.luid
-
+            FROM sources
             -- target entities as type1 nodes
-            LEFT JOIN (%s) AS targets
+            LEFT JOIN targets
                 ON sources.pivotID = targets.pivotID
             GROUP BY sourceID, targetID
             ) AS match_table
-        WHERE match_table.weight > %i
+        WHERE match_table.weight > %(threshold)i
           AND sourceID IS NOT NULL
           AND targetID IS NOT NULL
 
     );
-    CREATE INDEX mt1idx ON match_table(sourceID, targetID)
-    """ % (
-        subq1,
-        subqmid,
-        subq2,
-        threshold
-        )
+    CREATE INDEX mt1idx ON match_table(sourceID, targetID);
+    """ % {
+            'sourcesq': subq1,
+            'targetsq': subq2,
+            'pfiltersq': subqmid,
+            'threshold': threshold
+    }
 
     # mlog("DEBUG", "multimatch sql query", matchq)
 
@@ -364,15 +384,93 @@ def multimatch(source_type, target_type, pivot_filters = []):
     edges_XR = db_c.fetchall()
     len_XR = len(edges_XR)
 
-    # 2 - matrix product XR·XR⁻¹ to build 'sameside' edges
-    #                         A
-    #                x  B [        ]
-    #             B       [   XR   ]
+    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+
+    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+    #                           A
+    #              x  pivot [        ]
+    #           pivot       [   M1   ]
     #         [      ]
-    #      A  [  XR  ]       square
+    #      A  [  M1  ]         square
+    #         [      ]        sameside
+    sameside_direct_format = """
+        SELECT result.nid_i, result.nid_j,
+               -- keywords.kwstr, k2.kwstr,
+               coocWeight AS dotweight
+        FROM (
+            SELECT * FROM (
+                SELECT
+                    sources.entityID   AS nid_i,
+                    sources_2.entityID AS nid_j,
+                    count(*) AS coocWeight    -- how often each distinct pairs i,j was used
+
+                FROM sources
+                JOIN sources_2
+                    ON sources.pivotID = sources_2.pivotID
+
+                GROUP BY nid_i, nid_j
+            ) AS dotproduct
+            WHERE nid_i != nid_j
+            --  AND coocWeight > %(threshold)i
+        ) AS result
+        -- JOIN keywords ON nid_i = keywords.kwid
+        -- JOIN keywords AS k2 ON nid_j = k2.kwid
+        -- ORDER BY dotweight DESC
+    """
+
+    # 2a we'll need a copy of the M1 table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
+        SELECT * FROM sources
+    );
+    CREATE INDEX sem2idx ON sources_2(pivotID, entityID);
+    """)
+
+    # 2b sameside edges type0 <=> type0
+    dot_threshold = 0
+    edges_00_q = sameside_direct_format
+
+    # mlog("DEBUG", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
+
+    # print("edges_00", edges_00)
+
+    # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
+    #                         B
+    #                x  A [        ]
+    #             A       [   XR   ]
+    #         [      ]
+    #      B  [  XR  ]       square
     #         [      ]      sameside
 
-    # 2a we'll need a copy of the XR table
+    # nid_type is the output (eg entity type B)
+    # transi_type disappears in the operation
+    sameside_indirect_format = """
+        SELECT dotproduct.nid_i, dotproduct.nid_j,
+               -- scholars.email, s2.email,
+               coocWeight AS dotweight
+        FROM (
+            SELECT
+                match_table.%(nid_type)s   AS nid_i,
+                match_table_2.%(nid_type)s AS nid_j,
+                sum(
+                    match_table.weight * match_table_2.weight
+                ) AS coocWeight
+            FROM match_table
+            JOIN match_table_2
+                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+
+            GROUP BY nid_i, nid_j
+        ) AS dotproduct
+                -- JOIN scholars ON nid_i = scholars.luid
+                -- JOIN scholars AS s2 ON nid_j = s2.luid
+        WHERE nid_i != nid_j
+                --  AND coocWeight > %(threshold)i
+                -- ORDER BY dotweight DESC
+    """
+
+    # 3a we'll need a copy of the XR table
     db_c.execute("""
     CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
         SELECT * FROM match_table
@@ -380,47 +478,20 @@ def multimatch(source_type, target_type, pivot_filters = []):
     CREATE INDEX mt2idx ON match_table_2(sourceID, targetID)
     """)
 
-    # nid_type is A and transi_type is B
-    sameside_format = """
-        SELECT * FROM (
-            SELECT
-                match_table.%(nid_type)s   AS nid_i,
-                match_table_2.%(nid_type)s AS nid_j,
-                sum(
-                    match_table.weight * match_table_2.weight
-                ) AS dotweight
-            FROM match_table
-            JOIN match_table_2
-                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
-            GROUP BY nid_i, nid_j
-        ) AS dotproduct
-        WHERE nid_i != nid_j
-          AND dotweight > %(threshold)i
-    """
+    # 3b sameside edges type1 <=> type1
+    dot_threshold = 1
+    # mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
 
-    # 2b sameside edges type0 <=> type0
-    dot_threshold = floor(.5 + len_XR/3000)
-    edges_00_q = sameside_format % {'nid_type': "sourceID",
-                                   'transi_type': "targetID",
-                                   'threshold': dot_threshold}
-    # print("DEBUGSQL", "edges_00_q", edges_00_q)
-    mlog("DEBUG", "multimatch src dot_threshold src", dot_threshold, len_XR)
-    db_c.execute(edges_00_q)
-    edges_00 = db_c.fetchall()
-
-
-    # 2c sameside edges type1 <=> type1
-    # dot_threshold = floor(10*sqrt(len_XR)) if target_type != 'sch' else 0
-    dot_threshold = floor(len_XR/3000)
-    edges_11_q = sameside_format % {'nid_type': "targetID",
-                                   'transi_type': "sourceID",
-                                   'threshold': dot_threshold}
-    # print("DEBUGSQL", "edges_11_q", edges_11_q)
-    mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
+    edges_11_q = sameside_indirect_format % {'nid_type': "targetID",
+                                          'transi_type': "sourceID",
+                                            'threshold': dot_threshold}
+    mlog("DEBUG", "edges_11_q", edges_11_q)
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
 
-    # 3 - we use DBEntity.getInfos() to build node sets
+    # print("edges_11", edges_11)
+
+    # 4 - we use DBEntity.getInfos() to build node sets (attach node info to id)
     get_nodes_format = """
         SELECT entity_infos.* FROM match_table
         LEFT JOIN (%s) AS entity_infos
@@ -449,10 +520,9 @@ def multimatch(source_type, target_type, pivot_filters = []):
             graph["nodes"][nid] = {
               'label': nd['label'],
               'type': ntype,
-              'size': log1p(nd['nodeweight']),
+              'size': round(log1p(nd['nodeweight']), 3) if ntype == source_type else 2,
               'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
-
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
@@ -462,9 +532,8 @@ def multimatch(source_type, target_type, pivot_filters = []):
             graph["links"][eid] = {
               's': nidi,
               't': nidj,
-            #   'w': log1p(int(ed['dotweight']))
-              'w': sqrt(int(ed['dotweight']))
-            #   'w': float(ed['dotweight'])
+            #   'w': float(round(ed['coocWeight'], 3))
+              'w': float(round(ed['dotweight'], 3))
             }
 
     for ed in edges_XR:
@@ -474,7 +543,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': int(ed['weight']*100)
+          'w': float(round(ed['weight'], 3))
         }
 
     return graph
