@@ -216,6 +216,59 @@ def rest_filters_to_sql(filter_dict):
     return sql_constraints
 
 
+def kw_neighbors(uid, db_cursor = None):
+    """
+    list of neighbors of a scholar by common keyword
+
+    exemple return value:
+        ({'cooc': 12, 'uid': 4206},
+         {'cooc': 3, 'uid': 3794},
+         {'cooc': 2, 'uid': 3234},
+         {'cooc': 2, 'uid': 2730},
+         {'cooc': 1, 'uid': 3873},
+         {'cooc': 1, 'uid': 2732},
+         {'cooc': 1, 'uid': 3942})
+    """
+
+    if (not db_cursor):
+        db = connect_db()
+        cursor = db.cursor(DictCursor)
+
+    # we use the sch_kw table (scholars <=> kw map)
+    sql_query="""
+    SELECT
+        neighbors_by_kw.uid,
+        COUNT(matching.kwid) AS cooc
+
+    FROM scholars
+
+    -- step 1
+    JOIN sch_kw AS matching
+                ON matching.uid = scholars.luid
+    -- step 2
+    JOIN sch_kw AS neighbors_by_kw
+                ON neighbors_by_kw.kwid = matching.kwid
+
+    WHERE luid = "%s"
+
+    AND (
+        record_status = 'active'
+        OR
+        (record_status = 'legacy' AND valid_date >= NOW())
+    )
+    GROUP BY neighbors_by_kw.uid
+    ORDER BY cooc DESC
+    """ % str(uid)
+
+    cursor.execute(sql_query)
+    results=cursor.fetchall()
+
+    if (not db_cursor):
+        db.close()
+
+    return results
+
+
 # multimatch(nodetype_1, nodetype_2)
 # ==================================
 def multimatch(source_type, target_type, pivot_filters = []):
@@ -895,6 +948,8 @@ class BipartiteExtractor:
             ------------------------------
                Sum[j ∈ ∪] (log(occ_j))                   <= total occs area
         """
+        # implemented only in multimatch with intersection as coocs(X,Y)
+        #                   and union as marg sum X + marg sum Y - cooc(X,Y)
         pass
 
 
@@ -930,34 +985,7 @@ class BipartiteExtractor:
                 unique_id = sub(r'^"|"$', '', filter_dict['unique_id'])
 
                 # we use the sch_kw table (scholars <=> kw map)
-                sql_query="""
-                SELECT
-                    neighbors_by_kw.uid,
-                    scholars.initials,
-                    COUNT(matching.kwid) AS cooc
-
-                FROM scholars
-
-                -- step 1
-                JOIN sch_kw AS matching
-                            ON matching.uid = scholars.luid
-                -- step 2
-                JOIN sch_kw AS neighbors_by_kw
-                            ON neighbors_by_kw.kwid = matching.kwid
-
-                WHERE luid = "%s"
-
-                AND (
-                    record_status = 'active'
-                    OR
-                    (record_status = 'legacy' AND valid_date >= NOW())
-                )
-                GROUP BY neighbors_by_kw.uid
-                ORDER BY cooc DESC
-                """ % unique_id
-
-                self.cursor.execute(sql_query)
-                results=self.cursor.fetchall()
+                results = kw_neighbors(unique_id, self.cursor)
 
                 # debug
                 mlog("DEBUG", "getScholarsList<== len(all 2-step neighbors) =", len(results))
@@ -977,7 +1005,7 @@ class BipartiteExtractor:
 
                         scholar_array[node_uid] = 1
                 # debug
-                # mlog("DEBUG", "getScholarsList<==scholar_array", scholar_array)
+                mlog("DEBUG", "getScholarsList<==scholar_array", scholar_array)
 
             elif qtype == "filters":
                 sql_query = None
