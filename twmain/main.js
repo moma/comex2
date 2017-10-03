@@ -2,10 +2,9 @@
 
 //  ======= [ main TW properties initialization ] ======== //
 
-TW.APIQuery               // remember the source query
 
-TW.File = ""              // or remember the currently opened file
-TW.Project = ""           //      and the project of currently opened file
+TW.File = ""              // remember the currently opened file
+TW.Project = ""           // remember the project of currently opened file
 
 // a system state is the summary of tina situation
 TW.initialSystemState = {
@@ -129,8 +128,6 @@ function syncRemoteGraphData () {
               // < === DATA EXTRACTION === >
               theurl = TW.conf.sourceAPI["forNormalQuery"]
 
-              TW.APIQuery = sourceinfo
-
               // NB before also passed it for Fa2 iterations (useless?)
               thedata = "qtype=uid&unique_id="+sourceinfo;
               mapLabel = "unique scholar";
@@ -146,7 +143,9 @@ function syncRemoteGraphData () {
 
 
               // safe parsing of the URL's untrusted JSON
-              TW.APIQuery = JSON.parse( json_constraints)
+              var multiQuery = JSON.parse( json_constraints)
+
+              console.warn("multipleQuery RECEIVED", multiQuery)
 
               // INPUT json: <= { keywords: ['complex systems', 'something'],
               //                  countries: ['France', 'USA'], laboratories: []}
@@ -159,23 +158,23 @@ function syncRemoteGraphData () {
               // => mapLabel (for user display):
               //   ("complex systems" or "something") and ("France" or "USA")
 
-              // console.log("decoded filtering query", TW.APIQuery)
+              // console.log("decoded filtering query", multiQuery)
 
               var restParams = []
               var nameElts = []
               // build REST parameters from filtering arrays
               // and name from each filter value
-              for (var fieldName in TW.APIQuery) {
+              for (var fieldName in multiQuery) {
                   // a nodetype
                   if (/^_node[0-1]$/.test(fieldName)) {
                     let itype = fieldName.charAt(fieldName.length-1)
-                    let typeName = TW.APIQuery[fieldName]
+                    let typeName = multiQuery[fieldName]
                     restParams.push("type"+itype+"="+typeName)
                   }
                   // an array of filters
                   else {
                     var nameSubElts = []
-                    for (var value of TW.APIQuery[fieldName]) {
+                    for (var value of multiQuery[fieldName]) {
                         // exemple: "countries[]=France"
                         restParams.push(fieldName+'[]='+encodeURIComponent(value))
                         nameSubElts.push ('"'+value+'"')
@@ -574,16 +573,16 @@ function mainStartGraph(inFormat, inData, twInstance) {
 
         // global behavior -----------
         linLogMode: true,
-        edgeWeightInfluence: .4,
-        gravity: .3,
+        edgeWeightInfluence: .3,
+        gravity: .8,
         strongGravityMode: false,
         scalingRatio: 1,
-        skipHidden: false,      // if true fa2 initial filter nodes
 
         adjustSizes: false,     // ~ messy but sort of in favor of overlap prevention
 
         // favors global centrality
-        // (rather not needed for large preferential attachment type of data ?)
+        // (but rather not needed when data already shows topic-centered
+        //  node groups and/nor when preferential attachment type of data)
         outboundAttractionDistribution: false
       }
 

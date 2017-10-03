@@ -34,10 +34,9 @@ function updateDynamicFacets(optionalFilter) {
           let getVal = TW.sigmaAttributes[autoAttr](TW.partialGraph)
           for (var nid of TW.ByType[icat]) {
             let nd = TW.partialGraph.graph.nodes(nid)
-            if (nd && !nd.hidden) {
+            if (nd) {
               let val = getVal(TW.partialGraph.graph.nodes(nid))
               if (! (val in autoVals[nodecat][autoAttr].map))
-                // a list of nids for each distinct values
                 autoVals[nodecat][autoAttr].map[val] = []
               autoVals[nodecat][autoAttr].map[val].push(nid)
               autoVals[nodecat][autoAttr].vals.vnum.push(val)
@@ -248,7 +247,7 @@ function RunLouvain(cb) {
 
     for(var i in results) {
       let n = TW.partialGraph.graph.nodes(i) // <= new way: like all other colors
-      if (n && !n.hidden) {
+      if (n) {
         n.attributes["clust_louvain"] = results[i]
       }
 
@@ -324,8 +323,7 @@ function SomeEffect( ValueclassCode ) {
     // we still filter it due to Level or sliders filters
     filteredNodes = TW.Facets[nodeType][cluType].invIdx[iClu].nids.filter(
       function(nid){
-        let n = TW.partialGraph.graph.nodes(nid)
-        return Boolean(n && !n.hidden)
+        return Boolean(TW.partialGraph.graph.nodes(nid))
       }
     )
 
@@ -334,10 +332,7 @@ function SomeEffect( ValueclassCode ) {
         {nodes: filteredNodes}
       )
     }
-    else {
-      cancelSelection()
-    }
-    // TW.partialGraph.refresh()
+    TW.partialGraph.refresh()
 }
 
 // some colorings cases also modify size and label
@@ -990,7 +985,7 @@ function circleTrackMouse(e) {
       let toRedraw = []
       for (var k in exactNodeset) {
         let n = TW.partialGraph.graph.nodes(exactNodeset[k])
-        if(!n.hidden && n[pfx+'size'] > (TW.customSettings.labelThreshold / 3)) {
+        if(n[pfx+'size'] > (TW.customSettings.labelThreshold / 3)) {
           toRedraw.push(n)
         }
       }

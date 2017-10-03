@@ -90,7 +90,7 @@
     (this.worker || document).addEventListener(this.msgName, this.listener);
 
     // Filling byteArrays
-    this.graphToByteArrays(options);
+    this.graphToByteArrays();
 
     // Binding on kill to properly terminate layout when parent is killed
     sigInst.bind('kill', function() {
@@ -117,25 +117,12 @@
     return blob;
   };
 
-  Supervisor.prototype.graphToByteArrays = function(options = {}) {
-    var nodes, edges
-
-    // NB: option could provide the filter function itself
-    if (options.skipHidden) {
-      nodes = this.graph.nodes().filter(function(n){return !n.hidden})
-      edges = this.graph.edges().filter(function(e){return !e.hidden})
-    }
-    else {
-      nodes = this.graph.nodes()
-      edges = this.graph.edges()
-    }
-
-    // console.log("|N|, |E|", nodes.length, edges.length)
-
-    var nbytes = nodes.length * this.ppn,
+  Supervisor.prototype.graphToByteArrays = function() {
+    var nodes = this.graph.nodes(),
+        edges = this.graph.edges(),
+        nbytes = nodes.length * this.ppn,
         ebytes = edges.length * this.ppe,
         nIndex = {},
-        revIndex = {},
         i,
         j,
         l;
@@ -144,14 +131,11 @@
     this.nodesByteArray = new Float32Array(nbytes);
     this.edgesByteArray = new Float32Array(ebytes);
 
-    // ----------------------------------------------------
     // Iterate through nodes
-    // ----------------------------------------------------
     for (i = j = 0, l = nodes.length; i < l; i++) {
 
-      // Populating indices
-      nIndex[nodes[i].id] = j;           // node id => byteArray position j
-      revIndex[i] = nodes[i].id;         // chunk i => node id
+      // Populating index
+      nIndex[nodes[i].id] = j;
 
       // Populating byte array
       this.nodesByteArray[j] = nodes[i].x;
@@ -174,19 +158,18 @@
       this.edgesByteArray[j + 2] = edges[i].weight || 0;
       j += this.ppe;
     }
-
-    // remember the index {chunk i => real node id}
-    // this way we can respect any filtered nodeset when applying back
-    this.revIndex = revIndex
   };
 
+  // TODO: make a better send function
   Supervisor.prototype.applyLayoutChanges = function() {
-    var j = 0
+    var nodes = this.graph.nodes(),
+        j = 0,
+        realIndex;
 
     // Moving nodes
     for (var i = 0, l = this.nodesByteArray.length; i < l; i += this.ppn) {
-      this.graph.nodes(this.revIndex[j]).x = this.nodesByteArray[i];
-      this.graph.nodes(this.revIndex[j]).y = this.nodesByteArray[i + 1];
+      nodes[j].x = this.nodesByteArray[i];
+      nodes[j].y = this.nodesByteArray[i + 1];
       j++;
     }
   };

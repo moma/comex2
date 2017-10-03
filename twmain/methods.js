@@ -31,8 +31,6 @@ TW.pushGUIState = function( args ) {
     // neighbors (of any type) and their edges in an .selectionRels[type] slot
     if(!isUndef(args.rels))          newState.selectionRels = args.rels;
 
-    // POSS1: add common changeGraphAppearanceByFacets effects inside this function
-
     // POSS2: add filterSliders params to be able to recreate subsets at a given time
     //      cf. usage of TW.partialGraph.graph.nodes() as current scope in changeType
     //            and n.hidden usage in sliders
@@ -395,15 +393,15 @@ function deselectNodes(aSystemState){
       console.log("deselecting using SystemState's lists")
 
     for(let i in sels) {
-      let n = TW.partialGraph.graph.nodes(sels[i])
+      let nid = sels[i]
 
-      if (!n || n.hidden) continue
+      if (!TW.partialGraph.graph.nodes(nid)) continue
 
       // mark as unselected!
-      n.customAttrs.active = 0
+      TW.partialGraph.graph.nodes(nid).customAttrs.active = 0
 
       // for only case legend highlight...
-      n.customAttrs.highlight = 0
+      TW.partialGraph.graph.nodes(nid).customAttrs.highlight = 0
     }
 
     // active relations
@@ -414,17 +412,17 @@ function deselectNodes(aSystemState){
       for (var srcnid in rels[reltyp]) {
         for (var tgtnid in rels[reltyp][srcnid]) {
           let tgt = TW.partialGraph.graph.nodes(tgtnid)
-          if (tgt && !tgt.hidden) {
+          if (tgt) {
             tgt.customAttrs.highlight = 0
             let eid1 = `${srcnid};${tgtnid}`
             let eid2 = `${tgtnid};${srcnid}`
 
             let e1 = TW.partialGraph.graph.edges(`${srcnid};${tgtnid}`)
-            if(e1 && !e1.hidden) {
+            if(e1) {
               e1.customAttrs.activeEdge = 0
             }
             let e2 = TW.partialGraph.graph.edges(`${tgtnid};${srcnid}`)
-            if(e2 && !e2.hidden) {
+            if(e2) {
               e2.customAttrs.activeEdge = 0
             }
           }
@@ -433,7 +431,7 @@ function deselectNodes(aSystemState){
     }
 }
 
-// called by tagcloud neighbors
+
 function manualForceLabel(nodeid, flagToSet, justHover) {
   let nd = TW.partialGraph.graph.nodes(nodeid)
 
@@ -841,7 +839,7 @@ function saveGraph() {
     }
 
     if(getByID("visgraph").checked) {
-        saveGEXF ( getVisibleNodes() , getVisibleEdges(), atts )
+        saveGEXF ( TW.partialGraph.graph.nodes() , TW.partialGraph.graph.edges(), atts )
     }
 
     $("#closesavemodal").click();
@@ -913,37 +911,33 @@ function saveGraphIMG(){
 // first call (startForceAtlas2 or configForceAtlas2)
 // but it keeps its own node index (as byteArray) and
 // so needs to be recreated when nodes change
-function reInitFa2 (params = {}) {
+function reInitFa2 (params) {
+  if (!params)  params = {}
 
   sigma_utils.ourStopFA2()
 
-  // if (params.useSoftMethod) {
+  if (params.useSoftMethod) {
     // soft method: we just update FA2 internal index
     // (is good enough if new nodes are subset of previous nodes)
-    TW.partialGraph.supervisor.graphToByteArrays(
-      {'skipHidden': params.skipHidden || !TW.conf.stablePositions}
-    )
+    TW.partialGraph.supervisor.graphToByteArrays()
 
     // now cb
     if (params.callback) {
       params.callback()
     }
-  // }
-  // else {
-  //   TW.partialGraph.killForceAtlas2()
-  //
-  //   // after 1s to let killForceAtlas2 finish
-  //   setTimeout ( function() {
-  //     // init FA2
-  //     if (params.skipHidden || !TW.conf.stablePositions) {
-  //       TW.FA2Params.skipHidden = true
-  //     }
-  //     TW.partialGraph.configForceAtlas2(TW.FA2Params)
-  //
-  //     // now cb
-  //     if (params.callback) {
-  //       params.callback()
-  //     }
-  //   }, 1000)
-  // }
+  }
+  else {
+    TW.partialGraph.killForceAtlas2()
+
+    // after 1s to let killForceAtlas2 finish
+    setTimeout ( function() {
+      // init FA2
+      TW.partialGraph.configForceAtlas2(TW.FA2Params)
+
+      // now cb
+      if (params.callback) {
+        params.callback()
+      }
+    }, 1000)
+  }
 }
