@@ -192,7 +192,7 @@ def rest_filters_to_sql(filter_dict):
             # tina sends an array of str filters
             else:
                 tested_array = [x for x in val if x]
-                mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
+                # mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
                 if len(tested_array):
                     if rel_type == "EQ_relation":
                         qwliststr = repr(tested_array)
@@ -233,10 +233,14 @@ def kw_neighbors(uid, db_cursor = None):
     if (not db_cursor):
         db = connect_db()
         cursor = db.cursor(DictCursor)
+    else:
+        cursor = db_cursor
 
     # we use the sch_kw table (scholars <=> kw map)
     sql_query="""
     SELECT
+        scholars.luid,
+        scholars.initials,
         neighbors_by_kw.uid,
         COUNT(matching.kwid) AS cooc
 
@@ -981,11 +985,14 @@ class BipartiteExtractor:
                 # remove quotes from id
                 unique_id = sub(r'^"|"$', '', filter_dict['unique_id'])
 
+                mlog("INFO", "unique_id: query is", unique_id)
+
                 # we use the sch_kw table (scholars <=> kw map)
                 results = kw_neighbors(unique_id, self.cursor)
 
                 # debug
                 mlog("DEBUG", "getScholarsList<== len(all 2-step neighbors) =", len(results))
+
 
                 if len(results) == 0:
                     # should never happen if input unique_id is valid
@@ -1007,7 +1014,7 @@ class BipartiteExtractor:
             elif qtype == "filters":
                 sql_query = None
 
-                mlog("INFO", "filters: REST query is", filter_dict)
+                mlog("INFO", "filters: query is", filter_dict)
 
                 if "query" in filter_dict and filter_dict["query"] == "*":
                     # query is "*" <=> all scholars
@@ -1141,7 +1148,7 @@ class BipartiteExtractor:
         ''' %  ('('+','.join(map(str, list(scholar_array.keys())))+')')
 
         # debug
-        mlog("DEBUG", "db.extract: sql3="+sql3)
+        mlog("DEBUGSQL", "db.extract: sql3="+sql3)
 
         ide = None
 
@@ -1188,7 +1195,10 @@ class BipartiteExtractor:
                 info['first_name'] = res3['first_name'];
                 info['mid_initial'] = res3['middle_name'][0] if res3['middle_name'] else ""
                 info['last_name'] = res3['last_name'];
-                info['keywords_nb'] = res3['keywords_nb'];         # ££TODO use as scholarsMatrix[term_scholars[k]]['occ']
+
+                # card(keywords) of this scholar **in the DB**
+                # (because queries take all keywords, it should be equal to scholarsMatrix[term_scholars[k]]['marginal_tot_kws'])
+                info['keywords_nb'] = res3['keywords_nb'];
                 info['keywords_ids'] = res3['keywords_ids'].split(',') if res3['keywords_ids'] else [];
                 info['keywords_list'] = res3['keywords_list'];
                 info['country'] = res3['country'];
@@ -1231,17 +1241,8 @@ class BipartiteExtractor:
         scholarsMatrix = {};
         scholarsIncluded = 0;
 
-        # constant for bipartite edge weights
-        bipaW = 8
-        # explanation:
-        #  - same sides edge weights are of magnitude ~~ coocc / occ
-        #  - but bipart edge weights are of magnitude ~~     1 / occ
-        #  - used like this with a forceAtlas, the visual result of graphs
-        #    will then always cluster nodes of each type together (stronger ties for same side edges)
-        #  - used with the constant this effect is avoided (stronger ties for bipartite edges)
-
         for i in self.scholars:
-            mlog('DEBUG', 'extractDataCustom:'+self.scholars[i]['email'])
+            mlog('DEBUGSQL', 'extractDataCustom:'+self.scholars[i]['email'])
             self.scholars_colors[self.scholars[i]['email'].strip()]=0;
             scholar_keywords = self.scholars[i]['keywords_ids'];
 
@@ -1249,34 +1250,23 @@ class BipartiteExtractor:
                 kw_k = scholar_keywords[k]
 
                 if kw_k != None and kw_k!="":
-
                     # mlog("DEBUG", kw_k)
-
-                    ## £TODO fix don't need separated loops in each case of the if
-                    if kw_k in termsMatrix:
-                        # should be total occs within this query
-                        # (count of sch having this kw **among sch of this query**)
-                        # (this is not total occs in the DB because queries don't take all scholars of a keyword)
-                        termsMatrix[kw_k]['occ'] = termsMatrix[kw_k]['occ'] + 1
-
-                        for l in range(len(scholar_keywords)):
-                            kw_l = scholar_keywords[l]
-                            if kw_l in termsMatrix[kw_k]['cooc']:
-                                termsMatrix[kw_k]['cooc'][kw_l] += 1
-                            else:
-                                termsMatrix[kw_k]['cooc'][kw_l] = 1;
-
-                    else:
+                    if kw_k not in termsMatrix:
                         termsMatrix[kw_k]={}
-                        termsMatrix[kw_k]['occ'] = 1;
+                        termsMatrix[kw_k]['marginal_tot_occs'] =  0;
                         termsMatrix[kw_k]['cooc'] = {};
-                        for l in range(len(scholar_keywords)):
-                            kw_l = scholar_keywords[l]
-                            if kw_l in termsMatrix[kw_k]['cooc']:
-                                termsMatrix[kw_k]['cooc'][kw_l] += 1
-                            else:
-                                termsMatrix[kw_k]['cooc'][kw_l] = 1;
 
+                    # total occs within this query
+                    # (count of sch having this kw **among sch of this query**)
+                    # (this is not total occs in the DB because queries don't take all scholars of a keyword)
+                    termsMatrix[kw_k]['marginal_tot_occs'] += 1;
+
+                    for l in range(len(scholar_keywords)):
+                        kw_l = scholar_keywords[l]
+                        if kw_l in termsMatrix[kw_k]['cooc']:
+                            termsMatrix[kw_k]['cooc'][kw_l] += 1
+                        else:
+                            termsMatrix[kw_k]['cooc'][kw_l] = 1;
 
         # ------- debug -------------------------------
         # print(">>>>>>>>>termsMatrix<<<<<<<<<")
@@ -1305,7 +1295,8 @@ class BipartiteExtractor:
             idT = res['kwid']
             info = {}
             info['kwid'] = idT
-            info['occurrences'] = res['occs']   # total in DB != termsMatrix[kw_k]["occ"]
+            info['occurrences'] = res['occs']   # total occs in the DB
+                                                # (POSS use as normalization)
             info['kwstr'] = res['kwstr']
 
             # job counter: how many times a term in cited in job ads
@@ -1336,36 +1327,23 @@ class BipartiteExtractor:
                 term_scholars.append("S::"+row['initials']+"/%05i"%int(row['uid']))
 
             for k in range(len(term_scholars)):
-
-                # £TODO fix here also we don't need loops in each alternative!
-                #                  (it's the same loop !!)
-
-                if term_scholars[k] in scholarsMatrix:
-                    # should be total nbkws of scholar within this filter (should == total nbkws of this scholar)
-                    # scholarsMatrix[term_scholars[k]]['occ'] += 1
-                    scholarsMatrix[term_scholars[k]]['occ'] = scholarsMatrix[term_scholars[k]]['occ'] + 1
-
-                    for l in range(len(term_scholars)):
-                        if term_scholars[l] in self.scholars:
-                            if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
-                            else:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
-
-                else:
+                if term_scholars[k] not in scholarsMatrix:
                     scholarsMatrix[term_scholars[k]]={}
-                    scholarsMatrix[term_scholars[k]]['occ'] = 1;
+                    scholarsMatrix[term_scholars[k]]['marginal_tot_kws'] = 0 ;
                     scholarsMatrix[term_scholars[k]]['cooc'] = {};
 
-                    for l in range(len(term_scholars)):
-                        if term_scholars[l] in self.scholars:
-                            if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
-                            else:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
+                # total nbkws of scholar within this filter (should == total nbkws of this scholar)
+                scholarsMatrix[term_scholars[k]]['marginal_tot_kws'] += 1
 
-                                # eg matrix entry for scholar k
-                                # 'S::SK/04047': {'occ': 1, 'cooc': {'S::SL/02223': 1}}
+                for l in range(len(term_scholars)):
+                    if term_scholars[l] in self.scholars:
+                        if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
+                            scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
+                        else:
+                            scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
+
+            # eg matrix entry for scholar k
+            # 'S::SK/04047': {'marginal_tot_occs': 1, 'cooc': {'S::SL/02223': 1}}
             nodeId = "K::"+str(term)
             self.Graph.add_node(nodeId)
 
@@ -1386,36 +1364,43 @@ class BipartiteExtractor:
                             target="K::"+str(keyword)
 
                             # term--scholar weight: constant / log(1+total keywords of scholar)
-                            weight = bipaW / log1p(scholarsMatrix[scholar]['occ'])
+                            weight = 1 / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
                             self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
 
         for term in self.terms_dict:
             nodeId1 = self.terms_dict[term]['kwid'];
             if str(nodeId1) in termsMatrix:
                 neighbor_coocs = termsMatrix[str(nodeId1)]['cooc'];
+                id1_occs = termsMatrix[str(nodeId1)]['marginal_tot_occs']
                 for i, neigh in enumerate(neighbor_coocs):
                     if neigh != term:
                         source="K::"+term
                         target="K::"+neigh
 
-                        # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
+                        id2_occs = termsMatrix[str(neigh)]['marginal_tot_occs']
 
-                        # actual! : cooc/float(occ1*occ2)
-                        weight=neighbor_coocs[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
-                        # pseudojaccard: cooc*cooc/float(occ1*occ2)
-                        # jaccard: cooc / (total_occ_i + total_occ_j - cooc)
-
-                        # + OCC values need fixing (cf. ££TODO x 2 above)
+                        # term--term weight
+                        weight=self.jaccard(neighbor_coocs[neigh],
+                                            id1_occs,
+                                            id2_occs)
 
 
+                        # jaccard: cooc / (total_query_occ_i + total_query_occ_j - cooc)
 
-                        # detailed debug
+                        # total_query_occ_i: total occs within this query
+
+                        # NB: total occurrences within DB also available for normalization
+                        #     in self.terms_dict[neigh]['occurrences'])
+
+                        # detailed debug:
                         # if neighbor_coocs[neigh] != 1:
                         #     mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
                         #     mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
                         #     mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
                         #     mlog("DEBUG", "neighbor_coocs[neigh]:", neighbor_coocs[neigh])
                         #     mlog("DEBUG", "edge w", weight)
+
+                        # cf also final edge weights after rounding in buildJSON
 
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
 
@@ -1437,9 +1422,11 @@ class BipartiteExtractor:
                         # actual: pseudojaccard: cooc*cooc/float(occ1*occ2)
                         # jaccard: cooc / (total_occ_i + total_occ_j - cooc)
 
-                        weight=self.pseudojaccard(neighbor_coocs[str(neigh)],
-                                                scholarsMatrix[nodeId1]['occ'],
-                                                scholarsMatrix[neigh]['occ'])
+                        weight = self.jaccard(
+                            neighbor_coocs[str(neigh)],
+                            scholarsMatrix[nodeId1]['marginal_tot_kws'],
+                            scholarsMatrix[neigh]['marginal_tot_kws']
+                        )
                         #mlog("DEBUG", "\t"+source+","+target+" = "+str(weight))
                         self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes1"})
 
@@ -1448,12 +1435,12 @@ class BipartiteExtractor:
         # print(scholarsMatrix)
 
         # exemple:
-        # {'S::PFC/00002': {'occ': 6,
+        # {'S::PFC/00002': {'marginal_tot_kws': 6,
         #                   'cooc': {'S::PFC/00002': 6,
         #                            'S::fl/00009': 1,
         #                            'S::DC/00010': 1}
         #                   },
-        #   'S::fl/00009': {'occ': 9,
+        #   'S::fl/00009': {'marginal_tot_kws': 9,
         #                   'cooc': {'S::fl/00009': 9,
         #                            'S::PFC/00002': 1}
         #                  }
@@ -1658,7 +1645,7 @@ class BipartiteExtractor:
 
                 nodes[idNode] = node
 
-#            mlog("DEBUG", "SCH","\t",idNode,"\t",nodeLabel)
+                # mlog("DEBUG", "SCH","\t",idNode,"\t",nodeLabel)
 
                 nodesA+=1
 
@@ -1670,8 +1657,10 @@ class BipartiteExtractor:
             tp = self.Graph[n[0]][n[1]]['type']
 
             if GG.has_edge(s,t):
+                # (case when same edge, both directions)
                 oldw = GG[s][t]['weight']
-                avgw = (oldw+w)/2      # TODO this avg faster but not indifferent to sequence
+                # NB this avg works because at max 2 values
+                avgw = (oldw+w)/2
                 GG[s][t]['weight'] = avgw
             else:
                 GG.add_edge( s , t , { "weight":w , "type":tp } )
@@ -1680,34 +1669,24 @@ class BipartiteExtractor:
         for n in GG.edges_iter():#Memory, what's wrong with you?
             wr = 0.0
             origw = GG[n[0]][n[1]]['weight']
-            for i in range(2,10):
-                wr = round( origw , i)
-                if wr > 0.0: break
+            wr = round( origw , 5 )
             edge = {}
             edge["s"] = n[0]
             edge["t"] = n[1]
             edge["w"] = str(wr)
-#        edge["type"] = GG[n[0]][n[1]]['type']
             if GG[n[0]][n[1]]['type']=="nodes1": edgesA+=1
             if GG[n[0]][n[1]]['type']=="nodes2": edgesB+=1
             if GG[n[0]][n[1]]['type']=="bipartite": edgesAB+=1
 
-#        mlog("DEBUG", edge["type"],"\t",nodes[n[0]]["label"],"\t",nodes[n[1]]["label"],"\t",edge["w"])
+            # --------------------------------------
+            # final edge weights for all edge types
+            # --------------------------------------
+            # mlog("DEBUG", nodes[n[0]]["label"],"\t",nodes[n[1]]["label"],"\t",edge["w"])
 
-#        if edge["type"]=="nodes1": mlog("DEBUG", wr)
             edges[str(e)] = edge
             e+=1
-            #if e%1000 == 0:
+            # if e%1000 == 0:
             #    mlog("INFO", e)
-#    for n in GG.nodes_iter():
-#        if nodes[n]["type"]=="Keywords":
-#            concepto = nodes[n]["label"]
-#            nodes2 = []
-#            neigh = GG.neighbors(n)
-#            for i in neigh:
-#                if nodes[i]["type"]=="Keywords":
-#                    nodes2.append(nodes[i]["label"])
-#            mlog("DEBUG", concepto,"\t",", ".join(nodes2))
 
         graph = {}
         graph["nodes"] = nodes
@@ -1715,13 +1694,8 @@ class BipartiteExtractor:
         graph["stats"] = { "sch":nodesA,"kw":nodesB,"n1(soc)":edgesA,"n2(sem)":edgesB,"nbi":edgesAB ,  }
         graph["ID"] = self.unique_id
 
-        mlog("INFO", graph["stats"])
+        mlog("INFO", "BipartiteExtractor results:", graph["stats"])
 
-        # mlog("DEBUG", "scholars",nodesA)
-        # mlog("DEBUG", "concept_tags",nodesB)
-        # mlog("DEBUG", "nodes1",edgesA)
-        # mlog("DEBUG", "nodes2",edgesB)
-        # mlog("DEBUG", "bipartite",edgesAB)
         return graph
 
 
