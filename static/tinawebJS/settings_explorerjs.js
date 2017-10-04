@@ -23,7 +23,10 @@ TW.conf = (function(TW){
   TWConf.sourceAPI={}
   TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+
+  // "services/api/graph" : traditional match with BipartiteExtractor
+  // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
 
 
   // Related documents (topPapers) data source
