@@ -496,7 +496,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
     sameside_direct_format = """
         SELECT result.*,
                -- keywords.kwstr, k2.kwstr,
-               -- log(1+coocWeight)/(log(1+sum_i) + log(1+sum_j)-log(1+coocWeight)) AS testWeight
                coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
         FROM (
             SELECT * FROM (
@@ -554,7 +553,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
     sameside_indirect_format = """
         SELECT dotproduct.*,
                -- scholars.email, s2.email,
-               -- log(1+coocWeight)/(log(1+sum_i) + log(1+sum_j)-log(1+coocWeight)) AS testWeight
                coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
         FROM (
             SELECT
@@ -925,11 +923,8 @@ class BipartiteExtractor:
 
     def pseudojaccard(self,cooc,occ1,occ2):
         """
+        Not a real jaccard (products instead of union: more like PMI)
         Was used for SOC edges (aka nodes1 or edgesA)
-
-        NB: in fact not a real jaccard (products instead sum, no intersection)!
-
-        (Cooc normalized by total scholars occs)
         """
         if occ1==0 or occ2==0:
             return 0
@@ -939,19 +934,12 @@ class BipartiteExtractor:
 
     def comex_sim(self,cooc,occ1,occ2):
         """
-        For SOC edges
+        experiments that could be used instead of jaccard
 
-        TODO 1 add intersect vs union appartenance
-        TODO 2 occ_i could be replaced by (occ_i / total_occ_i)
-
-             Sum[i ∈ ∩] ( 1 / log(occ_i))                <= coocs
-            ------------------------------
-               Sum[j ∈ ∪] (log(occ_j))                   <= total occs area
+        POSS for keywords case, counts could be normalized by log(total_occ) in the corpus
+             where total_occ is available from info['occurrences'] from results4
         """
-        # implemented only in multimatch with intersection as coocs(X,Y)
-        #                   and union as marg sum X + marg sum Y - cooc(X,Y)
-        pass
-
+        # pass
 
     def getScholarsList(self,qtype,filter_dict):
         """
