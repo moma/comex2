@@ -60,10 +60,10 @@ TW.FA2Params = {
 
   // global behavior -----------
   linLogMode: true,
-  edgeWeightInfluence: .7,           // <= slowish when above .5, unstable at 1
-  gravity: 1,
+  edgeWeightInfluence: .7,          // <= slowish when above .5, unstable at 1
+  gravity: 1.1,
   strongGravityMode: false,
-  scalingRatio: .5,
+  scalingRatio: .7,
   skipHidden: false,      // if true fa2 initial filter nodes
 
   adjustSizes: false,     // ~ messy but sort of in favor of overlap prevention
@@ -668,9 +668,24 @@ function changeType(optionaltypeFlag) {
         localZoneSettings: !outgoing.level,
         skipHidden: true,
         callback: function() {
-          // runs FA2
-          if (TW.conf.independantTypes || !TW.conf.stablePositions) {
+          // runs FA2 conditionnaly
+          if (!TW.conf.stablePositions) {
             sigma_utils.smartForceAtlas()
+          }
+          else if (TW.conf.independantTypes) {
+            // check if all activetypes done
+            for (var tyId in newActivetypes) {
+              if (newActivetypes[tyId] && !TW.didFA2OnTypes[tyId]) {
+                sigma_utils.smartForceAtlas()
+                break
+              }
+            }
+            // mark them as done
+            for (var tyId in newActivetypes) {
+              if (newActivetypes[tyId]) {
+                TW.didFA2OnTypes[tyId] = true
+              }
+            }
           }
         }
       })
