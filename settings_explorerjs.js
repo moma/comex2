@@ -175,14 +175,16 @@ TW.conf = (function(TW){
 
   // Layout options
   // --------------
-  TWConf.fa2Available=true;        // show/hide fa2Button
   TWConf.disperseAvailable=true;   // show/hide disperseButton
+  TWConf.fa2Available=true;        // show/hide fa2Button
 
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
     TWConf.fa2Milliseconds=4000;    // duration of auto-run
+    TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional log(nEdges)
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
+    TWConf.fa2SlowerMeso = false    // slow down meso if few nodes
 
 
   // Full-text search
@@ -209,6 +211,8 @@ TW.conf = (function(TW){
                                    //    (and when layouts are called,
                                    //     all types are moving together
                                    //      even when some are hidden)
+
+  TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
   // sigma rendering settings
   // ------------------------

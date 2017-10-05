@@ -50,6 +50,30 @@ TW.gui.noverlapConf = {
 }
 
 
+TW.FA2Params = {
+  // adapting speed -------------
+  slowDown: .3,                      // above 1:slower, in [.2;1]:faster, under .2:unstable
+  startingIterations: 4,             // keep it an even number to reduce visible oscillations at rendering
+  iterationsPerRender: 6,            // idem
+  barnesHutOptimize: false,
+  // barnesHutTheta: .5,
+
+  // global behavior -----------
+  linLogMode: true,
+  edgeWeightInfluence: .7,           // <= slowish when above .5, unstable at 1
+  gravity: 1,
+  strongGravityMode: false,
+  scalingRatio: .5,
+  skipHidden: false,      // if true fa2 initial filter nodes
+
+  adjustSizes: false,     // ~ messy but sort of in favor of overlap prevention
+
+  // favors global centrality
+  // (rather not needed for large preferential attachment type of data ?)
+  outboundAttractionDistribution: false
+}
+
+
 // POSS: themed variants (ex: for dark bg vs light bg)
 // contrasted color list for clusterColoring()
 TW.gui.colorList = ["#000000", "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941",
@@ -346,6 +370,8 @@ function changeType(optionaltypeFlag) {
     //                      |
     //                      updates the sliders and selection panels
 
+    sigma_utils.ourStopFA2();
+
     let typeFlag
     let outgoing = TW.SystemState()
     let oldTypeId = outgoing.activetypes.indexOf(true)
@@ -637,13 +663,13 @@ function changeType(optionaltypeFlag) {
     fillAttrsInForm('attr-titling-metric', 'num')
 
     // in meso the changed nodes always need their FA2 config
-    if (!outgoing.level || !TW.conf.stablePositions) {
+    if (!outgoing.level || TW.conf.independantTypes || !TW.conf.stablePositions) {
       reInitFa2({
         localZoneSettings: !outgoing.level,
         skipHidden: true,
         callback: function() {
           // runs FA2
-          if (!TW.conf.stablePositions) {
+          if (TW.conf.independantTypes || !TW.conf.stablePositions) {
             sigma_utils.smartForceAtlas()
           }
         }

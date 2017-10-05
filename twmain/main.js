@@ -564,46 +564,27 @@ function mainStartGraph(inFormat, inData, twInstance) {
         }
       }
 
-      TW.FA2Params = {
-        // adapting speed -------------
-        slowDown: 1.5,
-        startingIterations: 2,             // keep it an even number to reduce visible oscillations at rendering
-        iterationsPerRender: 4,            // idem
-        barnesHutOptimize: false,
-        // barnesHutTheta: .5,
-
-        // global behavior -----------
-        linLogMode: true,
-        edgeWeightInfluence: .4,
-        gravity: .3,
-        strongGravityMode: false,
-        scalingRatio: 1,
-        skipHidden: false,      // if true fa2 initial filter nodes
-
-        adjustSizes: false,     // ~ messy but sort of in favor of overlap prevention
-
-        // favors global centrality
-        // (rather not needed for large preferential attachment type of data ?)
-        outboundAttractionDistribution: false
-      }
-
       if (TW.conf.debug.logSettings) console.info("FA2 settings", TW.FA2Params)
 
-      // init FA2 for any future forceAtlas2 calls
-      TW.partialGraph.configForceAtlas2(TW.FA2Params)
+      // adapt init parameters to conf and run initial fa2
+      if (TW.conf.fa2Enabled) {
+        reInitFa2({
+          skipHidden: TW.conf.independantTypes,
+          callback: function() {
+            // initial FA2
+            sigma_utils.smartForceAtlas()
+          }
+        })
+      }
 
       // NB: noverlap conf depends on sizeRatios so updated before each run
 
       // REFA new sigma.js
-      TW.partialGraph.camera.goTo({x:0, y:0, ratio:0.9, angle: 0})
+      TW.partialGraph.camera.goTo({x:0, y:0, ratio:1, angle: 0})
 
       // mostly json data are extracts provided by DB apis => no positions
       // if (inFormat == "json")  TW.conf.fa2Enabled = true
-
-      // will run fa2 if enough nodes and TW.conf.fa2Enabled == true
-      sigma_utils.smartForceAtlas()
   }
-
 }
 
 setTimeout( function() {
