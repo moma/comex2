@@ -25,6 +25,9 @@ TW.conf = (function(TW){
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
   TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
+  // "services/api/graph" : traditional match with BipartiteExtractor
+  // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
+
 
   // Related documents (topPapers) data source
   // -----------------------------------------
@@ -183,14 +186,16 @@ TW.conf = (function(TW){
 
   // Layout options
   // --------------
-  TWConf.fa2Available=true;        // show/hide fa2Button
   TWConf.disperseAvailable=true;   // show/hide disperseButton
+  TWConf.fa2Available=true;        // show/hide fa2Button
 
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
     TWConf.fa2Milliseconds=4000;    // duration of auto-run
+    TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional log(nEdges)
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
+    TWConf.fa2SlowerMeso = false    // slow down meso if few nodes
 
 
   // Full-text search
@@ -217,6 +222,8 @@ TW.conf = (function(TW){
                                    //    (and when layouts are called,
                                    //     all types are moving together
                                    //      even when some are hidden)
+
+  TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
   // sigma rendering settings
   // ------------------------
@@ -284,8 +291,8 @@ TW.conf = (function(TW){
 
   // relative sizes (iff ChangeType == both nodetypes)
   TWConf.sizeMult = [];
-  TWConf.sizeMult[0] = 1.0;     // ie for node type 0 (<=> sem)
-  TWConf.sizeMult[1] = 2.0;     // ie for node type 1 (<=> soc)
+  TWConf.sizeMult[0] = 2.0;     // ie for node type 0 (<=> sem)
+  TWConf.sizeMult[1] = 3.0;     // ie for node type 1 (<=> soc)
 
 
   // ===========

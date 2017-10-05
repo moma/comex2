@@ -988,8 +988,8 @@ function dictfyGexf( gexf , categories ){
                                               source, target )
 
 
-              // boost crossrels edges
-              if (edge.categ == "XR")   edge.weight *= 1.5
+              // boost crossrels edges: off (we do it in source app)
+              // if (edge.categ == "XR")   edge.weight *= 10
 
               // save
               if(!edges[target+";"+source])
@@ -1157,8 +1157,8 @@ function dictfyJSON( data , categories ) {
         node.label = (n.label)? n.label : ("node_"+node.id) ;
         node.size = (n.size)? n.size : 3 ;
         node.type = (n.type)? n.type : "Document" ;
-        node.x = (n.x)? n.x : Math.random();
-        node.y = (n.y)? n.y : Math.random();
+        node.x = (n.x)? n.x : 100-Math.random()*200;
+        node.y = (n.y)? n.y : 100-Math.random()*200;
         node.color = (n.color)? n.color : "#FFFFFF" ;
         if(n.shape) node.shape = n.shape;
         if(n.attributes) node.attributes = n.attributes
@@ -1270,8 +1270,8 @@ function dictfyJSON( data , categories ) {
                                           typestring,
                                           source, target )
 
-          // boost crossrels edges
-          if (edge.categ == "XR")   edge.weight *= 1.5
+          // boost crossrels edges: off (we do it in source app)
+          // if (edge.categ == "XR")   edge.weight *= 10
 
           // save
           if(!edges[target+";"+source])
