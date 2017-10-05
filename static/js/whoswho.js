@@ -389,7 +389,7 @@ $(document).ready(function() {
   }
   // if explorerjs is present we can use its already parsed arguments
   // POSS: when uniqueid (typeof == string) show the name of the scholar
-  else if (TW && TW.APIQuery && typeof TW.APIQuery == "object") {
+  else if (typeof(TW) != "undefined" && TW.APIQuery && typeof TW.APIQuery == "object") {
     whoswhoq = TW.APIQuery
     sourcetype = "URL param"
   }
