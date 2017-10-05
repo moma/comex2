@@ -128,6 +128,10 @@ full_scholar_sql = """
     GROUP BY luid
 """
 
+# constant factor to increase weight of cross-relations (bipartite edges)
+# (because they seem one order of magnitude lower than same side relations)
+XR_WEIGHT_CONSTANT = 10
+
 # explorer REST "filters" syntax => sql "WHERE" constraints on scholars
 # =====================================================================
 
@@ -657,7 +661,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': float(round(ed['weight'], 3))
+          'w': float(round(XR_WEIGHT_CONSTANT * ed['weight'], 3))
         }
 
     return graph
@@ -1009,7 +1013,7 @@ class BipartiteExtractor:
 
                         scholar_array[node_uid] = 1
                 # debug
-                mlog("DEBUG", "getScholarsList<==scholar_array", scholar_array)
+                # mlog("DEBUGSQL", "getScholarsList<==scholar_array", scholar_array)
 
             elif qtype == "filters":
                 sql_query = None
@@ -1364,7 +1368,7 @@ class BipartiteExtractor:
                             target="K::"+str(keyword)
 
                             # term--scholar weight: constant / log(1+total keywords of scholar)
-                            weight = 1 / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
+                            weight = XR_WEIGHT_CONSTANT / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
                             self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
 
         for term in self.terms_dict:
