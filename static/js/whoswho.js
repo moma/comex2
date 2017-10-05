@@ -377,6 +377,7 @@ $(document).ready(function() {
 
   // retrieve last whoswho types and query from cache
   var whoswhoq = {}
+  var sourcetype = null
   if (sessionStorage.hasOwnProperty("whoswhoq-"+sessionStorage.tabid)) {
     try {
       whoswhoq = JSON.parse(sessionStorage["whoswhoq-"+sessionStorage.tabid])
@@ -384,12 +385,15 @@ $(document).ready(function() {
     catch(e) {
       whoswhoq = {}
     }
+    sourcetype = "sessionStorage"
   }
   // if explorerjs is present we can use its already parsed arguments
-  else if (TW && TW.APIQuery) {
+  // POSS: when uniqueid (typeof == string) show the name of the scholar
+  else if (TW && TW.APIQuery && typeof TW.APIQuery == "object") {
     whoswhoq = TW.APIQuery
+    sourcetype = "URL param"
   }
-  console.log("whoswhoq", whoswhoq)
+  console.log(`whoswhoq (from ${sourcetype})`, whoswhoq)
 
   // reinstate any cached types and filters
   for (var filterName in whoswhoq) {
