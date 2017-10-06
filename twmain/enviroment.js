@@ -49,6 +49,28 @@ TW.gui.noverlapConf = {
                    // NB animation happens *after* processing
 }
 
+TW.FA2Params = {
+  // adapting speed -------------
+  slowDown: 1.5,
+  startingIterations: 2,             // keep it an even number to reduce visible oscillations at rendering
+  iterationsPerRender: 4,            // idem
+  barnesHutOptimize: false,
+  // barnesHutTheta: .5,
+
+  // global behavior -----------
+  linLogMode: true,
+  edgeWeightInfluence: .3,
+  gravity: .8,
+  strongGravityMode: false,
+  scalingRatio: 1,
+
+  adjustSizes: false,     // ~ messy but sort of in favor of overlap prevention
+
+  // favors global centrality
+  // (but rather not needed when data already shows topic-centered
+  //  node groups and/nor when preferential attachment type of data)
+  outboundAttractionDistribution: false
+}
 
 // POSS: themed variants (ex: for dark bg vs light bg)
 // contrasted color list for clusterColoring()
@@ -422,11 +444,17 @@ function changeType(optionaltypeFlag) {
 
     // 3 - define the projected selection (sourceNids => corresponding opposites)
     let sourceNids = outgoing.selectionNids
-    // // when jutsu and no selection => by def nothing happens
-    // // otherwise POSS: all local graph is selection
-    // if (typeFlag == 'all' && !sourceNids.length) {
-    //   sourceNids = TW.partialGraph.graph.nodes().map(function(n){return n.id})
-    // }
+    // when jutsu and no selection => we pick one selection at random (in meso mode we can't go to another meso with no selection, because nothing would appear)
+    if (typeFlag == 'all' && !sourceNids.length) {
+      sourceNids = []
+      for (var nid in TW.Nodes) {
+        if (! TW.Nodes[nid].hidden) {
+          sourceNids.push(nid)
+          break
+        }
+      }
+    }
+
     let targetNids = {}
     if (!mixedState) {
       targetNids = getNeighbors(sourceNids, 'XR')
@@ -691,8 +719,8 @@ function changeLevel(optionalTgtState) {
       else {
         var present = TW.SystemState(); // Last
         sels = present.selectionNids
-        deselectNodes()
       }
+      deselectNodes()
 
       let selsChecker = {}
       for (let i in sels) {
@@ -761,8 +789,9 @@ function changeLevel(optionalTgtState) {
 
         for(var nid in nodesToAdd)
           add1Elem(nid)
-        for(var eid in edgesToAdd)
+        for(var eid in edgesToAdd) {
           add1Elem(eid)
+        }
 
           // Adding intra-neighbors edges O(voisinage²)
           voisinage = Object.keys(voisinage)
@@ -877,23 +906,55 @@ function edgeSizesLookup(eTypeStrs, criterion) {
   return edgeweis
 }
 
+// strategy : if < 25 distinct values: each distinct val becomes a step
+//            if > 25 distinct values: we group in 25 bins of +- equal pop
 function edgeSizesSteps(eTypeStr, esizesCensus) {
-  var stepToIdsArray = []
+  let allValsToIdsArray = []
+  let stepToIdsArray = []
   if (esizesCensus[eTypeStr]) {
     var sortedSizes = Object.keys(
                         esizesCensus[eTypeStr]
                       ).sort(function(a,b){return a-b})
 
+    let nEdges = 0
     for (let l in sortedSizes) {
-      stepToIdsArray.push(esizesCensus[eTypeStr][sortedSizes[l]])
+      let distinctVal = sortedSizes[l]
+      allValsToIdsArray.push(esizesCensus[eTypeStr][distinctVal])
+      nEdges += esizesCensus[eTypeStr][sortedSizes[l]].length
+    }
+    // now allValsToIdsArray has length == nb of distinct values
+
+    if (sortedSizes.length <= 25) {
+      stepToIdsArray = allValsToIdsArray
+    }
+    else {
+      chunkSize = parseInt(nEdges / 25)
+
+      // console.log("nEdges, nDistinct, chunkSize", nEdges, sortedSizes.length, chunkSize)
+
+      stepToIdsArray = makeSteps(chunkSize, allValsToIdsArray, [])
     }
   }
-
-  // console.warn (`edgeSizesSteps: for etype ${eTypeStr}` , stepToIdsArray)
-
   return stepToIdsArray
 }
 
+// recursive method (POSS: use a drift counter to compensate big exaequo subgroups
+//                         resulting in less ticks than 25)
+//                   cf. also alternate binning strategy using nthVal
+//                            in facetsBinning (samepop case)
+function makeSteps(chunkSize, remainder, groupedSteps) {
+  if (!remainder.length) {
+    return groupedSteps
+  }
+  else {
+    let newChunkIdsArray = []
+    while(newChunkIdsArray.length < chunkSize) {
+      newChunkIdsArray = newChunkIdsArray.concat(remainder.shift())
+    }
+    groupedSteps.push(newChunkIdsArray)
+    return makeSteps(chunkSize, remainder, groupedSteps)
+  }
+}
 
 //    Execution modes:
 //	EdgeWeightFilter("#sliderAEdgeWeight", "00", "weight");
@@ -1031,54 +1092,41 @@ function EdgeWeightFilter(sliderDivID , reltypestr ,  criteria) {
 
                       if(i>=low && i<=high) {
                           if(addflag) {
-                              // console.log("adding "+ids.join())
-                              for(var i in eids) {
-                                  let eid = eids[i]
+                            // console.log("adding "+ids.join())
+                            for(var i in eids) {
+                                let eid = eids[i]
 
-                                  if (TW.Edges[eid])
-                                    TW.Edges[eid].lock = false;
-                                  else
-                                    console.warn("skipped missing eid", eid)
+                                // we need to distinguish between
+                                //    - absent edges
+                                //       => keep them absent because of local
+                                //    - edges with absent nodes
+                                //       => effect of a node slider => make them appear
+                                let e = TW.partialGraph.graph.edges(eid)
+                                if (e) {
+                                  let nidkeys = eid.split(';')
 
-                                  // local level case
-                                  // stepToIdsArr is full of edges that don't really exist at this point
-                                  // we need to distinguish between absent edges => keep them absent because of local
-                                  //         and edges with hidden nodes => effect of a node slider => make them appear
-                                  if (! present.level) {
+                                  if (nidkeys.length != 2) {
+                                    console.error("invalid edge id:" + eid)
+                                  }
+                                  else {
+                                    let sid = nidkeys[0]
+                                    let tid = nidkeys[1]
 
-                                    // NB we assume the sigma convention eid = "nid1;nid2"
-                                    let nidkeys = eid.split(';')
+                                    let src = TW.partialGraph.graph.nodes(sid)
+                                    let tgt = TW.partialGraph.graph.nodes(tid)
 
-                                    if (nidkeys.length != 2) {
-                                      console.error("invalid edge id:" + eid)
-                                    }
-                                    else {
-                                      let sid = nidkeys[0]
-                                      let tid = nidkeys[1]
-
-                                      // if nodes not removed by local view
-                                      if (   TW.partialGraph.graph.nodes(sid)
-                                          && TW.partialGraph.graph.nodes(tid)) {
-                                            if(TW.partialGraph.graph.nodes(sid).hidden) unHide(sid)
-                                            if(TW.partialGraph.graph.nodes(tid).hidden) unHide(tid)
-                                            if (! TW.partialGraph.graph.edges(eid)) {
-                                              add1Elem(eid)
-                                            }
-                                            TW.partialGraph.graph.edges(eid).hidden = false
-                                            TW.Edges[eid].lock = false;
-                                      }
+                                    // if nothing is absent (nodes not
+                                    // removed by changetype or local view)
+                                    if (src && tgt) {
+                                      // unhide in case nodeslider hid them
+                                      src.hidden = false
+                                      tgt.hidden = false
+                                      e.hidden = false
                                     }
                                   }
-                                  // in any case we show the edge
-                                  // global level case
-                                  if (! TW.partialGraph.graph.edges(eid)) {
-                                    // legacy fallback shouldn't be necessary
-                                    add1Elem(eid)
-                                  }
-                                  TW.partialGraph.graph.edges(eid).hidden = false
-                                  TW.Edges[eid].lock = false;
+                                }
                               }
-                          }
+                            }
                       } else {
                           if(delflag) {
                               for(var i in eids) {
@@ -1087,7 +1135,7 @@ function EdgeWeightFilter(sliderDivID , reltypestr ,  criteria) {
                                       var t0 = performance.now()
                                       if (TW.partialGraph.graph.edges(eid)) {
                                         TW.partialGraph.graph.edges(eid).hidden = true
-                                        TW.Edges[eid].lock = true;
+                                        // TW.Edges[eid].lock = true;
                                       }
                                       var t1 = performance.now()
 
@@ -1145,7 +1193,7 @@ function NodeWeightFilter( sliderDivID , tgtNodeKey) {
     }
 
     if(TW.partialGraph.graph.nNodes() < 2) {
-      console.warn('not enough nodes for subsets: skipping GUI slider init')
+      console.debug('not enough nodes for subsets: skipping GUI slider init')
       showDisabledSlider(sliderDivID)
       return;
     }
@@ -1175,7 +1223,7 @@ function NodeWeightFilter( sliderDivID , tgtNodeKey) {
     // console.warn('NodeWeightFilter: steps', steps)
 
     if(steps<2) {
-      console.warn('no size steps for nodes: skipping GUI slider init')
+      console.debug('no size steps for nodes: skipping GUI slider init')
       showDisabledSlider(sliderDivID)
       return;
     }
