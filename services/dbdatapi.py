@@ -980,7 +980,7 @@ class BipartiteExtractor:
         ''' %  ('('+','.join(map(str, list(scholar_array.keys())))+')')
 
         # debug
-        mlog("DEBUG", "db.extract: sql3="+sql3)
+        mlog("DEBUGSQL", "db.extract: sql3="+sql3)
 
         ide = None
 
@@ -1022,6 +1022,7 @@ class BipartiteExtractor:
                 ide="S::"+res3['initials']+("/%05i"%int(res3['luid']));
                 info['id'] = ide;
                 info['luid'] = res3['luid'];
+                info['initials'] = res3['initials'];
                 info['doors_uid'] = res3['doors_uid'];
                 info['pic_src'] = pic_src ;
                 info['first_name'] = res3['first_name'];
@@ -1079,8 +1080,9 @@ class BipartiteExtractor:
         #    will then always cluster nodes of each type together (stronger ties for same side edges)
         #  - used with the constant this effect is avoided (stronger ties for bipartite edges)
 
+        mlog('DEBUG', 'extractDataCustom:'+" ".join([self.scholars[i]['initials'] for i in self.scholars]))
+
         for i in self.scholars:
-            mlog('DEBUG', 'extractDataCustom:'+self.scholars[i]['email'])
             self.scholars_colors[self.scholars[i]['email'].strip()]=0;
             scholar_keywords = self.scholars[i]['keywords_ids'];
             for k in range(len(scholar_keywords)):
@@ -1528,7 +1530,7 @@ class BipartiteExtractor:
         graph = {}
         graph["nodes"] = nodes
         graph["links"] = edges
-        graph["stats"] = { "sch":nodesA,"kw":nodesB,"n1(soc)":edgesA,"n2(sem)":edgesB,"nbi":edgesAB ,  }
+        graph["stats"] = { "sch":nodesA,"kw":nodesB,"n11(soc)":edgesA,"n22(sem)":edgesB,"nXR(bi)":edgesAB ,  }
         graph["ID"] = self.unique_id
 
         mlog("INFO", graph["stats"])
