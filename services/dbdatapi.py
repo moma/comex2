@@ -2,7 +2,7 @@
 DB data querying:
   - aggregations on almost any DB fields via FIELDS_FRONTEND_TO_SQL
   - BipartiteExtractor subset selections originally made by Samuel
-  - soon multimatch subset selections
+  - multimatch subset selections
 """
 __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
@@ -279,13 +279,18 @@ def kw_neighbors(uid, db_cursor = None):
 
 # multimatch(nodetype_1, nodetype_2)
 # ==================================
-def multimatch(source_type, target_type, pivot_filters = []):
+def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional_links = True):
     """
-    Returns a list of edges between the objects of type 1 and those of type 2,
-    via their matching scholars (used as pivot and for filtering)
+    Returns a bipartite graph with:
 
-    src_type ∈ {kw, ht}
-    tgt_type ∈ {sch, lab, inst, country}
+    - a list of edges between the objects of type 1 and those of type 2,
+      via their matching scholars (used as pivot and for filtering)
+
+      => src_type ∈ {kw, ht}
+      => tgt_type ∈ {sch, lab, inst, country}
+
+    - 2 lists of internal edges (between type 1 nodes and type 2 nodes resp.)
+    - the list of nodes
     """
 
     type_map = {
@@ -644,15 +649,29 @@ def multimatch(source_type, target_type, pivot_filters = []):
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
-            nidi = make_node_id(endtype, ed['nid_i'])
-            nidj = make_node_id(endtype, ed['nid_j'])
-            eid  =  nidi+';'+nidj
-            graph["links"][eid] = {
-              's': nidi,
-              't': nidj,
-            #   'w': float(round(ed['coocWeight'], 3))
-              'w': float(round(ed['testWeight'], 3))
-            }
+            if not merge_bidirectional_links:
+                nidi = make_node_id(endtype, ed['nid_i'])
+                nidj = make_node_id(endtype, ed['nid_j'])
+                eid  =  nidi+';'+nidj
+                graph["links"][eid] = {
+                  's': nidi,
+                  't': nidj,
+                  'w': float(round(ed['testWeight'], 3))
+                }
+            else:
+                nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
+                nids = sorted(nids)
+                eid  =  nids[0]+';'+nids[1]
+                if eid in graph["links"]:
+                    # merging by average like in traditional BipartiteExtractor
+                    # (NB just taking the sum would also make sense)
+                    graph["links"][eid]["w"] = round((graph["links"][eid]["w"] + float(ed['testWeight']))/2, 3)
+                else:
+                    graph["links"][eid] = {
+                      's': nids[0],
+                      't': nids[1],
+                      'w': float(round(ed['testWeight'], 3))
+                    }
 
     for ed in edges_XR:
         nidi = make_node_id(source_type, ed['sourceID'])
