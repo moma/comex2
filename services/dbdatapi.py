@@ -38,7 +38,8 @@ MATCH_OPTIONS = {
     # merge edges X->Y with Y->X if X and Y are nodes of the same type
     "avg_bidirectional_links":    True,
 
-    "normalize_kw_weights_by_kw_popularity": False,    # TODO
+    "normalize_kw_weights_by_kw_popularity": True,    # 1st version works only for multimatch
+                                                       # TODO for BipartiteExtractor
 
     # constant factor to increase weight of cross-relations (bipartite edges)
     # because they play an important role in the structure of the graph
@@ -601,7 +602,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     graph["nodes"] = {}
     graph["links"] = {}
 
-    if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]:
+    if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"] or MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"]:
         nodes_normfactors = {}
 
     # print("nodes_tgt", nodes_tgt)
@@ -618,6 +619,10 @@ def multimatch(source_type, target_type, pivot_filters = []):
 
             if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"] and ntype == 'sch':
                 nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
+
+            if MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"] and ntype == 'kw':
+                # if kw then nodeweight is the total of scholars with the kw
+                nodes_normfactors[nid] = 1 / log1p(nd['nodeweight'])
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
@@ -649,15 +654,15 @@ def multimatch(source_type, target_type, pivot_filters = []):
         nidi = make_node_id(source_type, ed['sourceID'])
         nidj = make_node_id(target_type, ed['targetID'])
         eid  =  nidi+';'+nidj
-        wei  = None
+        wei  = MATCH_OPTIONS['XR_weight_constant'] * ed['weight']
 
-        # different than jaccard normalization by sum_i because normfactor counted on all DB
-        if (MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]
-            and source_type == 'kw' and target_type == 'sch'):
-            wei = float(round(
-                    MATCH_OPTIONS['XR_weight_constant'] * ed['weight'] * nodes_normfactors[nidj],
-                    5
-                ))
+        if source_type == 'kw' and target_type == 'sch':
+            if MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"]:
+                # different than jaccard normalization by sum_i because normfactor counted on all DB
+                wei *= nodes_normfactors[nidi]
+            if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]:
+                # same remark
+                wei *= nodes_normfactors[nidj]
         else:
             wei = float(round(
                     MATCH_OPTIONS['XR_weight_constant'] * ed['weight'], 5
@@ -666,7 +671,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': wei
+          'w': float(round(wei, 5))
         }
 
     return graph
