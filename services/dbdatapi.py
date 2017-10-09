@@ -38,7 +38,7 @@ MATCH_OPTIONS = {
     # merge edges X->Y with Y->X if X and Y are nodes of the same type
     "avg_bidirectional_links":    True,
 
-    "normalize_kw_weights_by_kw_popularity": True,    # 1st version works only for multimatch
+    "normalize_kw_weights_by_kw_popularity": False,    # 1st version works only for multimatch
                                                        # TODO for BipartiteExtractor
 
     # constant factor to increase weight of cross-relations (bipartite edges)
