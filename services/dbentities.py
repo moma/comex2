@@ -5,7 +5,10 @@ __author__    = "CNRS"
 __copyright__ = "Copyright 2017 ISCPIF-CNRS"
 __email__     = "romain.loth@iscpif.fr"
 
-
+if __package__ == 'services':
+    from services.dbcrud  import FULL_SCHOLAR_SQL
+else:
+    from dbcrud           import FULL_SCHOLAR_SQL
 
 class DBEntity:
     def init(self, entityName):
@@ -140,7 +143,7 @@ class DBScholars(DBEntity):
 
     def getInfos(self):
         """
-        NB: for the time being, less info here than traditionnaly with get_full_scholar
+        full_scholar
         """
         return """
             SELECT luid AS entityID,
@@ -150,6 +153,9 @@ class DBScholars(DBEntity):
                           middle_name,
                           last_name
                     ) AS label,
-                    1 AS nodeweight
-            FROM scholars
-            """
+                    1 AS nodeweight,
+                    full_scholar.*
+             FROM (
+                %s
+            ) AS full_scholar
+            """ % FULL_SCHOLAR_SQL

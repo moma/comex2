@@ -21,14 +21,33 @@ from json      import loads
 
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
-    from services.dbcrud  import connect_db
+    from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                     DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
-    from dbcrud         import connect_db
+    from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                DBHashtags, DBCountries
+
+
+# options work for both matching algorithms (BipartiteExtractor and multimatch)
+MATCH_OPTIONS = {
+    # NB: dist metric is always jaccard
+
+    # merge edges X->Y with Y->X if X and Y are nodes of the same type
+    "avg_bidirectional_links":    True,
+
+    "normalize_kw_weights_by_kw_popularity": False,    # TODO
+
+    # constant factor to increase weight of cross-relations (bipartite edges)
+    # because they play an important role in the structure of the graph
+    "XR_weight_constant": 10,
+
+    # weight of sch-kw XR edges divided by log(1+len(scholar["kws"])
+    "normalize_schkw_by_sch_nbkws" : True,
+}
+
 
 
 # col are for str stats api
@@ -76,61 +95,6 @@ FIELDS_FRONTEND_TO_SQL = {
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
-
-
-# NB we must cascade join because
-#    orgs, hashtags and keywords are one-to-many
-full_scholar_sql = """
-    SELECT
-        sch_org_n_tags.*,
-
-        -- kws info
-        GROUP_CONCAT(keywords.kwstr) AS keywords_list
-
-    FROM (
-        SELECT
-            scholars_and_orgs.*,
-            -- hts info
-            GROUP_CONCAT(hashtags.htstr) AS hashtags_list
-
-        FROM (
-          SELECT scholars.*,
-                 -- org info
-                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
-                 GROUP_CONCAT(orgs_set.label) AS orgs_list
-          FROM scholars
-          LEFT JOIN sch_org ON luid = sch_org.uid
-          LEFT JOIN (
-            SELECT * FROM orgs
-          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
-          GROUP BY luid
-        ) AS scholars_and_orgs
-        LEFT JOIN sch_ht
-            ON uid = luid
-        LEFT JOIN hashtags
-            ON sch_ht.htid = hashtags.htid
-        GROUP BY luid
-    ) AS sch_org_n_tags
-
-    -- two step JOIN for keywords
-    LEFT JOIN sch_kw
-        ON uid = luid
-    -- we directly exclude scholars with no keywords here
-    JOIN keywords
-        ON sch_kw.kwid = keywords.kwid
-
-    WHERE (
-        record_status = 'active'
-        OR
-        (record_status = 'legacy' AND valid_date >= NOW())
-    )
-
-    GROUP BY luid
-"""
-
-# constant factor to increase weight of cross-relations (bipartite edges)
-# (because they seem one order of magnitude lower than same side relations)
-XR_WEIGHT_CONSTANT = 10
 
 # explorer REST "filters" syntax => sql "WHERE" constraints on scholars
 # =====================================================================
@@ -279,7 +243,7 @@ def kw_neighbors(uid, db_cursor = None):
 
 # multimatch(nodetype_1, nodetype_2)
 # ==================================
-def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional_links = True):
+def multimatch(source_type, target_type, pivot_filters = []):
     """
     Returns a bipartite graph with:
 
@@ -340,7 +304,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
                 ) AS full_scholar
                 -- our filtering constraints fit here
                 %s
-    """ % (full_scholar_sql, subqmidfilters)
+    """ % (FULL_SCHOLAR_SQL, subqmidfilters)
 
     # ------------------------------------------------------------  Explanations
     #
@@ -440,7 +404,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
             'threshold': threshold
     }
 
-    # mlog("DEBUG", "multimatch sql query", matchq)
+    mlog("DEBUGSQL", "multimatch sql query", matchq)
 
     # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
     db_c.execute(matchq)
@@ -509,7 +473,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
     sameside_direct_format = """
         SELECT result.*,
                -- keywords.kwstr, k2.kwstr,
-               coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
             SELECT * FROM (
                 SELECT
@@ -532,7 +496,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
         ) AS result
         -- JOIN keywords ON nid_i = keywords.kwid
         -- JOIN keywords AS k2 ON nid_j = k2.kwid
-        -- ORDER BY testWeight DESC
+        -- ORDER BY jaccardWeight DESC
     """
 
     # 2a we'll need a copy of the M1 table
@@ -566,7 +530,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
     sameside_indirect_format = """
         SELECT dotproduct.*,
                -- scholars.email, s2.email,
-               coocWeight/(sum_i + sum_j - coocWeight) AS testWeight
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
             SELECT
                 match_table.%(nid_type)s   AS nid_i,
@@ -589,7 +553,7 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
                 -- JOIN scholars AS s2 ON nid_j = s2.luid
         WHERE nid_i != nid_j
                 --  AND coocWeight > %(threshold)i
-                -- ORDER BY testWeight DESC
+                -- ORDER BY jaccardWeight DESC
     """
 
     # 3a we'll need a copy of the XR table
@@ -637,6 +601,11 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
     graph["nodes"] = {}
     graph["links"] = {}
 
+    if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]:
+        nodes_normfactors = {}
+
+    # print("nodes_tgt", nodes_tgt)
+
     for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
         for nd in ndata:
             nid = make_node_id(ntype, nd['entityID'])
@@ -647,16 +616,19 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
               'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
 
+            if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"] and ntype == 'sch':
+                nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
+
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
-            if not merge_bidirectional_links:
+            if not MATCH_OPTIONS["avg_bidirectional_links"]:
                 nidi = make_node_id(endtype, ed['nid_i'])
                 nidj = make_node_id(endtype, ed['nid_j'])
                 eid  =  nidi+';'+nidj
                 graph["links"][eid] = {
                   's': nidi,
                   't': nidj,
-                  'w': float(round(ed['testWeight'], 3))
+                  'w': float(round(ed['jaccardWeight'], 5))
                 }
             else:
                 nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
@@ -665,22 +637,36 @@ def multimatch(source_type, target_type, pivot_filters = [], merge_bidirectional
                 if eid in graph["links"]:
                     # merging by average like in traditional BipartiteExtractor
                     # (NB just taking the sum would also make sense)
-                    graph["links"][eid]["w"] = round((graph["links"][eid]["w"] + float(ed['testWeight']))/2, 3)
+                    graph["links"][eid]["w"] = round((graph["links"][eid]["w"] + float(ed['jaccardWeight']))/2, 5)
                 else:
                     graph["links"][eid] = {
                       's': nids[0],
                       't': nids[1],
-                      'w': float(round(ed['testWeight'], 3))
+                      'w': float(round(ed['jaccardWeight'], 5))
                     }
 
     for ed in edges_XR:
         nidi = make_node_id(source_type, ed['sourceID'])
         nidj = make_node_id(target_type, ed['targetID'])
         eid  =  nidi+';'+nidj
+        wei  = None
+
+        # different than jaccard normalization by sum_i because normfactor counted on all DB
+        if (MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]
+            and source_type == 'kw' and target_type == 'sch'):
+            wei = float(round(
+                    MATCH_OPTIONS['XR_weight_constant'] * ed['weight'] * nodes_normfactors[nidj],
+                    5
+                ))
+        else:
+            wei = float(round(
+                    MATCH_OPTIONS['XR_weight_constant'] * ed['weight'], 5
+                ))
+
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': float(round(XR_WEIGHT_CONSTANT * ed['weight'], 3))
+          'w': wei
         }
 
     return graph
@@ -1071,7 +1057,7 @@ class BipartiteExtractor:
                     -- our filtering constraints fit here
                     WHERE  %s
 
-                    """ % (full_scholar_sql, " AND ".join(sql_constraints))
+                    """ % (FULL_SCHOLAR_SQL, " AND ".join(sql_constraints))
 
                 mlog("DEBUGSQL", "getScholarsList SELECT:  ", sql_query)
 
@@ -1387,8 +1373,8 @@ class BipartiteExtractor:
                             target="K::"+str(keyword)
 
                             # term--scholar weight: constant / log(1+total keywords of scholar)
-                            weight = XR_WEIGHT_CONSTANT / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
-                            self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
+                            weight = MATCH_OPTIONS['XR_weight_constant'] / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
+                            self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"bipartite"})
 
         for term in self.terms_dict:
             nodeId1 = self.terms_dict[term]['kwid'];
@@ -1425,7 +1411,7 @@ class BipartiteExtractor:
 
                         # cf also final edge weights after rounding in buildJSON
 
-                        self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
+                        self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"nodes2"})
 
         for scholar in self.scholars:
             nodeId1 = scholar;
@@ -1451,7 +1437,7 @@ class BipartiteExtractor:
                             scholarsMatrix[neigh]['marginal_tot_kws']
                         )
                         #mlog("DEBUG", "\t"+source+","+target+" = "+str(weight))
-                        self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes1"})
+                        self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"nodes1"})
 
         # ------- debug nodes1 -------------------------
         # print(">>>>>>>>>scholarsMatrix<<<<<<<<<")
@@ -1645,7 +1631,7 @@ class BipartiteExtractor:
                 node["attributes"] = {}
 
                 # special attribute normalizing factor
-                if self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
+                if MATCH_OPTIONS['normalize_schkw_by_sch_nbkws'] and self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
                     node["attributes"]["normfactor"] = "%.5f" % (1/log1p(len(self.scholars[idNode]["keywords_ids"])))
                 else:
                     node["attributes"]["normfactor"] = 1
@@ -1672,21 +1658,30 @@ class BipartiteExtractor:
 
                 nodesA+=1
 
-        GG = Graph()
-        for n in self.Graph.edges_iter():
-            s = n[0]
-            t = n[1]
-            w = float(self.Graph[n[0]][n[1]]['weight'])
-            tp = self.Graph[n[0]][n[1]]['type']
+        if MATCH_OPTIONS['avg_bidirectional_links']:
+            GG = Graph()
+            for n in self.Graph.edges_iter():
+                s = n[0]
+                t = n[1]
+                w = float(self.Graph[n[0]][n[1]]['weight'])
+                tp = self.Graph[n[0]][n[1]]['type']
 
-            if GG.has_edge(s,t):
-                # (case when same edge, both directions)
-                oldw = GG[s][t]['weight']
-                # NB this avg works because at max 2 values
-                avgw = (oldw+w)/2
-                GG[s][t]['weight'] = avgw
-            else:
-                GG.add_edge( s , t , { "weight":w , "type":tp } )
+                if GG.has_edge(s,t):
+                    # (case when same edge, both directions)
+                    oldw = GG[s][t]['weight']
+                    # NB this avg works because at max 2 values
+                    avgw = (oldw+w)/2
+                    GG[s][t]['weight'] = avgw
+                else:
+                    GG.add_edge( s , t , { "weight":round(w,5) , "type":tp } )
+        else:
+            GG = DiGraph()
+            for n in self.Graph.edges_iter():
+                s = n[0]
+                t = n[1]
+                w = float(self.Graph[n[0]][n[1]]['weight'])
+                tp = self.Graph[n[0]][n[1]]['type']
+                GG.add_edge( s , t , { "weight":round(w,5) , "type":tp } )
 
         e = 0
         for n in GG.edges_iter():#Memory, what's wrong with you?
