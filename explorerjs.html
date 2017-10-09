@@ -568,6 +568,21 @@
         </div>
       </div>
 
+      <div class="panel panel-default" id="stats-panel">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a data-toggle="collapse" data-target="#stats" href="#stats"
+               data-parent="#varinfos-accordion">
+              <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+              &nbsp;Stats
+            </a>
+          </h4>
+        </div>
+
+        <div class="panel-collapse collapse in" id="stats">
+          <p>here stats inserted by twmain/Tinaweb.js</p>
+        </div>
+      </div>
 
       <div class="panel panel-default" id="video_explanationw">
         <div class="panel-heading">
@@ -691,9 +706,18 @@
                        <label for="layout-scenario" class="smlabel input-group-addon">Scenarios</label>
                        <select id="layout-scenario" name="layout-scenario" class="custom-select form-control">
                           <option selected value="indeptypes">Spatialisation distincte par types, stable par filtres</option>
-                          <option selected value="indeptypes-adaptspeed">Idem avec slowDown en meso</option>
+                          <option value="indeptypes-adaptspeed">Idem avec slowDown en meso</option>
                           <option value="allstable">Spatialisation conjointe stable</option>
                           <option value="notstable">Re-spatialisation à chaque vue ou filtre</option>
+                       </select>
+                     </div>
+                   </div>
+                   <div class="question">
+                     <div class="input-group">
+                       <label for="match-alg" class="smlabel input-group-addon">Algo match</label>
+                       <select id="match-alg" name="match-alg" class="custom-select form-control">
+                          <option selected value="tradi">Jaccard via algo traditionnel</option>
+                          <option value="multi">Jaccard via algo multimatch</option>
                        </select>
                      </div>
                    </div>

@@ -883,6 +883,42 @@ function renderTweet( tweet) {
     return html;
 }
 
+function showStats(){
+  let statsHtml = ''
+  let statCols = ['min','median', 'mean', 'max']
+  let ntypes = Object.keys(TW.stats.nodeSize)
+  if (ntypes.length) {
+    ntypes.sort()
+    statsHtml += '<h5 class=stats-title>Node sizes</h5>'
+    for (var ntype in TW.stats.nodeSize) {
+      statsHtml += `<b>${ntype} (${TW.stats.nodeSize[ntype].len})</b>`
+      statsHtml += `<table class=stats-table>`
+      for (var k in statCols) {
+        let prop = statCols[k]
+        statsHtml +=`<tr><td class=stats-prop>${prop}</td>`
+        statsHtml += `<td>${parseInt(TW.stats.nodeSize[ntype][prop]*10000)/10000}</td></tr>`
+      }
+      statsHtml += `</table>`
+    }
+  }
+  let categs = Object.keys(TW.stats.edgeWeight)
+  if (categs.length) {
+    statsHtml += '<h5 class=stats-title>Edge weights</h5>'
+    for (var categ in TW.stats.edgeWeight) {
+      statsHtml += `<b>${categ} (${TW.stats.edgeWeight[categ].len})</b>`
+      statsHtml += `<table class=stats-table>`
+      for (var k in statCols) {
+        let prop = statCols[k]
+        statsHtml +=`<tr><td class=stats-prop>${prop}</td>`
+        statsHtml += `<td>${parseInt(TW.stats.edgeWeight[categ][prop]*10000)/10000}</td></tr>`
+      }
+      statsHtml += `</table>`
+    }
+  }
+  return statsHtml
+}
+
+
 function getTips(){
     text =
         "<br>"+
@@ -1209,6 +1245,18 @@ function showAttrConf(event, optionalAttrname) {
 
 function newSettingsAndRun() {
 
+  // matching: traditional vs multi
+  let match_alg = document.getElementById('match-alg').value
+  if (match_alg == "tradi") {
+    TW.conf.sourceAPI["forNormalQuery"] = "services/api/graph"
+    TW.conf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+  }
+  else if (match_alg == "multi") {
+    TW.conf.sourceAPI["forNormalQuery"] = "services/api/multimatch"
+    TW.conf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
+  }
+
+  // position stability scenarios
   let scenario = document.getElementById('layout-scenario').value
 
   if (scenario == "allstable") {
@@ -1238,6 +1286,7 @@ function newSettingsAndRun() {
     TW.FA2Params.iterationsPerRender = 4
   }
 
+  console.warn("TW.conf.sourceAPI[\"forFilteredQuery\"] <= ", TW.conf.sourceAPI["forFilteredQuery"])
   console.warn("TW.conf.stablePositions <= ", TW.conf.stablePositions)
   console.warn("TW.conf.independantTypes <= ", TW.conf.independantTypes)
   console.warn("TW.FA2Params.iterationsPerRender <= ", TW.FA2Params.iterationsPerRender)
