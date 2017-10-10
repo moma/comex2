@@ -33,22 +33,25 @@ else:
 
 # options work for both matching algorithms (BipartiteExtractor and multimatch)
 MATCH_OPTIONS = {
-    # NB: dist metric is always jaccard
+    # same-side (00 and 11 edges)
+    # ----------------------------
+    # NB: here dist metric is always jaccard
 
     # merge edges X->Y with Y->X if X and Y are nodes of the same type
     "avg_bidirectional_links":    True,
 
-    "normalize_kw_weights_by_kw_popularity": True,    # 1st version works only for multimatch
-                                                       # TODO for BipartiteExtractor
-
+    # cross-relations (XR edges)
+    # --------------------------
     # constant factor to increase weight of cross-relations (bipartite edges)
     # because they play an important role in the structure of the graph
     "XR_weight_constant": 10,
 
-    # weight of sch-kw XR edges divided by log(1+len(scholar["kws"])
-    "normalize_schkw_by_sch_nbkws" : True,
-}
+    # weight of sch-kw XR edges divided by log(1+scholar["total_keywords_nb"])
+    "normalize_schkw_by_sch_totkw" : True,
 
+    # weight of sch-kw XR edges divided by log(1+keyword["total_occs"])
+    "normalize_schkw_by_kw_totoccs": True
+}
 
 
 # col are for str stats api
@@ -602,7 +605,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     graph["nodes"] = {}
     graph["links"] = {}
 
-    if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"] or MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"]:
+    if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
         nodes_normfactors = {}
 
     # print("nodes_tgt", nodes_tgt)
@@ -617,10 +620,10 @@ def multimatch(source_type, target_type, pivot_filters = []):
               'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
 
-            if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"] and ntype == 'sch':
+            if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
                 nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
 
-            if MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"] and ntype == 'kw':
+            if ntype == 'kw' and MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
                 # if kw then nodeweight is the total of scholars with the kw
                 nodes_normfactors[nid] = 1 / log1p(nd['nodeweight'])
 
@@ -657,10 +660,10 @@ def multimatch(source_type, target_type, pivot_filters = []):
         wei  = MATCH_OPTIONS['XR_weight_constant'] * ed['weight']
 
         if source_type == 'kw' and target_type == 'sch':
-            if MATCH_OPTIONS["normalize_kw_weights_by_kw_popularity"]:
+            if MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
                 # different than jaccard normalization by sum_i because normfactor counted on all DB
                 wei *= nodes_normfactors[nidi]
-            if MATCH_OPTIONS["normalize_schkw_by_sch_nbkws"]:
+            if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
                 # same remark
                 wei *= nodes_normfactors[nidj]
         else:
@@ -1213,6 +1216,7 @@ class BipartiteExtractor:
                 # card(keywords) of this scholar **in the DB**
                 # (because queries take all keywords, it should be equal to scholarsMatrix[term_scholars[k]]['marginal_tot_kws'])
                 info['keywords_nb'] = res3['keywords_nb'];
+                info["normfactor"] = 1/log1p(res3['keywords_nb'])
                 info['keywords_ids'] = res3['keywords_ids'].split(',') if res3['keywords_ids'] else [];
                 info['keywords_list'] = res3['keywords_list'];
                 info['country'] = res3['country'];
@@ -1310,10 +1314,11 @@ class BipartiteExtractor:
             info = {}
             info['kwid'] = idT
             info['occurrences'] = res['occs']   # total occs in the DB
-                                                # (POSS use as normalization)
+                                                # (used as normalization if
+                                                # normalize_schkw_by_kw_totoccs)
             info['kwstr'] = res['kwstr']
 
-            # job counter: how many times a term in cited in job ads
+            # job counter: how many times a term is cited in job ads
             if res['nbjobs']:
                 info['nbjobs'] = int(res['nbjobs'])
                 # mlog("DEBUG", "nbjobs", info['kwstr'], int(res['nbjobs']))
@@ -1372,13 +1377,23 @@ class BipartiteExtractor:
         for scholar in self.scholars:
             if scholar in scholarsMatrix:
                 if len(scholarsMatrix[scholar]['cooc']) >= 1:
+
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
                             target="K::"+str(keyword)
 
-                            # term--scholar weight: constant / log(1+total keywords of scholar)
-                            weight = MATCH_OPTIONS['XR_weight_constant'] / log1p(scholarsMatrix[scholar]['marginal_tot_kws'])
+                            # term--scholar weight: constant * optional factors
+                            weight = MATCH_OPTIONS['XR_weight_constant']
+
+                            # 1/log(1+total_keywords_of_scholar)
+                            if MATCH_OPTIONS['normalize_schkw_by_sch_totkw']:
+                                weight *= self.scholars[scholar]['normfactor']
+
+                            # 1/log(1+total_scholars_of_keyword)
+                            if MATCH_OPTIONS['normalize_schkw_by_kw_totoccs']:
+                                weight *= 1/log1p(self.terms_dict[keyword]['occurrences'])
+
                             self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"bipartite"})
 
         for term in self.terms_dict:
@@ -1636,8 +1651,8 @@ class BipartiteExtractor:
                 node["attributes"] = {}
 
                 # special attribute normalizing factor
-                if MATCH_OPTIONS['normalize_schkw_by_sch_nbkws'] and self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
-                    node["attributes"]["normfactor"] = "%.5f" % (1/log1p(len(self.scholars[idNode]["keywords_ids"])))
+                if self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
+                    node["attributes"]["normfactor"] = self.scholars[idNode]["normfactor"]
                 else:
                     node["attributes"]["normfactor"] = 1
 
