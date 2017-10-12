@@ -333,6 +333,9 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #  Neighs_11 = M1 o M1⁻¹
     #  Neighs_22 = M2⁻¹ o M2
     #
+    # +results with (ii) are filtered by sources that matched a target (for 11)
+    #                                 or targets that matched a source (for 22)
+    #
     # In practice, we will use formula (ii) for Neighs_11,
     #                      and formula (i)  for Neighs_22,
     #   because:
@@ -475,47 +478,76 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #      A  [  M1  ]         square
     #         [      ]        sameside
     sameside_direct_format = """
-        SELECT result.*,
-               -- keywords.kwstr, k2.kwstr,
+        -- the coocWeights operation after reporting sums
+        SELECT dotproduct.*,
+                -- keywords.kwstr, k2.kwstr,
                coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
-            SELECT * FROM (
+            -- reporting sums
+            SELECT nid_i,
+                   nid_j,
+                   coocWeight,
+                   -- all sum_i the same for a nid_i
+                   source_local_sums.localMargSum AS sum_i,
+                   source_local_sums_2.localMargSum AS sum_j
+
+            FROM (
+                -- -----------------------
+                -- grouping (nid_i, nid_j)
+                -- -----------------------
                 SELECT
                     sources.entityID   AS nid_i,
                     sources_2.entityID AS nid_j,
-                    count(*) AS coocWeight,     -- here: how often each distinct pairs i,j was used
-                    max(source_sums.card) AS sum_i,
-                    max(source_sums_2.card) AS sum_j
+                    COUNT(*) AS coocWeight      -- here: how often each distinct pairs i,j was used
                 FROM sources
                 JOIN sources_2
                     ON sources.pivotID = sources_2.pivotID
-                LEFT JOIN source_sums
-                    ON source_sums.sourceID = sources.entityID
-                LEFT JOIN source_sums_2
-                    ON source_sums_2.sourceID = sources_2.entityID
+                WHERE sources.entityID != sources_2.entityID
                 GROUP BY nid_i, nid_j
-            ) AS dotproduct
-            WHERE nid_i != nid_j
-            --  AND coocWeight > %(threshold)i
-        ) AS result
-        -- JOIN keywords ON nid_i = keywords.kwid
-        -- JOIN keywords AS k2 ON nid_j = k2.kwid
+            ) AS source_local_coocs
+            LEFT JOIN source_local_sums
+                ON source_local_sums.nid = nid_i
+            LEFT JOIN source_local_sums_2
+                ON source_local_sums_2.nid = nid_j
+
+        ) AS dotproduct
+            -- WHERE coocWeight > %(threshold)i
+
+             -- JOIN keywords ON nid_i = keywords.kwid
+             -- JOIN keywords AS k2 ON nid_j = k2.kwid
+
         -- ORDER BY jaccardWeight DESC
     """
 
-    # 2a we'll need a copy of the M1 table
+    # 2a we'll need a few elements for the M1 table
     db_c.execute("""
     CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
         SELECT * FROM sources
     );
     CREATE INDEX sem2idx ON sources_2(pivotID, entityID);
+
+    -- prepare sums on M1
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums AS (
+        SELECT
+            entityID AS nid,
+            count(pivotID) AS localMargSum
+        FROM sources
+        GROUP BY entityID
+    );
+    CREATE INDEX slsums_idx ON source_local_sums(nid, localMargSum);
+
+    -- and one more copy
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums_2 AS (
+        SELECT * FROM source_local_sums
+    );
+    CREATE INDEX slsums2_idx ON source_local_sums_2(nid, localMargSum);
     """)
 
     # 2b sameside edges type0 <=> type0
     dot_threshold = 0
-    edges_00_q = sameside_direct_format
 
-    # mlog("DEBUG", "edges_00_q", edges_00_q)
+    edges_00_q = sameside_direct_format
+    mlog("DEBUG", "edges_00_q", edges_00_q)
     db_c.execute(edges_00_q)
     edges_00 = db_c.fetchall()
 
@@ -629,9 +661,12 @@ def multimatch(source_type, target_type, pivot_filters = []):
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
+            # if endtype == source_type:
+            #     print("ed:", ed)
             if not MATCH_OPTIONS["avg_bidirectional_links"]:
                 nidi = make_node_id(endtype, ed['nid_i'])
                 nidj = make_node_id(endtype, ed['nid_j'])
+                # if nidi in graph["nodes"] and nidj in graph["nodes"]:
                 eid  =  nidi+';'+nidj
                 graph["links"][eid] = {
                   's': nidi,
@@ -641,6 +676,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
             else:
                 nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
                 nids = sorted(nids)
+                # if nids[0] in graph["nodes"] and nids[1] in graph["nodes"]:
                 eid  =  nids[0]+';'+nids[1]
                 if eid in graph["links"]:
                     # merging by average like in traditional BipartiteExtractor
