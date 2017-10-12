@@ -94,17 +94,50 @@ FULL_SCHOLAR_SQL = """
             GROUP_CONCAT(hashtags.htstr) AS hashtags_list
 
         FROM (
-          SELECT scholars.*,
-                 -- org info
-                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
-                 GROUP_CONCAT(orgs_set.label) AS orgs_list
-          FROM scholars
-          LEFT JOIN sch_org ON luid = sch_org.uid
-          LEFT JOIN (
-            SELECT * FROM orgs
-          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
-          GROUP BY luid
+            SELECT
+                scholars_and_insts.*,
+                -- small serializations here to avoid 2nd query
+                GROUP_CONCAT(
+                  JSON_ARRAY(labs.name, labs.acro, labs.locname)
+                ) AS labs_list
+            FROM (
+                SELECT
+                    scholars_and_jobs.*,
+                    GROUP_CONCAT(
+                      JSON_ARRAY(insts.name, insts.acro, insts.locname)
+                    ) AS insts_list
+                FROM
+                    (
+                    SELECT scholars.*,
+                           IFNULL(jobs_count.nb_proposed_jobs, 0) AS nb_proposed_jobs,
+                           jobs_count.job_ids,
+                           jobs_count.job_titles
+                    FROM scholars
+                    LEFT JOIN (
+                        SELECT uid,
+                        count(jobid) AS nb_proposed_jobs,
+                        GROUP_CONCAT(jobid) AS job_ids,
+                        GROUP_CONCAT(JSON_QUOTE(jtitle)) AS job_titles
+                        FROM jobs
+                        WHERE job_valid_date >= CURDATE()
+                        GROUP BY uid
+                        ) AS jobs_count ON jobs_count.uid = scholars.luid
+                    ) AS scholars_and_jobs
+                    LEFT JOIN sch_org ON scholars_and_jobs.luid = sch_org.uid
+                    LEFT JOIN (
+                        SELECT * FROM orgs WHERE class = 'inst'
+                    ) AS insts ON sch_org.orgid = insts.orgid
+                GROUP BY luid
+            ) AS scholars_and_insts
+            LEFT JOIN sch_org ON luid = sch_org.uid
+            LEFT JOIN (
+                SELECT * FROM orgs WHERE class = 'lab'
+            ) AS labs ON sch_org.orgid = labs.orgid
+            GROUP BY luid
         ) AS scholars_and_orgs
+
+
+
         LEFT JOIN sch_ht
             ON uid = luid
         LEFT JOIN hashtags

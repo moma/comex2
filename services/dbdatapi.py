@@ -23,12 +23,12 @@ if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                                    DBHashtags, DBCountries
+                                    DBHashtags, DBCountries, Org
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                               DBHashtags, DBCountries
+                               DBHashtags, DBCountries, Org
 
 
 # options work for both matching algorithms (BipartiteExtractor and multimatch)
@@ -650,18 +650,13 @@ def multimatch(source_type, target_type, pivot_filters = []):
     if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
         nodes_normfactors = {}
 
-    # print("nodes_tgt", nodes_tgt)
 
-    for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
+    for ntype, ndata, nclass in [(source_type, nodes_src, o1),(target_type, nodes_tgt, o2)]:
         for nd in ndata:
             nid = make_node_id(ntype, nd['entityID'])
-            graph["nodes"][nid] = {
-              'label': nd['label'],
-              'type': ntype,
-              'size': round(log1p(nd['nodeweight']), 3) if ntype == source_type else 2,
-              'color': '243,183,19' if ntype == source_type else '139,28,28'
-            }
 
+            # node creation (dict of each node to export to json)
+            graph["nodes"][nid] = nclass.formatNode(nd, ntype)
 
             # store optional normalization values
             if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
@@ -934,26 +929,6 @@ def find_scholar(some_key, some_str_value, cmx_db = None):
         db.close()
 
     return luid
-
-
-class Org:
-    " tiny helper class to serialize/deserialize orgs TODO use more OOP :) "
-
-    def __init__(self, org_array, org_class=None):
-        if len(org_array) < 3:
-            raise ValueError("Org is implemented for at least [name, acr, loc]")
-        self.name = org_array[0]
-        self.acro = org_array[1]
-        self.locname = org_array[2]
-        self.org_class = org_class
-
-        # DB specifications say that at least one of name||acr is NOT NULL
-        self.any = self.acro if self.acro else self.name
-        self.label  = (  ( self.name if self.name else "")
-                        + ((' ('+self.acro+')') if self.acro else "")
-                        + ((', '+self.locname) if self.locname else "")
-                        )
-
 
 class BipartiteExtractor:
     """
