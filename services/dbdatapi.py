@@ -249,16 +249,28 @@ def kw_neighbors(uid, db_cursor = None):
 # ==================================
 def multimatch(source_type, target_type, pivot_filters = []):
     """
+    @args:
+      - source_type ∈ {'kw', 'ht'}
+      - target_type ∈ {'sch', 'lab', 'inst', 'country'}
+
+      + optional pivot_filters on scholars table as strings of the form:
+            'WHERE colA IN ("valA1", "valA2") AND colB LIKE "%%valB1%%"'
+
+
     Returns a bipartite graph with:
+
+    - a list of nodes (objects of source_type U related objects of target_type)
 
     - a list of edges between the objects of type 1 and those of type 2,
       via their matching scholars (used as pivot and for filtering)
-
-      => src_type ∈ {kw, ht}
-      => tgt_type ∈ {sch, lab, inst, country}
+      (weights of cross-relations edges use the normalizations of MATCH_OPTIONS)
 
     - 2 lists of internal edges (between type 1 nodes and type 2 nodes resp.)
-    - the list of nodes
+
+    - weights of internal edges use jaccard weights using:
+      => marginal sums of M1[type1 to pivot] and M2[pivot to type2]
+      => coefs of the dotproduct of M1 o M1⁻¹
+                              or of (M1 o M2)⁻¹ o (M1 o M2)
     """
 
     type_map = {
@@ -363,23 +375,23 @@ def multimatch(source_type, target_type, pivot_filters = []):
     matchq = """
     -- filtered pivot
     CREATE TEMPORARY TABLE IF NOT EXISTS pivot_filtered_ids AS (
-        SELECT luid FROM ( %(pfiltersq)s ) AS filtered_on_infos
+        SELECT luid AS pivotID FROM ( %(pfiltersq)s ) AS filtered_on_infos
     );
-    CREATE INDEX filteridx ON pivot_filtered_ids(luid);
+    CREATE INDEX filteridx ON pivot_filtered_ids(pivotID);
 
     -- eg: kw to pivot
     CREATE TEMPORARY TABLE IF NOT EXISTS sources AS (
-        SELECT * FROM (%(sourcesq)s) AS sem_matrix
+        SELECT sem_matrix.* FROM (%(sourcesq)s) AS sem_matrix
         JOIN pivot_filtered_ids
-            ON sem_matrix.pivotID = pivot_filtered_ids.luid
+            ON sem_matrix.pivotID = pivot_filtered_ids.pivotID
     );
     CREATE INDEX semidx ON sources(pivotID, entityID);
 
     -- eg: pivot to orgs
     CREATE TEMPORARY TABLE IF NOT EXISTS targets  AS (
-        SELECT * FROM (%(targetsq)s) AS soc_matrix
+        SELECT soc_matrix.* FROM (%(targetsq)s) AS soc_matrix
         JOIN pivot_filtered_ids
-            ON soc_matrix.pivotID = pivot_filtered_ids.luid
+            ON soc_matrix.pivotID = pivot_filtered_ids.pivotID
     );
     CREATE INDEX socidx ON targets(pivotID, entityID);
 
@@ -435,8 +447,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
             SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
         );
         CREATE INDEX ssums_idx ON source_sums(sourceID, card);
-        -- to do the operations in python
-        -- SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
     """
     tgt_sumsq = """
         -- to do the operations in sql
@@ -444,10 +454,12 @@ def multimatch(source_type, target_type, pivot_filters = []):
             SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
         );
         CREATE INDEX tsums_idx ON target_sums(targetID, card);
-        -- to do the operations in python
-        -- SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
     """
 
+    # several copies needed for self-joining
+    # --------------
+    # cf "You cannot refer to a TEMPORARY table more than once in the same query"
+    # in https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
     do_copies = """
             CREATE TEMPORARY TABLE IF NOT EXISTS source_sums_2 AS (
                 SELECT * FROM source_sums
@@ -551,8 +563,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
     db_c.execute(edges_00_q)
     edges_00 = db_c.fetchall()
 
-    # print("edges_00", edges_00)
-
     # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
     #                         B
     #                x  A [        ]
@@ -652,6 +662,8 @@ def multimatch(source_type, target_type, pivot_filters = []):
               'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
 
+
+            # store optional normalization values
             if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
                 nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
 
@@ -666,7 +678,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
             if not MATCH_OPTIONS["avg_bidirectional_links"]:
                 nidi = make_node_id(endtype, ed['nid_i'])
                 nidj = make_node_id(endtype, ed['nid_j'])
-                # if nidi in graph["nodes"] and nidj in graph["nodes"]:
                 eid  =  nidi+';'+nidj
                 graph["links"][eid] = {
                   's': nidi,
@@ -676,7 +687,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
             else:
                 nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
                 nids = sorted(nids)
-                # if nids[0] in graph["nodes"] and nids[1] in graph["nodes"]:
                 eid  =  nids[0]+';'+nids[1]
                 if eid in graph["links"]:
                     # merging by average like in traditional BipartiteExtractor
