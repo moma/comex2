@@ -174,30 +174,6 @@ var cmxClt = (function(cC) {
                           <p class='topbarselect'>SELECT</p>
                       </li>
                       <li class="dropdown comex-nav-item">
-                        <a id="selected-node0"
-                           class="btn-default nav-inline-selectable"
-                           onclick='$(this).next(".dropdown-menu").toggle();'
-                           >Keywords<i class="caret"></i>
-                        </a>
-                        <ul id="select-node0" class="dropdown-menu">
-                            <li>
-                                <a class="node0-choice" href="#"  data-optval="kw"
-                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
-                                    Keywords
-                                </a>
-                            </li>
-                            <li>
-                                <a class="node0-choice" href="#" data-optval="ht"
-                                   onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
-                                   Community Tags
-                                 </a>
-                            </li>
-                        </ul>
-                      </li>
-                      <li class="comex-nav-item">
-                          <p class='topbarselect'>AND</p>
-                      </li>
-                      <li class="dropdown comex-nav-item">
                         <a id="selected-node1"
                            class="btn-default nav-inline-selectable"
                            onclick='$(this).next(".dropdown-menu").toggle();'
@@ -227,6 +203,30 @@ var cmxClt = (function(cC) {
                                     onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(1,this.dataset.optval);'>
                                     Countries
                                 </a>
+                            </li>
+                        </ul>
+                      </li>
+                      <li class="comex-nav-item">
+                          <p class='topbarselect'>AND</p>
+                      </li>
+                      <li class="dropdown comex-nav-item">
+                        <a id="selected-node0"
+                           class="btn-default nav-inline-selectable"
+                           onclick='$(this).next(".dropdown-menu").toggle();'
+                           >Keywords<i class="caret"></i>
+                        </a>
+                        <ul id="select-node0" class="dropdown-menu">
+                            <li>
+                                <a class="node0-choice" href="#"  data-optval="kw"
+                                    onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                                    Keywords
+                                </a>
+                            </li>
+                            <li>
+                                <a class="node0-choice" href="#" data-optval="ht"
+                                   onclick='$(this).parents(".dropdown-menu").toggle();whoswho.select(0,this.dataset.optval);'>
+                                   Community Tags
+                                 </a>
                             </li>
                         </ul>
                       </li>
