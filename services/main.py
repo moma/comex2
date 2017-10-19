@@ -246,6 +246,29 @@ def aggs_api():
 
 
 
+
+# /services/api/jobmatch
+@app.route(config['PREFIX'] + config['API_ROUTE'] + '/jobmatch')
+def jobmatch():
+    """
+    Demo API for a custom multimatch graph on keywords pivot
+
+    POSS: factorize with multimatch by making params from pivot (and filters ?)
+    """
+    graph = {'links':{}, 'nodes':{}}
+    try:
+        graph = dbdatapi.jobmatch()
+    except():
+        pass
+
+    return(
+        Response(
+            response=dumps(graph),
+            status=200,
+            mimetype="application/json")
+        )
+
+
 # /services/api/multimatch
 @app.route(config['PREFIX'] + config['API_ROUTE'] + '/multimatch')
 def multimatch_graph_api():
@@ -295,7 +318,7 @@ def multimatch_graph_api():
                     '('+','.join([str(nei["uid"]) for nei in neighbors])+')'
                 )]
 
-        print("query => SQL", sql_filters)
+        mlog("INFO","query => SQL", sql_filters)
         graph = dbdatapi.multimatch(
                     type0,
                     type1,

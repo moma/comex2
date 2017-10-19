@@ -146,13 +146,18 @@ class DBInsts(DBEntity):
           }
         }
 
-
 class DBKeywords(DBEntity):
     """
     keywords from keywords table
     """
-    def toPivot(self):
-        return "SELECT uid AS pivotID, kwid AS entityID FROM sch_kw"
+    def toPivot(self, pivotType = "scholars"):
+        # normal multimatch case
+        if pivotType == "scholars":
+            return "SELECT uid AS pivotID, kwid AS entityID FROM sch_kw"
+
+        # when keywords are themselves the pivot
+        elif pivotType == "keywords":
+            return "SELECT kwid AS pivotID, kwid AS entityID FROM keywords"
 
     def getInfos(self):
         return """
@@ -162,8 +167,11 @@ class DBKeywords(DBEntity):
                        nbjobs
                 FROM keywords
                 LEFT JOIN (
-                    SELECT kwid, count(kwid) AS nbjobs
+                    SELECT job_kw.kwid, count(job_kw.jobid) AS nbjobs
                     FROM job_kw
+                     LEFT JOIN jobs
+                        ON jobs.jobid = job_kw.jobid
+                     WHERE jobs.job_valid_date >= CURDATE()
                     GROUP BY kwid
                 ) AS jobcounts ON jobcounts.kwid = keywords.kwid
                 """
@@ -175,7 +183,8 @@ class DBKeywords(DBEntity):
           'size': round(log1p(nd['nodeweight']), 3),
           'color': '200,20,19',
           'attributes': {
-            'total_occurrences': nd['nodeweight'],
+             # we add 1 for keywords in jobs but with no occs among scholars
+            'total_occurrences': 1 + nd['nodeweight'],
             'nbjobs':            nd['nbjobs']
           }
         }
@@ -227,6 +236,7 @@ class DBCountries(DBEntity):
             }
         }
 
+
 class DBScholars(DBEntity):
     """
     scholars from scholars table
@@ -254,6 +264,7 @@ class DBScholars(DBEntity):
             ) AS full_scholar
             """ % FULL_SCHOLAR_SQL
 
+    @classmethod
     def toHTML(self,string):
         escaped = escape(string).encode("ascii", "xmlcharrefreplace").decode()
         return escaped
@@ -366,12 +377,137 @@ class DBScholars(DBEntity):
           'type': ntype,
           'size': 2,
           'color': color,
-          'content': self.toHTML(content),
+          'content': DBScholars.toHTML(content),
           'attributes': {
             'country':   nd['country'] if nd['country'] else "-",
             'ACR':   nd['org'] if nd['org'] else "-",
           }
         }
+
+
+class DBJobs(DBEntity):
+    """
+    The only use case at this point is as container of helper functions for DBScholarsAndJobs
+    """
+    def getInfos(self):
+        return """
+        SELECT
+            jobs.jobid AS entityID,
+            CONCAT(jobs.jobid, "-", IFNULL(jobs.jtitle, "")) AS label,
+            COUNT(job_kw.kwid) AS nodeweight,
+            jobs.*
+        FROM jobs
+        LEFT JOIN job_kw
+            ON job_kw.jobid = jobs.jobid
+        GROUP BY jobs.jobid
+        """
+
+    def formatNode(self, nd, ntype):
+        return {
+          'label': nd['label'],
+          'type': ntype,
+          'size': round(log1p(log1p(nd['nodeweight'])), 3),
+           'color': '136,42,164',   # violet
+           'attributes': {
+            }
+        }
+
+
+class DBScholarsAndJobs(DBEntity):
+    """
+    Job-looking scholars and jobs as one entity with pivot == keywords
+                                                     -----------------
+
+    (allows simplified job-candidate matchmaking via their common keywords)
+
+    cf board.iscpif.fr/project/22/task/334
+    """
+    def toPivot(self, pivotType = 'keywords'):
+        if pivotType != 'keywords':
+            raise NotImplementedError
+        else:
+            return """
+            SELECT * FROM (
+                (SELECT
+                    job_kw.jobid AS entityID,
+                    job_kw.kwid AS pivotID,
+                    'job' AS subtype
+                 FROM job_kw
+                 LEFT JOIN jobs
+                    ON jobs.jobid = job_kw.jobid
+                 WHERE jobs.job_valid_date >= CURDATE()
+                 )
+                UNION
+                (SELECT
+                    uid AS entityID,
+                    kwid AS pivotID,
+                    'sch' AS subtype
+                 FROM sch_kw
+                 LEFT JOIN scholars
+                    ON sch_kw.uid = scholars.luid
+                 WHERE scholars.job_looking = TRUE
+                  AND (
+                        scholars.job_looking_date IS NULL
+                     OR
+                        scholars.job_looking_date >= CURDATE()
+                      )
+                  AND (
+                        record_status = 'active'
+                      OR
+                        (record_status = 'legacy' AND valid_date >= NOW())
+                      )
+                 )
+             ) AS jobs_and_candidates
+            """
+
+    def getInfos(self, subtype="sch"):
+        """
+        Special case: 2 x getInfos respectively of jobs     (custom)
+                                               and scholars (inherited)
+
+        => to distinguish their properties will get a subtype-specific prefix
+             ex  2 cols "sch_infos.country" and "job_infos.country"
+        """
+        if subtype == "sch":
+            return DBScholars.getInfos(self)
+        elif subtype == "job":
+            return DBJobs.getInfos(self)
+
+    def formatNode(self, nd, ntype):
+
+        # print("PRE DATA", nd)
+
+        # remove subquery prefix from property names
+        if nd['subtype'] == "sch":
+            ok_ns='sch_infos.'
+            ko_ns='job_infos.'
+        elif nd['subtype'] == "job":
+            ok_ns='job_infos.'
+            ko_ns='sch_infos.'
+        else:
+            raise Exception("wrong subtype:", nd['subtype'])
+        strlen_ok_ns = len(ok_ns)
+        strlen_ko_ns = len(ko_ns)
+
+        # "sch_infos.label" => "label", etc
+        clean_ndata = {}
+        for key in nd:
+            # shorten relevent ones
+            if key[0:strlen_ok_ns] == ok_ns:
+                clean_key = key[strlen_ok_ns:]
+                clean_ndata[clean_key] = nd[key]
+
+        # overwrite in nd
+        for key in clean_ndata:
+            nd[key] = clean_ndata[key]
+
+        # print("CLEAN DATA", nd)
+
+        # forward to parent function
+        if nd['subtype'] == "sch":
+            return DBScholars.formatNode(self, nd, ntype)
+        elif nd['subtype'] == "job":
+            return DBJobs.formatNode(self, nd, ntype)
 
 
 class Org:

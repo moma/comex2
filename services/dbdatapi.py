@@ -23,12 +23,12 @@ if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                                    DBHashtags, DBCountries, Org
+                                    DBHashtags, DBCountries, DBScholarsAndJobs, Org
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                               DBHashtags, DBCountries, Org
+                               DBHashtags, DBCountries, DBScholarsAndJobs, Org
 
 
 # options work for both matching algorithms (BipartiteExtractor and multimatch)
@@ -51,6 +51,22 @@ MATCH_OPTIONS = {
 
     # weight of sch-kw XR edges divided by log(1+keyword["total_occs"])
     "normalize_schkw_by_kw_totoccs": True
+}
+
+# for multi-matching
+TYPE_MAP = {
+    # entities that support *scholar* pivot
+    "lab" :  DBLabs,
+    "inst" : DBInsts,
+    "ht" :   DBHashtags,
+    "country" :   DBCountries,
+
+    # entities that support *keyword* pivot
+    "jobs_and_candidates" : DBScholarsAndJobs,
+
+    # entities that support both pivots
+    "sch" :  DBScholars,
+    "kw" :   DBKeywords
 }
 
 
@@ -99,6 +115,7 @@ FIELDS_FRONTEND_TO_SQL = {
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
+
 
 # explorer REST "filters" syntax => sql "WHERE" constraints on scholars
 # =====================================================================
@@ -273,23 +290,14 @@ def multimatch(source_type, target_type, pivot_filters = []):
                               or of (M1 o M2)⁻¹ o (M1 o M2)
     """
 
-    type_map = {
-        "sch" :  DBScholars,
-        "lab" :  DBLabs,
-        "inst" : DBInsts,
-        "kw" :   DBKeywords,
-        "ht" :   DBHashtags,
-        "country" :   DBCountries,
-    }
-
     # unsupported entities
-    if ( source_type not in type_map
-      or target_type not in type_map ):
+    if ( source_type not in TYPE_MAP
+      or target_type not in TYPE_MAP ):
         return []
 
     # instanciating appropriate DBEntity class
-    o1 = type_map[source_type]()
-    o2 = type_map[target_type]()
+    o1 = TYPE_MAP[source_type]()
+    o2 = TYPE_MAP[target_type]()
 
     db = connect_db()
     db_c = db.cursor(DictCursor)
@@ -622,6 +630,24 @@ def multimatch(source_type, target_type, pivot_filters = []):
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
 
+    # example edge result
+    # +-------+-------+------------+-------+-------+---------------+
+    # | nid_i | nid_j | coocWeight | sum_i | sum_j | jaccardWeight |
+    # +-------+-------+------------+-------+-------+---------------+
+    # |    17 |    26 |          2 |     4 |     3 |        0.4000 |
+    # |    25 |    27 |          1 |     2 |     4 |        0.2000 |
+    # |    25 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    26 |    17 |          2 |     3 |     4 |        0.4000 |
+    # |    26 |    31 |          1 |     3 |     3 |        0.2000 |
+    # |    27 |    25 |          1 |     4 |     2 |        0.2000 |
+    # |    28 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    30 |    25 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    28 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    32 |          1 |     3 |     2 |        0.2500 |
+    # |    31 |    26 |          1 |     3 |     3 |        0.2000 |
+    # |    32 |    30 |          1 |     2 |     3 |        0.2500 |
+    # +-------+-------+------------+-------+-------+---------------+
+
     # print("edges_11", edges_11)
 
     # 4 - we use DBEntity.getInfos() to build node sets (attach node info to id)
@@ -640,7 +666,9 @@ def multimatch(source_type, target_type, pivot_filters = []):
     nodes_tgt = db_c.fetchall()
 
     # connection close also removes the temp tables
+    #                       -----------------------
     db.close()
+
 
     # build the graph structure (POSS: reuse Sam's networkx Graph object ?)
     graph = {}
@@ -719,6 +747,462 @@ def multimatch(source_type, target_type, pivot_filters = []):
         }
 
     return graph
+
+
+
+
+# jobmatch()
+# ----------
+def jobmatch():
+    """
+    This is a customized and simpler version of multimatch where the pivot is
+    keywords and target is an sql union of jobs and job-looking scholars.
+
+    The pivots here are the keywords !
+
+    They allow constructing the similarity between the job description and the
+    job candidates.
+
+    We use the fact that scholars and jobs both have their own related keywords:
+      - sch_kw
+      - job_kw
+
+    Returns a bipartite graph with:
+    - nodes (type 1 keywords U type 2 (jobs+job-looking scholars))
+    - a list of XR edges between the objects of composite type 2
+      and their related keywords
+    - 2 lists of internal edges
+    """
+    # source and target type are fixed for jobmatch()
+    source_type = "keywords"
+    target_type = "jobs_and_candidates"
+    o1 = DBKeywords()
+    o2 = DBScholarsAndJobs()
+
+    db = connect_db()
+    db_c = db.cursor(DictCursor)
+
+    subq1 = o1.toPivot(pivotType = "keywords")
+    subq2 = o2.toPivot(pivotType = "keywords")
+
+    # threshold = 1 if target_type != 'sch' else 0
+    threshold = 0
+
+    matchq = """
+
+    --  keywords
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources AS (
+        %(sourcesq)s
+    );
+    CREATE INDEX semidx ON sources(pivotID, entityID);
+
+    -- keywords to (jobs+candidates)
+    CREATE TEMPORARY TABLE IF NOT EXISTS targets  AS (
+        %(targetsq)s
+    );
+    CREATE INDEX socidx ON targets(pivotID, entityID);
+
+
+    -- =============
+    -- matching part (aka XR table)
+    -- =============
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table AS (
+        SELECT * FROM (
+            SELECT count(sources.pivotID) as weight,
+                   sources.entityID AS sourceID,
+                   targets.entityID AS targetID
+            FROM sources
+            -- target entities as type1 nodes
+            LEFT JOIN targets
+                ON sources.pivotID = targets.pivotID
+            GROUP BY sourceID, targetID
+            ) AS match_table
+        WHERE match_table.weight > %(threshold)i
+          AND sourceID IS NOT NULL
+          AND targetID IS NOT NULL
+
+    );
+    CREATE INDEX mt1idx ON match_table(sourceID, targetID);
+    """ % {
+            'sourcesq': subq1,
+            'targetsq': subq2,
+            'threshold': threshold
+    }
+
+    mlog("DEBUG", "jobmatch sql query", matchq)
+
+    # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
+    db_c.execute(matchq)
+
+    # 1 - fetch it
+    db_c.execute("SELECT * FROM match_table")
+    edges_XR = db_c.fetchall()
+    len_XR = len(edges_XR)
+
+
+    # intermediate step: create marginal sums (for each source its cardinality in pivots)
+    #                                         (for each target its cardinality in pivots)
+    #
+    # => these sums will be used as |Ai| and |Bj|
+    #     to "jaccardize" the cooc similarities
+    #    (cooc sims are equivalent to |Ai ∩ Bj|)
+
+    src_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS source_sums AS (
+            SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
+        );
+        CREATE INDEX ssums_idx ON source_sums(sourceID, card);
+    """
+    tgt_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS target_sums AS (
+            SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
+        );
+        CREATE INDEX tsums_idx ON target_sums(targetID, card);
+    """
+
+    # several copies needed for self-joining
+    # --------------
+    # cf "You cannot refer to a TEMPORARY table more than once in the same query"
+    # in https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
+    do_copies = """
+            CREATE TEMPORARY TABLE IF NOT EXISTS source_sums_2 AS (
+                SELECT * FROM source_sums
+            );
+            CREATE INDEX ssums2_idx ON source_sums_2(sourceID, card);
+            CREATE TEMPORARY TABLE IF NOT EXISTS target_sums_2 AS (
+                SELECT * FROM target_sums
+            );
+            CREATE INDEX tsums2_idx ON target_sums_2(targetID, card);
+    """
+
+    mlog("DEBUG", "margsums sources sql query", src_sumsq)
+    mlog("DEBUG", "margsums targets sql query", tgt_sumsq)
+
+    db_c.execute(src_sumsq)
+    db_c.execute(tgt_sumsq)
+    db_c.execute(do_copies)   # <= because apparently can't use an alias ?
+
+    # ...or to do the operations in python
+    # src_sums = db_c.fetchall()
+    # tgt_sums = db_c.fetchall()
+
+    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+    #                           A
+    #              x  pivot [        ]
+    #           pivot       [   M1   ]
+    #         [      ]
+    #      A  [  M1  ]         square
+    #         [      ]        sameside
+    sameside_direct_format = """
+        -- the coocWeights operation after reporting sums
+        SELECT dotproduct.*,
+                -- keywords.kwstr, k2.kwstr,
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
+        FROM (
+            -- reporting sums
+            SELECT nid_i,
+                   nid_j,
+                   coocWeight,
+                   -- all sum_i the same for a nid_i
+                   source_local_sums.localMargSum AS sum_i,
+                   source_local_sums_2.localMargSum AS sum_j
+
+            FROM (
+                -- -----------------------
+                -- grouping (nid_i, nid_j)
+                -- -----------------------
+                SELECT
+                    sources.entityID   AS nid_i,
+                    sources_2.entityID AS nid_j,
+                    COUNT(*) AS coocWeight      -- here: how often each distinct pairs i,j was used
+                FROM sources
+                JOIN sources_2
+                    ON sources.pivotID = sources_2.pivotID
+                WHERE sources.entityID != sources_2.entityID
+                GROUP BY nid_i, nid_j
+            ) AS source_local_coocs
+            LEFT JOIN source_local_sums
+                ON source_local_sums.nid = nid_i
+            LEFT JOIN source_local_sums_2
+                ON source_local_sums_2.nid = nid_j
+
+        ) AS dotproduct
+            -- WHERE coocWeight > %(threshold)i
+
+             -- JOIN keywords ON nid_i = keywords.kwid
+             -- JOIN keywords AS k2 ON nid_j = k2.kwid
+
+        -- ORDER BY jaccardWeight DESC
+    """
+
+    # 2a we'll need a few elements for the M1 table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
+        SELECT * FROM sources
+    );
+    CREATE INDEX sem2idx ON sources_2(pivotID, entityID);
+
+    -- prepare sums on M1
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums AS (
+        SELECT
+            entityID AS nid,
+            count(pivotID) AS localMargSum
+        FROM sources
+        GROUP BY entityID
+    );
+    CREATE INDEX slsums_idx ON source_local_sums(nid, localMargSum);
+
+    -- and one more copy
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums_2 AS (
+        SELECT * FROM source_local_sums
+    );
+    CREATE INDEX slsums2_idx ON source_local_sums_2(nid, localMargSum);
+    """)
+
+    # 2b sameside edges type0 <=> type0
+    dot_threshold = 0
+
+    edges_00_q = sameside_direct_format
+    mlog("DEBUG", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
+
+    # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
+    #                         B
+    #                x  A [        ]
+    #             A       [   XR   ]
+    #         [      ]
+    #      B  [  XR  ]       square
+    #         [      ]      sameside
+
+    # nid_type is the output (eg entity type B)
+    # transi_type disappears in the operation
+    sameside_indirect_format = """
+        SELECT dotproduct.*,
+               -- scholars.email, s2.email,
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
+        FROM (
+            SELECT
+                match_table.%(nid_type)s   AS nid_i,
+                match_table_2.%(nid_type)s AS nid_j,
+                sum(
+                    match_table.weight * match_table_2.weight
+                ) AS coocWeight,
+                max(sums_1.card) AS sum_i,
+                max(sums_2.card) AS sum_j
+            FROM match_table
+            JOIN match_table_2
+                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+            LEFT JOIN %(nid_type_sums)s AS sums_1
+                ON sums_1.%(nid_type)s = match_table.%(nid_type)s
+            LEFT JOIN %(nid_type_sums)s_2 AS sums_2
+                ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
+            GROUP BY nid_i, nid_j
+        ) AS dotproduct
+                -- JOIN scholars ON nid_i = scholars.luid
+                -- JOIN scholars AS s2 ON nid_j = s2.luid
+        WHERE nid_i != nid_j
+                --  AND jaccardWeight > %(threshold)i
+                -- ORDER BY jaccardWeight DESC
+    """
+
+    # 3a we'll need a copy of the XR table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
+        SELECT * FROM match_table
+    );
+    CREATE INDEX mt2idx ON match_table_2(sourceID, targetID);
+    """)
+
+    # 3b sameside edges type1 <=> type1
+    dot_threshold = .2
+    # mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
+
+    edges_11_q = sameside_indirect_format % {'nid_type': "targetID",
+                                          'transi_type': "sourceID",
+                                        'nid_type_sums': "target_sums",
+                                            'threshold': dot_threshold}
+    mlog("DEBUG", "edges_11_q", edges_11_q)
+    db_c.execute(edges_11_q)
+    edges_11 = db_c.fetchall()
+
+    # example edge result
+    # +-------+-------+------------+-------+-------+---------------+
+    # | nid_i | nid_j | coocWeight | sum_i | sum_j | jaccardWeight |
+    # +-------+-------+------------+-------+-------+---------------+
+    # |    17 |    26 |          2 |     4 |     3 |        0.4000 |
+    # |    25 |    27 |          1 |     2 |     4 |        0.2000 |
+    # |    25 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    26 |    17 |          2 |     3 |     4 |        0.4000 |
+    # |    26 |    31 |          1 |     3 |     3 |        0.2000 |
+    # |    27 |    25 |          1 |     4 |     2 |        0.2000 |
+    # |    28 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    30 |    25 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    28 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    32 |          1 |     3 |     2 |        0.2500 |
+    # |    31 |    26 |          1 |     3 |     3 |        0.2000 |
+    # |    32 |    30 |          1 |     2 |     3 |        0.2500 |
+    # +-------+-------+------------+-------+-------+---------------+
+
+    # print("edges_11", edges_11)
+
+    # 4 - we use DBEntity.getInfos() to build node sets (attach node info to id)
+    get_nodes_sql = """
+        SELECT entity_infos.*
+        FROM (   %(entity_infos_q)s   ) AS entity_infos
+        -- filter by the matched ids
+        JOIN (
+            SELECT %(id_field)s AS ID FROM match_table
+            GROUP BY %(id_field)s
+        ) AS matched_ids
+            ON matched_ids.ID = entity_infos.entityID
+    """
+
+    # node infos for entities of respective ID tables 'sources' and 'targets'
+    node_infos = {}
+
+    for ntype, ntable, nidfield, nclass in [
+            (source_type, 'sources', 'sourceID', o1),
+            (target_type, 'targets', 'targetID', o2)
+        ]:
+
+        nds_q = get_nodes_sql % {
+            'id_field': nidfield,
+            'id_table': ntable,
+            'entity_infos_q': nclass.getInfos(),
+        }
+
+        # spec case: jobs_and_candidates need subtype from their toPivot table
+        #                                 and 2 x getInfos subqueries
+        if ntype == "jobs_and_candidates":
+            nds_q_with_class = """
+                -- spec start from the toPivot ntable ("targets" table)
+                --                (it's the only that has the subtype field)
+                SELECT target_entities.*,
+                       job_infos.*,
+                       sch_infos.*
+                FROM (
+                  SELECT entityID, max(subtype) AS subtype FROM targets
+                  GROUP BY entityID
+                ) AS target_entities
+
+                -- filter by the matched ids
+                JOIN (
+                    SELECT targetID AS ID FROM match_table
+                    GROUP BY targetID
+                ) AS matched_ids
+                    ON matched_ids.ID = target_entities.entityID
+
+                -- getInfos for jobs entities (NULL for scholars)
+                LEFT JOIN (
+                    %(entity_infos_q_for_jobs)s
+                ) AS job_infos
+                    ON job_infos.jobid = target_entities.entityID
+
+                -- getInfos for scholars (NULL for jobs)
+                LEFT JOIN (
+                    %(entity_infos_q_for_scholars)s
+                ) AS sch_infos
+                    ON sch_infos.entityID = target_entities.entityID
+            """ % {
+                    'entity_infos_q_for_scholars': nclass.getInfos(subtype="sch"),
+                    'entity_infos_q_for_jobs': nclass.getInfos(subtype="job")
+                 }
+            nds_q = nds_q_with_class
+
+        # in all cases
+        mlog("DEBUGSQL", "nds_q (for %s)" % ntable, nds_q)
+        db_c.execute(nds_q)
+        node_infos[ntable] = db_c.fetchall()
+
+    # connection close also removes the temp tables
+    #                       -----------------------
+    db.close()
+
+    # mlog("DEBUG", "node_infos", node_infos)
+
+    # build the graph structure (POSS: reuse Sam's networkx Graph object ?)
+    graph = {}
+    graph["nodes"] = {}
+    graph["links"] = {}
+
+    if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+        nodes_normfactors = {}
+
+    for ntype, ntable, nclass in [(source_type, 'sources', o1),(target_type, 'targets', o2)]:
+        ndata = node_infos[ntable]
+        # mlog("DEBUG", "ntype", ntype)
+        for nd in ndata:
+            nid = make_node_id(ntype, nd['entityID'])
+
+            # node creation (dict of each node to export to json)
+            graph["nodes"][nid] = nclass.formatNode(nd, ntype)
+
+            # store optional normalization values
+            if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
+                nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
+
+            if ntype == 'kw' and MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+                # if kw then nodeweight is the total of scholars with the kw
+                nodes_normfactors[nid] = 1 / log1p(nd['nodeweight'])
+
+    for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
+        for ed in edata:
+            # if endtype == source_type:
+            #     print("ed:", ed)
+            if not MATCH_OPTIONS["avg_bidirectional_links"]:
+                nidi = make_node_id(endtype, ed['nid_i'])
+                nidj = make_node_id(endtype, ed['nid_j'])
+                eid  =  nidi+';'+nidj
+                graph["links"][eid] = {
+                  's': nidi,
+                  't': nidj,
+                  'w': float(round(ed['jaccardWeight'], 5))
+                }
+            else:
+                nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
+                nids = sorted(nids)
+                eid  =  nids[0]+';'+nids[1]
+                if eid in graph["links"]:
+                    # merging by average like in traditional BipartiteExtractor
+                    # (NB just taking the sum would also make sense)
+                    graph["links"][eid]["w"] = round((graph["links"][eid]["w"] + float(ed['jaccardWeight']))/2, 5)
+                else:
+                    graph["links"][eid] = {
+                      's': nids[0],
+                      't': nids[1],
+                      'w': float(round(ed['jaccardWeight'], 5))
+                    }
+
+    for ed in edges_XR:
+        nidi = make_node_id(source_type, ed['sourceID'])
+        nidj = make_node_id(target_type, ed['targetID'])
+        eid  =  nidi+';'+nidj
+        wei  = MATCH_OPTIONS['XR_weight_constant'] * ed['weight']
+
+        if source_type == 'kw' and target_type == 'sch':
+            if MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+                # different than jaccard normalization by sum_i because normfactor counted on all DB
+                wei *= nodes_normfactors[nidi]
+            if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
+                # same remark
+                wei *= nodes_normfactors[nidj]
+        else:
+            wei = float(round(
+                    MATCH_OPTIONS['XR_weight_constant'] * ed['weight'], 5
+                ))
+
+        graph["links"][eid] = {
+          's': nidi,
+          't': nidj,
+          'w': float(round(wei, 5))
+        }
+
+    return graph
+
+
 
 
 def make_node_id(type, id):
