@@ -21,7 +21,7 @@ class DBEntity:
     def init(self, entityName):
         pass
 
-    def toPivot(self):
+    def toPivot(self, pivotType):
         """
         SQL to get the list of DBEntities with their association to a pivotID
 
@@ -68,14 +68,19 @@ class DBLabs(DBEntity):
     """
     organizations from orgs table, of the "lab" class
     """
-    def toPivot(self):
-        return """
-        SELECT uid AS pivotID, orgs.orgid AS entityID
-        FROM sch_org
-        LEFT JOIN orgs
-            ON orgs.orgid = sch_org.orgid
-        WHERE orgs.class = "lab" AND orgs.name != "_NULL"
-        """
+    def toPivot(self, pivotType):
+        sqlq = None
+        if pivotType == 'scholars':
+            sqlq = """
+            SELECT uid AS pivotID, orgs.orgid AS entityID
+            FROM sch_org
+            LEFT JOIN orgs
+                ON orgs.orgid = sch_org.orgid
+            WHERE orgs.class = "lab" AND orgs.name != "_NULL"
+            """
+        else:
+            raise TypeError("the DBLabs entity is only related to scholars pivot in our DB structure.")
+        return sqlq
 
     def getInfos(self):
         return """
@@ -111,14 +116,19 @@ class DBInsts(DBEntity):
     """
     organizations from orgs table, of the "institution" class
     """
-    def toPivot(self):
-        return """
-        SELECT uid AS pivotID, orgs.orgid AS entityID
-        FROM sch_org
-        LEFT JOIN orgs
-            ON orgs.orgid = sch_org.orgid
-        WHERE orgs.class = "inst"
-        """
+    def toPivot(self, pivotType):
+        sqlq = None
+        if pivotType == 'scholars':
+            sqlq = """
+            SELECT uid AS pivotID, orgs.orgid AS entityID
+            FROM sch_org
+            LEFT JOIN orgs
+                ON orgs.orgid = sch_org.orgid
+            WHERE orgs.class = "inst"
+            """
+        else:
+            raise TypeError("the DBInsts entity is only related to scholars pivot in our DB structure.")
+        return sqlq
 
     def getInfos(self):
         return """
@@ -159,11 +169,16 @@ class DBKeywords(DBEntity):
         elif pivotType == "keywords":
             return "SELECT kwid AS pivotID, kwid AS entityID FROM keywords"
 
+
     def getInfos(self):
+        """
+        We add one to nodeweight like a Laplace smoothing for the case
+        when job adds reference a new keyword that would have 0 occurrences.
+        """
         return """
                 SELECT keywords.kwid AS entityID,
                        keywords.kwstr AS label,
-                       keywords.occs AS nodeweight,
+                       keywords.occs + 1 AS nodeweight,
                        nbjobs
                 FROM keywords
                 LEFT JOIN (
@@ -184,7 +199,7 @@ class DBKeywords(DBEntity):
           'color': '200,20,19',
           'attributes': {
              # we add 1 for keywords in jobs but with no occs among scholars
-            'total_occurrences': 1 + nd['nodeweight'],
+            'total_occurrences': nd['nodeweight'],
             'nbjobs':            nd['nbjobs']
           }
         }
@@ -193,8 +208,13 @@ class DBHashtags(DBEntity):
     """
     hashtags from hashtags table
     """
-    def toPivot(self):
-        return "SELECT uid AS pivotID, htid AS entityID FROM sch_ht"
+    def toPivot(self, pivotType):
+        sqlq = None
+        if pivotType == 'scholars':
+            sqlq = "SELECT uid AS pivotID, htid AS entityID FROM sch_ht"
+        else:
+            raise TypeError("the DBHashtags entity is only related to scholars pivot in our DB structure.")
+        return sqlq
 
     def getInfos(self):
         return """
@@ -219,8 +239,13 @@ class DBCountries(DBEntity):
     """
     countries from scholars table
     """
-    def toPivot(self):
-        return "SELECT luid AS pivotID, country AS entityID FROM scholars"
+    def toPivot(self, pivotType):
+        sqlq = None
+        if pivotType == 'scholars':
+            sqlq = "SELECT luid AS pivotID, country AS entityID FROM scholars"
+        else:
+            raise TypeError("the DBCountry entity only implements relation with scholars as pivot.")
+        return sqlq
 
     def getInfos(self):
         return "SELECT country AS entityID, country AS label, count(luid) AS nodeweight FROM scholars GROUP BY country"
@@ -242,8 +267,16 @@ class DBScholars(DBEntity):
     scholars from scholars table
     """
 
-    def toPivot(self):
-        return "SELECT luid AS pivotID, luid AS entityID FROM scholars"
+    def toPivot(self, pivotType):
+        sqlq = None
+        if pivotType == 'scholars':
+            sqlq = "SELECT luid AS pivotID, luid AS entityID FROM scholars"
+        elif pivotType == 'keywords':
+            sqlq = "SELECT kwid AS pivotID, uid AS entityID FROM sch_kw"
+        else:
+            raise TypeError("the DBScholars entity only implements relation with itself or keywords as pivots.")
+
+        return sqlq
 
     def getInfos(self):
         """
@@ -394,7 +427,7 @@ class DBJobs(DBEntity):
         SELECT
             jobs.jobid AS entityID,
             CONCAT(jobs.jobid, "-", IFNULL(jobs.jtitle, "")) AS label,
-            COUNT(job_kw.kwid) AS nodeweight,
+            1 AS nodeweight,
             jobs.*
         FROM jobs
         LEFT JOIN job_kw
@@ -403,11 +436,17 @@ class DBJobs(DBEntity):
         """
 
     def formatNode(self, nd, ntype):
+        title = nd['jtitle'] if nd['jtitle'] else "no title"
+        content = "<div class=information-others>"
+        content += "<a href=\"/services/job/"+str(nd['jobid'])+"\" target=\"_blank\">See the job ("+ title +")</a>"
+        content += '</div>'
+
         return {
           'label': nd['label'],
           'type': ntype,
-          'size': round(log1p(log1p(nd['nodeweight'])), 3),
-           'color': '136,42,164',   # violet
+          'size': 3,
+           'color': '136,42,164',                      # violet,
+           'content': DBScholars.toHTML(content),      # link
            'attributes': {
             }
         }

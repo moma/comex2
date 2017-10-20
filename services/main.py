@@ -278,7 +278,7 @@ def multimatch_graph_api():
     """
     graph = {'links':{}, 'nodes':{}}
 
-    supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
+    supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country", "jobs_and_candidates"]
 
     # default types
     type0 = 'kw'
@@ -287,10 +287,15 @@ def multimatch_graph_api():
     # constraints
     sql_filters = []
 
+    # default pivot
+    pivot_type = 'scholars'
+
     if 'type0' in request.args and 'type1' in request.args:
         type0 = request.args['type0']
         type1 = request.args['type1']
-        mlog("INFO", "multimatch query for", type0, type1)
+        if 'pivot_type' in request.args and request.args['pivot_type'] in ['scholars', 'keywords']:
+            pivot_type = request.args['pivot_type']
+        mlog("INFO", "multimatch query for", type0, type1, 'via', pivot_type)
 
     if type0 in supported_types and type1 in supported_types:
 
@@ -322,7 +327,8 @@ def multimatch_graph_api():
         graph = dbdatapi.multimatch(
                     type0,
                     type1,
-                    sql_filters
+                    pivot_filters = sql_filters,
+                    pivot_type = pivot_type
                 )
 
     return(
