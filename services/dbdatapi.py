@@ -319,6 +319,10 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     subq1 = o1.toPivot(pivotType = pivot_type)
     subq2 = o2.toPivot(pivotType = pivot_type)
 
+    # def parameter for the sameside edges of type1
+    # ('indirect' vs 'direct')
+
+
     # additional filter step: the middle pivot step allows filtering pivots
     #                         by any information that can be related to it
     subqmidfilters = ''
@@ -326,6 +330,9 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
         subqmidfilters = "WHERE " + " AND ".join(pivot_filters)
 
     if pivot_type == 'scholars':
+        # default method is direct (faster)
+        sem_edge_method = 'direct'
+
         # make some columns available for filtering
         # luid
         # country
@@ -342,6 +349,10 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                     %s
         """ % (FULL_SCHOLAR_SQL, subqmidfilters)
     elif pivot_type == 'keywords':
+        # flag to use the (i) formula for sameside keywords
+        # (when keywords are pivots they can't provide direct links with themselves)
+        sem_edge_method = 'indirect'
+
         # for keywords (used in job matching) we have only 3 fields for filter: label (LIKE), n_occs, nb_jobs
         subqmid =  """
                     SELECT * FROM keywords
@@ -375,7 +386,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     # +results with (ii) are filtered by sources that matched a target (for 11)
     #                                 or targets that matched a source (for 22)
     #
-    # In practice, we will use formula (ii) for Neighs_11,
+    # In practice, we will use formula (ii) for Neighs_11 except if pivot is keywords,
     #                      and formula (i)  for Neighs_22,
     #   because:
     #     - type_1 ∈ {kw, ht}
@@ -562,7 +573,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
         -- ORDER BY jaccardWeight DESC
     """
 
-    # 2a we'll need a few elements for the M1 table
+    # 2 prepare a few elements for the sameside edges
     db_c.execute("""
     CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
         SELECT * FROM sources
@@ -585,14 +596,6 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     );
     CREATE INDEX slsums2_idx ON source_local_sums_2(nid, localMargSum);
     """)
-
-    # 2b sameside edges type0 <=> type0
-    dot_threshold = 0
-
-    edges_00_q = sameside_direct_format
-    mlog("DEBUG", "edges_00_q", edges_00_q)
-    db_c.execute(edges_00_q)
-    edges_00 = db_c.fetchall()
 
     # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
     #                         B
@@ -640,6 +643,20 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     );
     CREATE INDEX mt2idx ON match_table_2(sourceID, targetID);
     """)
+
+
+    # sameside edges type0 <=> type0
+    if (sem_edge_method == "direct"):
+        edges_00_q = sameside_direct_format
+    else:
+        dot_threshold = 0
+        edges_00_q = sameside_indirect_format % {'nid_type': "sourceID",
+                                              'transi_type': "targetID",
+                                            'nid_type_sums': "source_sums",
+                                                'threshold': dot_threshold}
+    mlog("DEBUG", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
 
     # 3b sameside edges type1 <=> type1
     dot_threshold = 1
