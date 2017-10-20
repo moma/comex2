@@ -177,6 +177,13 @@ function syncRemoteGraphData () {
                     let typeName = TW.APIQuery[fieldName]
                     restParams.push("type"+itype+"="+typeName)
                   }
+                  // optional pivotType
+                  else if (fieldName == "_pivot_type") {
+                    let pivotType = TW.APIQuery[fieldName]
+                    if (pivotType == "scholars" || pivotType == "keywords") {
+                      restParams.push("pivot_type="+pivotType)
+                    }
+                  }
                   // an array of filters
                   else {
                     var nameSubElts = []
@@ -198,19 +205,6 @@ function syncRemoteGraphData () {
                   thedata = "qtype=filters&query=*"
                   mapLabel = "(ENTIRE NETWORK)"
               }
-          }
-
-          // Assigning name for the network
-          if (! mapLabel) {
-              elements = []
-              queryarray = JSON.parse(ourGetUrlParam.nodeidparam)
-              for(var i in queryarray) {
-                  item = queryarray[i]
-                  if(Array.isArray(item) && item.length>0) {
-                      for(var j in item) elements.push(item[j])
-                  }
-              }
-              mapLabel = '"'+elements.join('" , "')+'"';
           }
 
           var bridgeRes = AjaxSync({ url: theurl, data:thedata, type:'GET' })
