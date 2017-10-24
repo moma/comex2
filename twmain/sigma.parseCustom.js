@@ -839,6 +839,9 @@ function dictfyGexf( gexf , categories ){
             if ( atts["category"] ) {
               node_cat = atts["category"];
             }
+            else if ( atts["type"] ) {
+              node_cat = atts["type"];
+            }
             else {
               // basic TW type idx is 0 (~ terms if one type, doc if both types)
               node_cat = categories[0]
@@ -1161,14 +1164,13 @@ function dictfyJSON( data , categories ) {
         node.id = (n.id) ? n.id : nid ; // use the key if no id
         node.label = (n.label)? n.label : ("node_"+node.id) ;
         node.size = (n.size)? n.size : 3 ;
-        node.type = (n.type)? n.type : "Document" ;
         node.x = (n.x)? n.x : 500-Math.random()*1000;
         node.y = (n.y)? n.y : 500-Math.random()*1000;
-        node.color = (n.color)? n.color : "#FFFFFF" ;
+        node.color = (n.color)? n.color : TW.gui.defaultNodeColor ;
         if(n.shape) node.shape = n.shape;
         if(n.attributes) node.attributes = n.attributes
         else             node.attributes = {}
-        node.type = (n.type)? n.type : categories[0] ;
+        node.type = n.type ? n.type : (n.category ? n.category : categories[0])
 
         // any content to display on side panel (eg: comex v-card)
         node.htmlCont = n.content || '';
@@ -1269,14 +1271,6 @@ function dictfyJSON( data , categories ) {
       }
     }
 
-    // £TODO this could be a call to clusterColoring()
-    TW.gui.colorList.sort(function(){ return Math.random()-0.5; });
-    for (var i in nodes ){
-        if (nodes[i].color=="#FFFFFF") {
-            var attval = ( isUndef(nodes[i].attributes) || isUndef(nodes[i].attributes["clust_default"]) )? 0 : nodes[i].attributes["clust_default"] ;
-            nodes[i].color = TW.gui.colorList[ attval ]
-        }
-    }
 
 
     // for stats on edges, by type
