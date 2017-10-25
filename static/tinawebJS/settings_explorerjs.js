@@ -6,9 +6,11 @@ TW.conf = (function(TW){
 
   let TWConf = {}
 
-  TWConf.branding = 'Community Explorer 2'  // <--- name displayed in upper left
-  TWConf.brandingLink = 'https://communityexplorer.org'   // <--- link to "home"
-
+  TWConf.branding = {
+    'name': 'ProjectExplorer',   // <--- name displayed in upper left
+    'link': 'http://iscpif.fr',                         // home  link
+    'video': 'https://player.vimeo.com/video/38383946'  // video link
+  }
 
   // ==========================
   // TINA POSSIBLE DATA SOURCES
@@ -127,8 +129,8 @@ TW.conf = (function(TW){
   TWConf.legendsBins = 7
 
   // to normalize node sizes (larger range does increase visual size difference)
-  TWConf.desirableNodeSizeMin=1;
-  TWConf.desirableNodeSizeMax=10;
+  TWConf.desirableNodeSizeMin=100;
+  TWConf.desirableNodeSizeMax=105;
 
 
   // =============
@@ -152,7 +154,6 @@ TW.conf = (function(TW){
     'sourceFile': null,              // server: 1 default gexf|json graph source
     'sourceMenu': "static/tinawebJS/server_menu.json" // ...or server: a gexf|json sources list
   }
-  Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
 
   // Active modules
   // --------------
@@ -189,9 +190,10 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=4000;    // duration of auto-run
+    TWConf.fa2Milliseconds=900;     // constant factor in duration of auto-run
     TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional log(nEdges)
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
+    TWConf.fa2SlowerMeso = true     // slow down meso if few nodes
 
 
   // Full-text search
@@ -213,6 +215,13 @@ TW.conf = (function(TW){
 
   TWConf.overSampling = true      // hi-def rendering (true => pixelRatio x 2)
                                   // (/!\ costly)
+
+  TWConf.stablePositions = true    // remember overall positions for all types
+                                   //    (and when layouts are called,
+                                   //     all types are moving together
+                                   //      even when some are hidden)
+
+  TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
   // sigma rendering settings
   // ------------------------
@@ -299,6 +308,8 @@ TW.conf = (function(TW){
     logSelections: false
   }
 
+  Object.freeze(TWConf.paths)  // /!\ to prevent path modification before load
+  Object.freeze(TWConf.branding)  // idem
 
   return TWConf
 })()

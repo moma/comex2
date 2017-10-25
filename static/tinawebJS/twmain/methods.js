@@ -31,6 +31,8 @@ TW.pushGUIState = function( args ) {
     // neighbors (of any type) and their edges in an .selectionRels[type] slot
     if(!isUndef(args.rels))          newState.selectionRels = args.rels;
 
+    // POSS1: add common changeGraphAppearanceByFacets effects inside this function
+
     // POSS2: add filterSliders params to be able to recreate subsets at a given time
     //      cf. usage of TW.partialGraph.graph.nodes() as current scope in changeType
     //            and n.hidden usage in sliders
@@ -95,6 +97,10 @@ TW.resetGraph = function() {
   // and set tabs to none
   resetTabs()
 
+  // reset colors legends for all types
+  if (TW.categories && TW.categories.length)
+    updateColorsLegend(null, TW.categories)
+
   // call the sigma graph clearing
   TW.instance.clearSigma()
 
@@ -108,9 +114,6 @@ TW.resetGraph = function() {
   // reset other gui flags
   TW.gui.checkBox=false
   TW.gui.lastFilters = {}
-
-  // reset colors legends
-  updateColorsLegend()
 
   // forget the states
   TW.states = [TW.initialSystemState]
@@ -393,15 +396,15 @@ function deselectNodes(aSystemState){
       console.log("deselecting using SystemState's lists")
 
     for(let i in sels) {
-      let nid = sels[i]
+      let n = TW.partialGraph.graph.nodes(sels[i])
 
-      if (!TW.partialGraph.graph.nodes(nid)) continue
+      if (!n || n.hidden) continue
 
       // mark as unselected!
-      TW.partialGraph.graph.nodes(nid).customAttrs.active = 0
+      n.customAttrs.active = 0
 
       // for only case legend highlight...
-      TW.partialGraph.graph.nodes(nid).customAttrs.highlight = 0
+      n.customAttrs.highlight = 0
     }
 
     // active relations
@@ -412,17 +415,17 @@ function deselectNodes(aSystemState){
       for (var srcnid in rels[reltyp]) {
         for (var tgtnid in rels[reltyp][srcnid]) {
           let tgt = TW.partialGraph.graph.nodes(tgtnid)
-          if (tgt) {
+          if (tgt && !tgt.hidden) {
             tgt.customAttrs.highlight = 0
             let eid1 = `${srcnid};${tgtnid}`
             let eid2 = `${tgtnid};${srcnid}`
 
             let e1 = TW.partialGraph.graph.edges(`${srcnid};${tgtnid}`)
-            if(e1) {
+            if(e1 && !e1.hidden) {
               e1.customAttrs.activeEdge = 0
             }
             let e2 = TW.partialGraph.graph.edges(`${tgtnid};${srcnid}`)
-            if(e2) {
+            if(e2 && !e2.hidden) {
               e2.customAttrs.activeEdge = 0
             }
           }
@@ -431,7 +434,7 @@ function deselectNodes(aSystemState){
     }
 }
 
-
+// called by tagcloud neighbors
 function manualForceLabel(nodeid, flagToSet, justHover) {
   let nd = TW.partialGraph.graph.nodes(nodeid)
 
@@ -690,58 +693,27 @@ function prepareNodesRenderingProperties(nodesDict) {
     // and quite enough in precision !!
     n.size = Math.round(n.size*sizeFactor*1000)/1000
 
-    // new initial setup of properties
-
-    var rgba, rgbStr, invalidFormat = false;
-
-    if (n.color) {
-      // rgb[a] color string ex: "19,180,244"
-      if (/^\d{1,3},\d{1,3},\d{1,3}$/.test(n.color)) {
-        rgba = n.color.split(',')
-        if (rgba.length = 3) {
-          rgbStr = n.color
-          rgba.push(255)
-        }
-        else if (rgba.length == 4) {
-          rgbStr = rgba.splice(0, 3).join(',');
-        }
-        else {
-          invalidFormat = true
-        }
-      }
-      // hex color ex "#eee or #AA00AA"
-      else if (/^#[A-Fa-f0-9]{3,6}$/.test(n.color)) {
-        rgba = hex2rgba(n.color)
-        rgbStr = rgba.splice(0, 3).join(',');
-      }
-      else {
-        invalidFormat = true
-      }
-    }
-    else {
-      invalidFormat = true
-    }
-
-    if (!invalidFormat) {
-      n.color = `rgb(${rgbStr})`
-    }
-    else {
-      // will not be modified
-      n.color = TW.conf.sigmaJsDrawingProperties.defaultNodeColor
-      rgbStr = n.color.split(',').splice(0, 3).join(',');
-    }
-
+    // rendering status flags
     n.customAttrs = {
-      // status flags
       active: false,              // when selected
       highlight: false,           // when neighbors or legend's click
-
-      // default unselected color
-      defgrey_color : "rgba("+rgbStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")",
 
       // will be used for repainting (read when TW.gui.handpickedcolors flags)
       alt_color: null,
       altgrey_color: null,
+    }
+
+    // rgb color string ex: "19,180,244"
+    var rgbStr = normalizeColorFormat(n.color)
+
+    // n.color will not be modified
+    if (rgbStr) {
+      n.color = `rgb(${rgbStr})`
+      n.customAttrs.defgrey_color = "rgba("+rgbStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")"
+    }
+    else {
+      n.color = TW.gui.defaultNodeColor
+      n.customAttrs.defgrey_color = TW.gui.defaultGreyNodeColor
     }
 
     // POSS n.type: distinguish rendtype and twtype
@@ -768,7 +740,7 @@ function prepareEdgesRenderingProperties(edgesDict, nodesDict) {
 
 
 // use case: slider, changeLevel re-add nodes
-function add1Elem(id) {
+function add1Elem(id, optionalAttrsToAssign) {
     id = ""+id;
 
     if(id.split(";").length==1) { // i've received a NODE
@@ -777,22 +749,14 @@ function add1Elem(id) {
         if(!isUndef(TW.partialGraph.graph.nodes(id))) return;
 
         if(TW.Nodes[id]) {
-            var n = TW.Nodes[id]
+            let n = {}
 
-            // WE AVOIDED A COPY HERE BECAUSE properties are already complete
-            // ... however, TODO check if we shouldn't remove the n.attributes Obj
-
-            // var anode = {}
-            // anode.id = n.id;
-            // anode.label = n.label;
-            // anode.size = n.size;
-            // anode.x = n.x;
-            // anode.y = n.y;
-            // anode.hidden= n.lock ;
-            // anode.type = n.type;
-            // anode.color = n.color;
-            // if( n.shape ) n.shape = n.shape;
-            // anode.customAttrs = n.customAttrs
+            if (typeof optionalAttrsToAssign == "object" && optionalAttrsToAssign) {
+              n = Object.assign({}, TW.Nodes[id], optionalAttrsToAssign)
+            }
+            else {
+              n = TW.Nodes[id]
+            }
 
             // if(Number(anode.id)==287) console.log("coordinates of node 287: ( "+anode.x+" , "+anode.y+" ) ")
 
@@ -805,8 +769,7 @@ function add1Elem(id) {
         }
     } else { // It's an edge!
         if(!isUndef(TW.partialGraph.graph.edges(id))) return;
-        var e  = TW.Edges[id]
-        if(e){
+        if(TW.Edges[id]){
             // var anedge = {
             //     id:         id,
             //     source: e.source,
@@ -820,6 +783,15 @@ function add1Elem(id) {
             //     customAttrs : e.customAttrs
             // };
 
+            let e = {}
+
+            if (typeof optionalAttrsToAssign == "object" && optionalAttrsToAssign) {
+              e = Object.assign({}, TW.Edges[id], optionalAttrsToAssign)
+            }
+            else {
+              e = TW.Edges[id]
+            }
+
             // TW.partialGraph.graph.addEdge(anedge);
             TW.partialGraph.graph.addEdge(e);
             return;
@@ -828,71 +800,57 @@ function add1Elem(id) {
 }
 
 
+// read the saveGraph form and pass to exporters
 function saveGraph() {
 
-    let size = getByID("check_size").checked
-    let color = getByID("check_color").checked
-    let atts = {"size":size,"color":color}
-
-    if(getByID("fullgraph").checked) {
-        saveGEXF ( TW.Nodes , TW.Edges , atts);
+    let options = {
+      'filterHidden': getByID("visgraph").checked,
+      'exportVizAttrs': getByID("check_viz_attrs").checked,
+      'exportDataAttrs': getByID("check_data_attrs").checked
     }
 
-    if(getByID("visgraph").checked) {
-        saveGEXF ( TW.partialGraph.graph.nodes() , TW.partialGraph.graph.edges(), atts )
-    }
+    // POSSible: add other exporters with the same options
+    // cf. xlsx or json exporers in linkurious.js/tree/develop/plugins/
+    saveGEXF ( TW.partialGraph, options );
 
     $("#closesavemodal").click();
 }
 
 
-// £TODO: we should use https://github.com/Linkurious/linkurious.js/tree/develop/plugins/sigma.exporters.gexf
-function saveGEXF(nodes,edges,atts){
-    let gexf = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    gexf += '<gexf xmlns="http://www.gexf.net/1.1draft" xmlns:viz="http://www.gephi.org/gexf/viz" version="1.1">\n';
-    gexf += '<graph defaultedgetype="undirected" type="static">\n';
-    gexf += '<attributes class="node" type="static">\n';
-    gexf += ' <attribute id="0" title="category" type="string">  </attribute>\n';
-    gexf += ' <attribute id="1" title="country" type="float">    </attribute>\n';
-    //gexf += ' <attribute id="2" title="content" type="string">    </attribute>\n';
-    //gexf += ' <attribute id="3" title="keywords" type="string">   </attribute>\n';
-    //gexf += ' <attribute id="4" title="weight" type="float">   </attribute>\n';
-    gexf += '</attributes>\n';
-    gexf += '<attributes class="edge" type="float">\n';
-    gexf += ' <attribute id="6" title="type" type="string"> </attribute>\n';
-    gexf += '</attributes>\n';
-    gexf += "<nodes>\n";
+// save via the linkurious plugin from the authors of sigmajs
+//               -----------------
+// github.com/Linkurious/linkurious.js/tree/develop/plugins/sigma.exporters.gexf
+function saveGEXF(sigmaInst, opts) {
 
-    for(var n in nodes){
+  // prepare (make sure we always preserve the 'type' attribute)
+  // -------
+  for (var j in TW.Nodes) {
+    let n = TW.partialGraph.graph.nodes(TW.Nodes[j].id)
+    if (n) {
+      // the properties under n.attributes will be saved => copy type inside it
+      if (opts['exportDataAttrs']) {
+        n.attributes.type = n.type
+      }
+      // no properties would be saved => copy type in a tempo dict to pass as nodeAttributes
+      else {
+        n._tempo = {'type': n.type}
+      }
+    }
+  }
 
-        gexf += '<node id="'+nodes[n].id+'" label="'+nodes[n].label+'">\n';
-        gexf += ' <viz:position x="'+nodes[n].x+'"    y="'+nodes[n].y+'"  z="0" />\n';
-        if(atts["color"]) gexf += ' <viz:size value="'+nodes[n].size+'" />\n';
-        if(atts["color"]) {
-            if (nodes[n].color && nodes[n].color.charAt(0) == '#') {
-              col = hex2rgba(nodes[n].color);
-              gexf += ' <viz:color r="'+col[0]+'" g="'+col[1]+'" b="'+col[2]+'" a='+col[3]+'/>\n';
-            }
-        }
-        gexf += ' <attvalues>\n';
-        gexf += ' <attvalue for="0" value="'+nodes[n].type+'"/>\n';
-        gexf += ' <attvalue for="1" value="'+TW.Nodes[nodes[n].id].CC+'"/>\n';
-        gexf += ' </attvalues>\n';
-        gexf += '</node>\n';
-    }
-    gexf += "\n</nodes>\n";
-    gexf += "<edges>\n";
-    let cont = 1;
-    for(var e in edges){
-        gexf += '<edge id="'+cont+'" source="'+edges[e].source+'"  target="'+edges[e].target+'" weight="'+edges[e].weight+'">\n';
-        gexf += '<attvalues> <attvalue for="6" value="'+edges[e].label+'"/></attvalues>';
-        gexf += '</edge>\n';
-        cont++;
-    }
-    gexf += "\n</edges>\n</graph>\n</gexf>";
-    let uriContent = "data:application/octet-stream," + encodeURIComponent(gexf);
-    let newWindow=window.open(uriContent, 'neuesDokument');
+  // save
+  // ----
+  sigmaInst.toGEXF({
+    creator: 'Sigma.js + ISCPIF ProjectExplorer',
+    filename: opts['filename'] ? opts['filename'] : 'ProjectExplorerGraph.gexf',
+    download: true,
+    renderer: opts['exportVizAttrs'] ? sigmaInst.renderers[0] : null,
+    nodeAttributes: opts['exportDataAttrs'] ? 'attributes' : '_tempo',
+    edgeAttributes: null,
+    filterHidden: opts['filterHidden']
+  });
 }
+
 
 function saveGraphIMG(){
     TW.rend.snapshot({
@@ -911,33 +869,66 @@ function saveGraphIMG(){
 // first call (startForceAtlas2 or configForceAtlas2)
 // but it keeps its own node index (as byteArray) and
 // so needs to be recreated when nodes change
-function reInitFa2 (params) {
-  if (!params)  params = {}
-
+function reInitFa2 (params = {}) {
   sigma_utils.ourStopFA2()
+  TW.partialGraph.killForceAtlas2()
 
-  if (params.useSoftMethod) {
-    // soft method: we just update FA2 internal index
-    // (is good enough if new nodes are subset of previous nodes)
-    TW.partialGraph.supervisor.graphToByteArrays()
+  // after 150ms to let killForceAtlas2 finish
+  setTimeout ( function() {
+    // start from a copy of the standard params
+    let theseFA2Params = Object.assign({}, TW.FA2Params)
+
+    // tweak FA2 config
+    // ----------------
+    if (params.typeAdapt) {
+      let semTypeOn = Boolean(TW.SystemState().activetypes[0])
+      theseFA2Params.gravity = semTypeOn ? TW.FA2Params.gravity * 3 : TW.FA2Params.gravity
+      theseFA2Params.iterationsPerRender = semTypeOn ? 4 : 32
+      theseFA2Params.slowDown = semTypeOn ? .4 : .8
+    }
+
+    // meso: skipHidden, no gravity, no barnesHut, slightly larger scalingRatio.
+    if (params.localZoneSettings) {
+      theseFA2Params.skipHidden = true
+      // gravity not needed in meso: no drift b/c always 1 connected component
+      theseFA2Params.gravity = 0
+      theseFA2Params.barnesHutOptimize = false
+      theseFA2Params.scalingRatio = theseFA2Params.scalingRatio * 1.5
+      theseFA2Params.edgeWeightInfluence = .85
+
+      // adjust slowDown in local zone (off by default)
+      params.sizeadapt = TW.conf.fa2SlowerMeso
+    }
+
+    // when skipHidden though not in meso (eg when independantTypes or sliders and !stablePositions)
+    if (params.skipHidden || !TW.conf.stablePositions) {
+      theseFA2Params.skipHidden = true
+    }
+
+    // POSS: speed adjust for small graphs
+    if (params.sizeadapt) {
+      let nNds
+      if (theseFA2Params.skipHidden) {
+        nNds = getVisibleNodes().length
+      }
+      else {
+        nNds = TW.partialGraph.graph.nNodes()
+      }
+      // slowDown default is 1.5 but optimal effect is when adapting
+      theseFA2Params.slowDown = Math.max(.2,parseInt(1500/nNds)/100)
+      // slowDown of 15/n:                          ^^^^^^^^^
+      //                                         5    for  3 nodes
+      //                                         1    for 15 nodes
+      //                                          .2  for 75 nodes and more
+      console.debug("nNodes, slowDown", nNds, theseFA2Params.slowDown)
+    }
+
+    // apply persistent conf
+    TW.partialGraph.configForceAtlas2(theseFA2Params)
 
     // now cb
     if (params.callback) {
       params.callback()
     }
-  }
-  else {
-    TW.partialGraph.killForceAtlas2()
-
-    // after 1s to let killForceAtlas2 finish
-    setTimeout ( function() {
-      // init FA2
-      TW.partialGraph.configForceAtlas2(TW.FA2Params)
-
-      // now cb
-      if (params.callback) {
-        params.callback()
-      }
-    }, 1000)
-  }
+  }, 150)
 }
