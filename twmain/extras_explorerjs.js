@@ -26,20 +26,23 @@ TW.sigmaAttributes = {
 function updateDynamicFacets(optionalFilter) {
     let autoVals = {}
     for (var icat in TW.categories) {
-      let nodecat = TW.categories[icat]
-      autoVals[nodecat] = {}
-      for (var autoAttr in TW.sigmaAttributes) {
-        if (!optionalFilter || autoAttr == optionalFilter) {
-          autoVals[nodecat][autoAttr] = {'map':{},'vals':{'vstr':[],'vnum':[]}}
-          let getVal = TW.sigmaAttributes[autoAttr](TW.partialGraph)
-          for (var nid of TW.ByType[icat]) {
-            let nd = TW.partialGraph.graph.nodes(nid)
-            if (nd) {
-              let val = getVal(TW.partialGraph.graph.nodes(nid))
-              if (! (val in autoVals[nodecat][autoAttr].map))
-                autoVals[nodecat][autoAttr].map[val] = []
-              autoVals[nodecat][autoAttr].map[val].push(nid)
-              autoVals[nodecat][autoAttr].vals.vnum.push(val)
+      if (TW.SystemState().activetypes[icat]) {
+        let nodecat = TW.categories[icat]
+        autoVals[nodecat] = {}
+        for (var autoAttr in TW.sigmaAttributes) {
+          if (!optionalFilter || autoAttr == optionalFilter) {
+            autoVals[nodecat][autoAttr] = {'map':{},'vals':{'vstr':[],'vnum':[]}}
+            let getVal = TW.sigmaAttributes[autoAttr](TW.partialGraph)
+            for (var nid of TW.ByType[icat]) {
+              let nd = TW.partialGraph.graph.nodes(nid)
+              if (nd && !nd.hidden) {
+                let val = getVal(TW.partialGraph.graph.nodes(nid))
+                if (! (val in autoVals[nodecat][autoAttr].map))
+                  // a list of nids for each distinct values
+                  autoVals[nodecat][autoAttr].map[val] = []
+                autoVals[nodecat][autoAttr].map[val].push(nid)
+                autoVals[nodecat][autoAttr].vals.vnum.push(val)
+              }
             }
           }
         }
@@ -47,17 +50,44 @@ function updateDynamicFacets(optionalFilter) {
     }
 
     // console.log("reparse dynamic attr, raw result", autoVals)
-
     let autoFacets = facetsBinning(autoVals)
+    // console.log("reparse dynamic attr, binned result", autoFacets)
+
     // merge them into clusters
-    for (var nodecat in TW.catDict) {
-      for (var autoAttr in TW.sigmaAttributes) {
-        for (var facet in autoFacets[nodecat]) {
+    //  - new popu counts for ticks and new labels (to update in menus+legend)
+    //  - but preserve last color (for stability with previous view)
+    for (var nodecat in autoFacets) {
+
+      if (!TW.Facets[nodecat])  TW.Facets[nodecat] = {}
+
+      for (var facet in autoFacets[nodecat]) {
+        // first time: simple copy
+        if (   !TW.Facets[nodecat][facet]
+            || !TW.Facets[nodecat][facet].invIdx
+            || !TW.Facets[nodecat][facet].invIdx.length ) {
           TW.Facets[nodecat][facet] = autoFacets[nodecat][facet]
+        }
+        // otherwise recycle old legend entries
+        // (inheriting last colors feels coherent between views meso<=>macro)
+        else {
+          let last_colors = []
+          for (var i_prev in TW.Facets[nodecat][facet].invIdx) {
+            last_colors.push(TW.Facets[nodecat][facet].invIdx[i_prev].col)
+          }
+
+          // new legend entries allow
+          for (var i_new in autoFacets[nodecat][facet].invIdx) {
+            TW.Facets[nodecat][facet].invIdx[i_new] = autoFacets[nodecat][facet].invIdx[i_new]
+
+            // skipped iff new nb of bins (which will trigger recoloring anyway)
+            if (last_colors[i_new]) {
+              TW.Facets[nodecat][facet].invIdx[i_new].col = last_colors[i_new]
+            }
+          }
+
         }
       }
     }
-
 }
 
 // Execution:    changeGraphAppearanceByFacets( true )
@@ -196,7 +226,7 @@ function RunLouvain(cb) {
 
     for(var i in results) {
       let n = TW.partialGraph.graph.nodes(i) // <= new way: like all other colors
-      if (n) {
+      if (n && !n.hidden) {
         n.attributes["clust_louvain"] = results[i]
       }
 
@@ -275,7 +305,8 @@ function SomeEffect( ValueclassCode ) {
     // we still filter it due to Level or sliders filters
     filteredNodes = TW.Facets[nodeType][cluType].invIdx[iClu].nids.filter(
       function(nid){
-        return Boolean(TW.partialGraph.graph.nodes(nid))
+        let n = TW.partialGraph.graph.nodes(nid)
+        return Boolean(n && !n.hidden)
       }
     )
 
@@ -284,7 +315,10 @@ function SomeEffect( ValueclassCode ) {
         {nodes: filteredNodes}
       )
     }
-    TW.partialGraph.refresh()
+    else {
+      cancelSelection()
+    }
+    // TW.partialGraph.refresh()
 }
 
 // some colorings cases also modify size and label
@@ -306,9 +340,8 @@ function graphResetAllColors() {
 
 // removes selectively for an array of nodetypes
 function clearColorLegend (forTypes) {
-  // console.log('clearColorLegend', forTypes)
   for (var ty of forTypes) {
-    let legTy = document.getElementById("legend-for-"+ty)
+    let legTy = document.getElementById("legend-for-"+TW.catDict[ty])
     if (legTy)
       legTy.remove()
   }
@@ -338,7 +371,7 @@ function updateColorsLegend ( daclass, forTypes, groupedByTicks ) {
 
     for (var k in forTypes) {
       let curType = forTypes[k]
-      var LegendDiv = "<div id=legend-for-"+curType+" class=\"over-panels my-legend\">"
+      var LegendDiv = "<div id=legend-for-"+TW.catDict[curType]+" class=\"over-panels my-legend\">"
 
       // all infos in a bin array
       var legendInfo = []
@@ -489,7 +522,7 @@ function updateColorsLegend ( daclass, forTypes, groupedByTicks ) {
         LegendDiv += '    </div>'
         LegendDiv += '  </div>'
 
-        let perhapsPreviousLegend = document.getElementById("legend-for-"+curType)
+        let perhapsPreviousLegend = document.getElementById("legend-for-"+TW.catDict[curType])
         if (perhapsPreviousLegend) {
           perhapsPreviousLegend.outerHTML = LegendDiv
         }
@@ -878,6 +911,51 @@ function renderTweet( tweet) {
     return html;
 }
 
+function showStats(){
+  let statsHtml = ''
+  if (TW.stats.dataLoadTime) {
+    statsHtml += '<h5 class=stats-title>Data loading</h5>'
+    statsHtml += `<b>${parseInt(TW.stats.dataLoadTime)} ms</b>`
+  }
+
+  let statCols = ['min','median', 'mean', 'max']
+  if (TW.stats.nodeSize && typeof TW.stats.nodeSize == "object") {
+    let ntypes = Object.keys(TW.stats.nodeSize)
+    if (ntypes.length) {
+      ntypes.sort()
+      statsHtml += '<h5 class=stats-title>Node sizes</h5>'
+      for (var ntype in TW.stats.nodeSize) {
+        statsHtml += `<b>${ntype} (${TW.stats.nodeSize[ntype].len})</b>`
+        statsHtml += `<table class=stats-table>`
+        for (var k in statCols) {
+          let prop = statCols[k]
+          statsHtml +=`<tr><td class=stats-prop>${prop}</td>`
+          statsHtml += `<td>${parseInt(TW.stats.nodeSize[ntype][prop]*10000)/10000}</td></tr>`
+        }
+        statsHtml += `</table>`
+      }
+    }
+  }
+  if (TW.stats.edgeWeight && typeof TW.stats.edgeWeight == "object") {
+    let categs = Object.keys(TW.stats.edgeWeight)
+    if (categs.length) {
+      statsHtml += '<h5 class=stats-title>Edge weights</h5>'
+      for (var categ in TW.stats.edgeWeight) {
+        statsHtml += `<b>${categ} (${TW.stats.edgeWeight[categ].len})</b>`
+        statsHtml += `<table class=stats-table>`
+        for (var k in statCols) {
+          let prop = statCols[k]
+          statsHtml +=`<tr><td class=stats-prop>${prop}</td>`
+          statsHtml += `<td>${parseInt(TW.stats.edgeWeight[categ][prop]*10000)/10000}</td></tr>`
+        }
+        statsHtml += `</table>`
+      }
+    }
+  }
+  return statsHtml
+}
+
+
 function getTips(){
     text =
         "<br>"+
@@ -939,7 +1017,7 @@ function circleTrackMouse(e) {
       let toRedraw = []
       for (var k in exactNodeset) {
         let n = TW.partialGraph.graph.nodes(exactNodeset[k])
-        if(n[pfx+'size'] > (TW.customSettings.labelThreshold / 3)) {
+        if(!n.hidden && n[pfx+'size'] > (TW.customSettings.labelThreshold / 3)) {
           toRedraw.push(n)
         }
       }

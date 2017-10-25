@@ -839,6 +839,9 @@ function dictfyGexf( gexf , categories ){
             if ( atts["category"] ) {
               node_cat = atts["category"];
             }
+            else if ( atts["type"] ) {
+              node_cat = atts["type"];
+            }
             else {
               // basic TW type idx is 0 (~ terms if one type, doc if both types)
               node_cat = categories[0]
@@ -884,7 +887,7 @@ function dictfyGexf( gexf , categories ){
 
     // console.warn ('parseCustom output nodes', nodes)
 
-    console.warn ('parseCustom inverted index: vals to srcType', tmpVals)
+    // console.warn ('parseCustom inverted index: vals to srcType', tmpVals)
 
 
     // -------------- debug: for local stats ----------------
@@ -916,7 +919,9 @@ function dictfyGexf( gexf , categories ){
       // normal case => rescaling
       else {
         for(var nid in nodes){
-            nodes[nid].size = parseInt(1000 * ((parseFloat(nodes[nid].size) - minNodeSize) / realSizeRange * desiSizeRange + TW.conf.desirableNodeSizeMin)) / 1000
+            nodes[nid].size = parseInt(1000 * desiSizeRange * (parseFloat(nodes[nid].size) - minNodeSize) / realSizeRange + TW.conf.desirableNodeSizeMin) / 1000
+
+          // console.log("new size", nid, nodes[nid].size)
         }
       }
     }
@@ -986,8 +991,8 @@ function dictfyGexf( gexf , categories ){
                                               source, target )
 
 
-              // boost crossrels edges
-              if (edge.categ == "XR")   edge.weight *= 1.5
+              // boost crossrels edges: off (we do it in source app)
+              // if (edge.categ == "XR")   edge.weight *= 10
 
               // save
               if(!edges[target+";"+source])
@@ -1143,6 +1148,11 @@ function dictfyJSON( data , categories ) {
     let minNodeSize = Infinity
     let maxNodeSize = 0
 
+    // debug: for TW.stats
+    let allSizes = {}
+    let sumSizes = {}
+    TW.stats.nodeSize = {}
+
     // if scanAttributes, we'll also use:
     var tmpVals = {}
 
@@ -1154,14 +1164,13 @@ function dictfyJSON( data , categories ) {
         node.id = (n.id) ? n.id : nid ; // use the key if no id
         node.label = (n.label)? n.label : ("node_"+node.id) ;
         node.size = (n.size)? n.size : 3 ;
-        node.type = (n.type)? n.type : "Document" ;
-        node.x = (n.x)? n.x : Math.random();
-        node.y = (n.y)? n.y : Math.random();
-        node.color = (n.color)? n.color : "#FFFFFF" ;
+        node.x = (n.x)? n.x : 500-Math.random()*1000;
+        node.y = (n.y)? n.y : 500-Math.random()*1000;
+        node.color = (n.color)? n.color : TW.gui.defaultNodeColor ;
         if(n.shape) node.shape = n.shape;
         if(n.attributes) node.attributes = n.attributes
         else             node.attributes = {}
-        node.type = (n.type)? n.type : categories[0] ;
+        node.type = n.type ? n.type : (n.category ? n.category : categories[0])
 
         // any content to display on side panel (eg: comex v-card)
         node.htmlCont = n.content || '';
@@ -1170,12 +1179,18 @@ function dictfyJSON( data , categories ) {
         node.CC = n.CC || '';
         node.ACR = n.ACR || '';
 
-        // £TODO REFA new sigma.js: shape is not attr but custom type linked to a renderer's name
-        // node.shape = "square";
+        // TODO make a [weight, term_occ] and [type, category] as members of a
+        //      class param: lists of alternate names for important attributes
+        //      alt_attribute_string => get()+transform_values() (here and gexf)
 
-        // £TODO generalize some alternate names in here and maybe gexf
-        if (n.term_occ) {
-          node.size = Math.sqrt(Number(n.term_occ))
+        // alternate name: weight
+        if (n.weight && !n.size) {
+          node.size = n.weight
+        }
+
+        // alternate name: term_occ ==> zipfean nodes ==> log transform to keep label size range readable yet significant
+        if (n.term_occ && !n.size) {
+          node.size = Math.log(1+Number(n.term_occ))
         }
 
         if(parseFloat(node.size) < minNodeSize)
@@ -1183,6 +1198,20 @@ function dictfyJSON( data , categories ) {
 
         if(parseFloat(node.size) > maxNodeSize)
             maxNodeSize= parseFloat(node.size);
+
+        // debug: for stats  ---------------------------
+        if (! TW.stats.nodeSize[node.type]) {
+          allSizes[node.type] = []
+          sumSizes[node.type] = 0
+          TW.stats.nodeSize[node.type] = {'mean':null, 'median':null, 'max':0, 'min':1000000000}
+        }
+        allSizes[node.type].push(node.size)
+        sumSizes[node.type] += node.size
+        if (node.size < TW.stats.nodeSize[node.type].min)
+          TW.stats.nodeSize[node.type].min = node.size
+        if (node.size > TW.stats.nodeSize[node.type].max)
+          TW.stats.nodeSize[node.type].max = node.size
+        // --------------------------------------------
 
         if (!catCount[node.type]) catCount[node.type] = 0
         catCount[node.type]++;
@@ -1203,6 +1232,18 @@ function dictfyJSON( data , categories ) {
         }
     }
 
+    // -------------- debug: for local stats ----------------
+    for (var ntype in TW.stats.nodeSize) {
+      allSizes[ntype].sort();
+      let N = allSizes[ntype].length
+      TW.stats.nodeSize[ntype].len = N
+      TW.stats.nodeSize[ntype].median = allSizes[ntype][Math.floor(N/2)]
+      TW.stats.nodeSize[ntype].mean = sumSizes[ntype]/N
+    }
+    // ------------- /debug: for local stats ----------------
+
+    // console.log("parseCustom(gexf) sizeStats:", sizeStats)
+
     // test: json with string facet (eg lab affiliation in comex)
     // console.log(tmpVals['Document'])
 
@@ -1210,26 +1251,31 @@ function dictfyJSON( data , categories ) {
       TW.Facets = facetsBinning (tmpVals)
     }
 
-    // £TODO ask if wanted
-    // if we wanted linear rescale node sizes like dictfyGexf:
+    // linear rescale node sizes like dictfyGexf
+    if (!isUndef(TW.conf.desirableNodeSizeMin) && !isUndef(TW.conf.desirableNodeSizeMax)) {
+      let desiSizeRange = TW.conf.desirableNodeSizeMax-TW.conf.desirableNodeSizeMin
+      let realSizeRange = maxNodeSize - minNodeSize
 
-    // if (!isUndef(TW.conf.desirableNodeSizeMin) && !isUndef(TW.conf.desirableNodeSizeMax)) {
-    //   let desiSizeRange = TW.conf.desirableNodeSizeMax-TW.conf.desirableNodeSizeMin
-    //   let realSizeRange = maxNodeSize - minNodeSize
-    //   for(var nid in nodes){
-    //       nodes[nid].size = parseInt(1000 * ((parseFloat(nodes[nid].size) - minNodeSize) / realSizeRange * desiSizeRange + TW.conf.desirableNodeSizeMin)) / 1000
-    //   }
-    // }
-
-
-    // £TODO this could be a call to clusterColoring()
-    TW.gui.colorList.sort(function(){ return Math.random()-0.5; });
-    for (var i in nodes ){
-        if (nodes[i].color=="#FFFFFF") {
-            var attval = ( isUndef(nodes[i].attributes) || isUndef(nodes[i].attributes["clust_default"]) )? 0 : nodes[i].attributes["clust_default"] ;
-            nodes[i].color = TW.gui.colorList[ attval ]
+      if (realSizeRange == 0) {
+        for(var nid in nodes){
+          nodes[nid].size  = TW.conf.desirableNodeSizeMin
         }
+      }
+      // normal case => rescaling
+      else {
+        for(var nid in nodes){
+            nodes[nid].size = parseInt(1000 * desiSizeRange * (nodes[nid].size - minNodeSize) / realSizeRange + TW.conf.desirableNodeSizeMin) / 1000
+          // console.log("new size", nid, nodes[nid].size)
+        }
+      }
     }
+
+
+    // for stats on edges, by type
+    let allWeights = {}
+    let sumWeights = {}
+    TW.stats.edgeWeight = {}
+
 
     // edges
     for(var i in data.links){
@@ -1238,7 +1284,7 @@ function dictfyJSON( data , categories ) {
 
         var source = (!isUndef(e.s))? e.s : e.source;
         var target = (!isUndef(e.t))? e.t : e.target;
-        var weight = (!isUndef(e.w))? e.w : e.weight;
+        var weight = (!isUndef(e.w))? Number(e.w) : Number(e.weight);
         var type = (!isUndef(e.type))? e.type : "curve";
         var id=source+";"+target;
 
@@ -1260,14 +1306,39 @@ function dictfyJSON( data , categories ) {
                                           typestring,
                                           source, target )
 
-          // boost crossrels edges
-          if (edge.categ == "XR")   edge.weight *= 1.5
+          // boost crossrels edges: off (we do it in source app)
+          // if (edge.categ == "XR")   edge.weight *= 10
 
           // save
           if(!edges[target+";"+source])
               edges[id] = edge;
+
+
+          // ---  stats  ---
+          if (! TW.stats.edgeWeight[typestring]) {
+            TW.stats.edgeWeight[typestring] = {'mean':null, 'median':null, 'max':0, 'min':1000000000}
+            allWeights[typestring] = []
+            sumWeights[typestring] = 0
+          }
+          allWeights[typestring].push(weight)
+          sumWeights[typestring] += weight
+          if (weight < TW.stats.edgeWeight[typestring].min)
+            TW.stats.edgeWeight[typestring].min = weight
+          if (weight > TW.stats.edgeWeight[typestring].max)
+            TW.stats.edgeWeight[typestring].max = weight
+          // --- /stats  ---
         }
     }
+
+    // ---  stats  ---
+    for (var categ in TW.stats.edgeWeight) {
+      allWeights[categ].sort()
+      let M = allWeights[categ].length
+      TW.stats.edgeWeight[categ].len = M
+      TW.stats.edgeWeight[categ].median = allWeights[categ][Math.floor(M/2)]
+      TW.stats.edgeWeight[categ].mean = sumWeights[categ]/M
+    }
+    // --- /stats  ---
 
     for(var i in TW.Relations) {
         for(var j in TW.Relations[i]) {
