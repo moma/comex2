@@ -402,7 +402,7 @@ $(document).ready(function() {
       let opt = whoswhoq[filterName]
       whoswho.select(itype, opt)
     }
-    else if (! /^_$/.test(filterName)) {
+    else if (! /^_/.test(filterName)) {
       for (var i in whoswhoq[filterName]) {
         var filterVal = whoswhoq[filterName][i]
         // console.log("whoswho: pop from session cache", filterName, filterVal)
