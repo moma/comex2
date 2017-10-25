@@ -97,6 +97,10 @@ TW.resetGraph = function() {
   // and set tabs to none
   resetTabs()
 
+  // reset colors legends for all types
+  if (TW.categories && TW.categories.length)
+    updateColorsLegend(null, TW.categories)
+
   // call the sigma graph clearing
   TW.instance.clearSigma()
 
@@ -110,9 +114,6 @@ TW.resetGraph = function() {
   // reset other gui flags
   TW.gui.checkBox=false
   TW.gui.lastFilters = {}
-
-  // reset colors legends
-  updateColorsLegend()
 
   // forget the states
   TW.states = [TW.initialSystemState]
@@ -692,58 +693,27 @@ function prepareNodesRenderingProperties(nodesDict) {
     // and quite enough in precision !!
     n.size = Math.round(n.size*sizeFactor*1000)/1000
 
-    // new initial setup of properties
-
-    var rgba, rgbStr, invalidFormat = false;
-
-    if (n.color) {
-      // rgb[a] color string ex: "19,180,244"
-      if (/^\d{1,3},\d{1,3},\d{1,3}$/.test(n.color)) {
-        rgba = n.color.split(',')
-        if (rgba.length = 3) {
-          rgbStr = n.color
-          rgba.push(255)
-        }
-        else if (rgba.length == 4) {
-          rgbStr = rgba.splice(0, 3).join(',');
-        }
-        else {
-          invalidFormat = true
-        }
-      }
-      // hex color ex "#eee or #AA00AA"
-      else if (/^#[A-Fa-f0-9]{3,6}$/.test(n.color)) {
-        rgba = hex2rgba(n.color)
-        rgbStr = rgba.splice(0, 3).join(',');
-      }
-      else {
-        invalidFormat = true
-      }
-    }
-    else {
-      invalidFormat = true
-    }
-
-    if (!invalidFormat) {
-      n.color = `rgb(${rgbStr})`
-    }
-    else {
-      // will not be modified
-      n.color = TW.conf.sigmaJsDrawingProperties.defaultNodeColor
-      rgbStr = n.color.split(',').splice(0, 3).join(',');
-    }
-
+    // rendering status flags
     n.customAttrs = {
-      // status flags
       active: false,              // when selected
       highlight: false,           // when neighbors or legend's click
-
-      // default unselected color
-      defgrey_color : "rgba("+rgbStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")",
 
       // will be used for repainting (read when TW.gui.handpickedcolors flags)
       alt_color: null,
       altgrey_color: null,
+    }
+
+    // rgb color string ex: "19,180,244"
+    var rgbStr = normalizeColorFormat(n.color)
+
+    // n.color will not be modified
+    if (rgbStr) {
+      n.color = `rgb(${rgbStr})`
+      n.customAttrs.defgrey_color = "rgba("+rgbStr+","+TW.conf.sigmaJsDrawingProperties.twNodesGreyOpacity+")"
+    }
+    else {
+      n.color = TW.gui.defaultNodeColor
+      n.customAttrs.defgrey_color = TW.gui.defaultGreyNodeColor
     }
 
     // POSS n.type: distinguish rendtype and twtype
@@ -770,7 +740,7 @@ function prepareEdgesRenderingProperties(edgesDict, nodesDict) {
 
 
 // use case: slider, changeLevel re-add nodes
-function add1Elem(id) {
+function add1Elem(id, optionalAttrsToAssign) {
     id = ""+id;
 
     if(id.split(";").length==1) { // i've received a NODE
@@ -779,22 +749,14 @@ function add1Elem(id) {
         if(!isUndef(TW.partialGraph.graph.nodes(id))) return;
 
         if(TW.Nodes[id]) {
-            var n = TW.Nodes[id]
+            let n = {}
 
-            // WE AVOIDED A COPY HERE BECAUSE properties are already complete
-            // ... however, TODO check if we shouldn't remove the n.attributes Obj
-
-            // var anode = {}
-            // anode.id = n.id;
-            // anode.label = n.label;
-            // anode.size = n.size;
-            // anode.x = n.x;
-            // anode.y = n.y;
-            // anode.hidden= n.lock ;
-            // anode.type = n.type;
-            // anode.color = n.color;
-            // if( n.shape ) n.shape = n.shape;
-            // anode.customAttrs = n.customAttrs
+            if (typeof optionalAttrsToAssign == "object" && optionalAttrsToAssign) {
+              n = Object.assign({}, TW.Nodes[id], optionalAttrsToAssign)
+            }
+            else {
+              n = TW.Nodes[id]
+            }
 
             // if(Number(anode.id)==287) console.log("coordinates of node 287: ( "+anode.x+" , "+anode.y+" ) ")
 
@@ -807,8 +769,7 @@ function add1Elem(id) {
         }
     } else { // It's an edge!
         if(!isUndef(TW.partialGraph.graph.edges(id))) return;
-        var e  = TW.Edges[id]
-        if(e && !e.lock){
+        if(TW.Edges[id]){
             // var anedge = {
             //     id:         id,
             //     source: e.source,
@@ -822,6 +783,15 @@ function add1Elem(id) {
             //     customAttrs : e.customAttrs
             // };
 
+            let e = {}
+
+            if (typeof optionalAttrsToAssign == "object" && optionalAttrsToAssign) {
+              e = Object.assign({}, TW.Edges[id], optionalAttrsToAssign)
+            }
+            else {
+              e = TW.Edges[id]
+            }
+
             // TW.partialGraph.graph.addEdge(anedge);
             TW.partialGraph.graph.addEdge(e);
             return;
@@ -830,71 +800,57 @@ function add1Elem(id) {
 }
 
 
+// read the saveGraph form and pass to exporters
 function saveGraph() {
 
-    let size = getByID("check_size").checked
-    let color = getByID("check_color").checked
-    let atts = {"size":size,"color":color}
-
-    if(getByID("fullgraph").checked) {
-        saveGEXF ( TW.Nodes , TW.Edges , atts);
+    let options = {
+      'filterHidden': getByID("visgraph").checked,
+      'exportVizAttrs': getByID("check_viz_attrs").checked,
+      'exportDataAttrs': getByID("check_data_attrs").checked
     }
 
-    if(getByID("visgraph").checked) {
-        saveGEXF ( getVisibleNodes() , getVisibleEdges(), atts )
-    }
+    // POSSible: add other exporters with the same options
+    // cf. xlsx or json exporers in linkurious.js/tree/develop/plugins/
+    saveGEXF ( TW.partialGraph, options );
 
     $("#closesavemodal").click();
 }
 
 
-// £TODO: we should use https://github.com/Linkurious/linkurious.js/tree/develop/plugins/sigma.exporters.gexf
-function saveGEXF(nodes,edges,atts){
-    let gexf = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    gexf += '<gexf xmlns="http://www.gexf.net/1.1draft" xmlns:viz="http://www.gephi.org/gexf/viz" version="1.1">\n';
-    gexf += '<graph defaultedgetype="undirected" type="static">\n';
-    gexf += '<attributes class="node" type="static">\n';
-    gexf += ' <attribute id="0" title="category" type="string">  </attribute>\n';
-    gexf += ' <attribute id="1" title="country" type="float">    </attribute>\n';
-    //gexf += ' <attribute id="2" title="content" type="string">    </attribute>\n';
-    //gexf += ' <attribute id="3" title="keywords" type="string">   </attribute>\n';
-    //gexf += ' <attribute id="4" title="weight" type="float">   </attribute>\n';
-    gexf += '</attributes>\n';
-    gexf += '<attributes class="edge" type="float">\n';
-    gexf += ' <attribute id="6" title="type" type="string"> </attribute>\n';
-    gexf += '</attributes>\n';
-    gexf += "<nodes>\n";
+// save via the linkurious plugin from the authors of sigmajs
+//               -----------------
+// github.com/Linkurious/linkurious.js/tree/develop/plugins/sigma.exporters.gexf
+function saveGEXF(sigmaInst, opts) {
 
-    for(var n in nodes){
+  // prepare (make sure we always preserve the 'type' attribute)
+  // -------
+  for (var j in TW.Nodes) {
+    let n = TW.partialGraph.graph.nodes(TW.Nodes[j].id)
+    if (n) {
+      // the properties under n.attributes will be saved => copy type inside it
+      if (opts['exportDataAttrs']) {
+        n.attributes.type = n.type
+      }
+      // no properties would be saved => copy type in a tempo dict to pass as nodeAttributes
+      else {
+        n._tempo = {'type': n.type}
+      }
+    }
+  }
 
-        gexf += '<node id="'+nodes[n].id+'" label="'+nodes[n].label+'">\n';
-        gexf += ' <viz:position x="'+nodes[n].x+'"    y="'+nodes[n].y+'"  z="0" />\n';
-        if(atts["color"]) gexf += ' <viz:size value="'+nodes[n].size+'" />\n';
-        if(atts["color"]) {
-            if (nodes[n].color && nodes[n].color.charAt(0) == '#') {
-              col = hex2rgba(nodes[n].color);
-              gexf += ' <viz:color r="'+col[0]+'" g="'+col[1]+'" b="'+col[2]+'" a='+col[3]+'/>\n';
-            }
-        }
-        gexf += ' <attvalues>\n';
-        gexf += ' <attvalue for="0" value="'+nodes[n].type+'"/>\n';
-        gexf += ' <attvalue for="1" value="'+TW.Nodes[nodes[n].id].CC+'"/>\n';
-        gexf += ' </attvalues>\n';
-        gexf += '</node>\n';
-    }
-    gexf += "\n</nodes>\n";
-    gexf += "<edges>\n";
-    let cont = 1;
-    for(var e in edges){
-        gexf += '<edge id="'+cont+'" source="'+edges[e].source+'"  target="'+edges[e].target+'" weight="'+edges[e].weight+'">\n';
-        gexf += '<attvalues> <attvalue for="6" value="'+edges[e].label+'"/></attvalues>';
-        gexf += '</edge>\n';
-        cont++;
-    }
-    gexf += "\n</edges>\n</graph>\n</gexf>";
-    let uriContent = "data:application/octet-stream," + encodeURIComponent(gexf);
-    let newWindow=window.open(uriContent, 'neuesDokument');
+  // save
+  // ----
+  sigmaInst.toGEXF({
+    creator: 'Sigma.js + ISCPIF ProjectExplorer',
+    filename: opts['filename'] ? opts['filename'] : 'ProjectExplorerGraph.gexf',
+    download: true,
+    renderer: opts['exportVizAttrs'] ? sigmaInst.renderers[0] : null,
+    nodeAttributes: opts['exportDataAttrs'] ? 'attributes' : '_tempo',
+    edgeAttributes: null,
+    filterHidden: opts['filterHidden']
+  });
 }
+
 
 function saveGraphIMG(){
     TW.rend.snapshot({
@@ -926,7 +882,7 @@ function reInitFa2 (params = {}) {
     // ----------------
     if (params.typeAdapt) {
       let semTypeOn = Boolean(TW.SystemState().activetypes[0])
-      theseFA2Params.gravity = semTypeOn ? TW.FA2Params.gravity * 4.5 : TW.FA2Params.gravity
+      theseFA2Params.gravity = semTypeOn ? TW.FA2Params.gravity * 3.5 : TW.FA2Params.gravity
       theseFA2Params.iterationsPerRender = semTypeOn ? 4 : 32
       theseFA2Params.slowDown = semTypeOn ? .2 : .8
     }

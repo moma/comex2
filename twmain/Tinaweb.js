@@ -812,6 +812,12 @@ var TinaWebJS = function ( sigmacanvas ) {
                   })
                   var stillRunning = document.getElementById('noverlapwait')
                   if (stillRunning) {
+                    reInitFa2({
+                      localZoneSettings: !TW.SystemState().level,
+                      skipHidden: !TW.conf.stablePositions,
+                      callback: function() {console.debug("noverlap: updated fa2 positions")}
+                    })
+
                     TW.gui.elHtml.classList.remove('waiting');
                     noverButton.style.cursor = 'auto'
                     stillRunning.remove()
@@ -1296,14 +1302,25 @@ var TinaWebJS = function ( sigmacanvas ) {
       // add all numeric attributes to titlingMetric with option type fromFacets
       fillAttrsInForm('attr-titling-metric', 'num')
 
-      // show dev stats on json input for this graph if available
-      if (TW.stats && Object.keys(TW.stats).length) {
-        $("#stats-panel").show()
-        $("#stats").html(showStats());
+      // add attributes' names list to saveGEXF modal examples
+      // ex: "kw: nbjobs,total_occurrences / sch: nbjobs,total_occurrences"
+      let exs = document.getElementById("data_attrs_exemples")
+      if (exs) {
+        let spanContents = []
+        for (var ntype in TW.Facets) {
+          let attrs = Object.keys(TW.Facets[ntype])
+          // remove dynamic attributes
+          attrs = attrs.filter( function(at) { return (! TW.sigmaAttributes[at]) } )
+          if (attrs && attrs.length) {
+            spanContents.push(ntype+': '+attrs.join(","))
+          }
+        }
+        if (spanContents.length) {
+          exs.innerHTML = '('+spanContents.join(" / ")+')'
+        }
       }
-      else {
-        $("#stats-panel").hide()
-      }
+
+      // cancelSelection(false);
     }
 
 
