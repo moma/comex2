@@ -76,6 +76,59 @@ JOB_COLS = [
     ]
 
 
+
+# NB we must cascade join because
+#    orgs, hashtags and keywords are one-to-many
+FULL_SCHOLAR_SQL = """
+    SELECT
+        sch_org_n_tags.*,
+
+        -- kws info
+        GROUP_CONCAT(keywords.kwstr) AS keywords_list,
+        COUNT(keywords.kwid) AS keywords_nb
+
+    FROM (
+        SELECT
+            scholars_and_orgs.*,
+            -- hts info
+            GROUP_CONCAT(hashtags.htstr) AS hashtags_list
+
+        FROM (
+          SELECT scholars.*,
+                 -- org info
+                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
+                 GROUP_CONCAT(orgs_set.label) AS orgs_list
+          FROM scholars
+          LEFT JOIN sch_org ON luid = sch_org.uid
+          LEFT JOIN (
+            SELECT * FROM orgs
+          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
+          GROUP BY luid
+        ) AS scholars_and_orgs
+        LEFT JOIN sch_ht
+            ON uid = luid
+        LEFT JOIN hashtags
+            ON sch_ht.htid = hashtags.htid
+        GROUP BY luid
+    ) AS sch_org_n_tags
+
+    -- two step JOIN for keywords
+    LEFT JOIN sch_kw
+        ON uid = luid
+    -- we directly exclude scholars with no keywords here
+    JOIN keywords
+        ON sch_kw.kwid = keywords.kwid
+
+    WHERE (
+        record_status = 'active'
+        OR
+        (record_status = 'legacy' AND valid_date >= NOW())
+    )
+
+    GROUP BY luid
+"""
+
+
 def connect_db(config=REALCONFIG):
     """
     Simple connection

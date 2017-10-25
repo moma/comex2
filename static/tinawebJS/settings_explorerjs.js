@@ -27,6 +27,9 @@ TW.conf = (function(TW){
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
   TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
 
+  // "services/api/graph" : traditional match with BipartiteExtractor
+  // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
+
 
   // Related documents (topPapers) data source
   // -----------------------------------------

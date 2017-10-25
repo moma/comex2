@@ -2,7 +2,7 @@
 DB data querying:
   - aggregations on almost any DB fields via FIELDS_FRONTEND_TO_SQL
   - BipartiteExtractor subset selections originally made by Samuel
-  - soon multimatch subset selections
+  - multimatch subset selections
 """
 __author__    = "CNRS"
 __copyright__ = "Copyright 2016 ISCPIF-CNRS"
@@ -21,14 +21,37 @@ from json      import loads
 
 if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
-    from services.dbcrud  import connect_db
+    from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                     DBHashtags, DBCountries
 else:
     from tools          import mlog, REALCONFIG
-    from dbcrud         import connect_db
+    from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                DBHashtags, DBCountries
+
+
+# options work for both matching algorithms (BipartiteExtractor and multimatch)
+MATCH_OPTIONS = {
+    # same-side (00 and 11 edges)
+    # ----------------------------
+    # NB: here dist metric is always jaccard
+
+    # merge edges X->Y with Y->X if X and Y are nodes of the same type
+    "avg_bidirectional_links":    True,
+
+    # cross-relations (XR edges)
+    # --------------------------
+    # constant factor to increase weight of cross-relations (bipartite edges)
+    # because they play an important role in the structure of the graph
+    "XR_weight_constant": 10,
+
+    # weight of sch-kw XR edges divided by log(1+scholar["total_keywords_nb"])
+    "normalize_schkw_by_sch_totkw" : True,
+
+    # weight of sch-kw XR edges divided by log(1+keyword["total_occs"])
+    "normalize_schkw_by_kw_totoccs": True
+}
 
 
 # col are for str stats api
@@ -76,57 +99,6 @@ FIELDS_FRONTEND_TO_SQL = {
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
-
-
-# NB we must cascade join because
-#    orgs, hashtags and keywords are one-to-many
-full_scholar_sql = """
-    SELECT
-        sch_org_n_tags.*,
-
-        -- kws info
-        GROUP_CONCAT(keywords.kwstr) AS keywords_list
-
-    FROM (
-        SELECT
-            scholars_and_orgs.*,
-            -- hts info
-            GROUP_CONCAT(hashtags.htstr) AS hashtags_list
-
-        FROM (
-          SELECT scholars.*,
-                 -- org info
-                 -- GROUP_CONCAT(orgs.orgid) AS orgs_ids_list,
-                 GROUP_CONCAT(orgs_set.label) AS orgs_list
-          FROM scholars
-          LEFT JOIN sch_org ON luid = sch_org.uid
-          LEFT JOIN (
-            SELECT * FROM orgs
-          ) AS orgs_set ON sch_org.orgid = orgs_set.orgid
-          GROUP BY luid
-        ) AS scholars_and_orgs
-        LEFT JOIN sch_ht
-            ON uid = luid
-        LEFT JOIN hashtags
-            ON sch_ht.htid = hashtags.htid
-        GROUP BY luid
-    ) AS sch_org_n_tags
-
-    -- two step JOIN for keywords
-    LEFT JOIN sch_kw
-        ON uid = luid
-    -- we directly exclude scholars with no keywords here
-    JOIN keywords
-        ON sch_kw.kwid = keywords.kwid
-
-    WHERE (
-        record_status = 'active'
-        OR
-        (record_status = 'legacy' AND valid_date >= NOW())
-    )
-
-    GROUP BY luid
-"""
 
 # explorer REST "filters" syntax => sql "WHERE" constraints on scholars
 # =====================================================================
@@ -192,7 +164,7 @@ def rest_filters_to_sql(filter_dict):
             # tina sends an array of str filters
             else:
                 tested_array = [x for x in val if x]
-                mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
+                # mlog("DEBUG", "[filters to sql]: tested_array", tested_array)
                 if len(tested_array):
                     if rel_type == "EQ_relation":
                         qwliststr = repr(tested_array)
@@ -216,15 +188,77 @@ def rest_filters_to_sql(filter_dict):
     return sql_constraints
 
 
+def kw_neighbors(uid, db_cursor = None):
+    """
+    list of neighbors of a scholar by common keyword
+
+    exemple return value:
+        ({'cooc': 12, 'uid': 4206},
+         {'cooc': 3, 'uid': 3794},
+         {'cooc': 2, 'uid': 3234},
+         {'cooc': 2, 'uid': 2730},
+         {'cooc': 1, 'uid': 3873},
+         {'cooc': 1, 'uid': 2732},
+         {'cooc': 1, 'uid': 3942})
+    """
+
+    if (not db_cursor):
+        db = connect_db()
+        cursor = db.cursor(DictCursor)
+    else:
+        cursor = db_cursor
+
+    # we use the sch_kw table (scholars <=> kw map)
+    sql_query="""
+    SELECT
+        scholars.luid,
+        scholars.initials,
+        neighbors_by_kw.uid,
+        COUNT(matching.kwid) AS cooc
+
+    FROM scholars
+
+    -- step 1
+    JOIN sch_kw AS matching
+                ON matching.uid = scholars.luid
+    -- step 2
+    JOIN sch_kw AS neighbors_by_kw
+                ON neighbors_by_kw.kwid = matching.kwid
+
+    WHERE luid = "%s"
+
+    AND (
+        record_status = 'active'
+        OR
+        (record_status = 'legacy' AND valid_date >= NOW())
+    )
+    GROUP BY neighbors_by_kw.uid
+    ORDER BY cooc DESC
+    """ % str(uid)
+
+    cursor.execute(sql_query)
+    results=cursor.fetchall()
+
+    if (not db_cursor):
+        db.close()
+
+    return results
+
+
 # multimatch(nodetype_1, nodetype_2)
 # ==================================
 def multimatch(source_type, target_type, pivot_filters = []):
     """
-    Returns a list of edges between the objects of type 1 and those of type 2,
-    via their matching scholars (used as pivot and for filtering)
+    Returns a bipartite graph with:
 
-    src_type ∈ {kw, ht}
-    tgt_type ∈ {sch, lab, inst, country}
+    - a list of edges between the objects of type 1 and those of type 2,
+      via their matching scholars (used as pivot and for filtering)
+
+      => src_type ∈ {kw, ht}
+      => tgt_type ∈ {sch, lab, inst, country}
+
+    - 2 lists of internal edges (between type 1 nodes and type 2 nodes resp.)
+    - the list of nodes
     """
 
     type_map = {
@@ -274,7 +308,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
                 ) AS full_scholar
                 -- our filtering constraints fit here
                 %s
-    """ % (full_scholar_sql, subqmidfilters)
+    """ % (FULL_SCHOLAR_SQL, subqmidfilters)
 
     # ------------------------------------------------------------  Explanations
     #
@@ -324,37 +358,57 @@ def multimatch(source_type, target_type, pivot_filters = []):
     threshold = 0
 
     matchq = """
-    -- matching part
+    -- filtered pivot
+    CREATE TEMPORARY TABLE IF NOT EXISTS pivot_filtered_ids AS (
+        SELECT luid FROM ( %(pfiltersq)s ) AS filtered_on_infos
+    );
+    CREATE INDEX filteridx ON pivot_filtered_ids(luid);
+
+    -- eg: kw to pivot
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources AS (
+        SELECT * FROM (%(sourcesq)s) AS sem_matrix
+        JOIN pivot_filtered_ids
+            ON sem_matrix.pivotID = pivot_filtered_ids.luid
+    );
+    CREATE INDEX semidx ON sources(pivotID, entityID);
+
+    -- eg: pivot to orgs
+    CREATE TEMPORARY TABLE IF NOT EXISTS targets  AS (
+        SELECT * FROM (%(targetsq)s) AS soc_matrix
+        JOIN pivot_filtered_ids
+            ON soc_matrix.pivotID = pivot_filtered_ids.luid
+    );
+    CREATE INDEX socidx ON targets(pivotID, entityID);
+
+
+    -- =============
+    -- matching part (aka XR table)
+    -- =============
     CREATE TEMPORARY TABLE IF NOT EXISTS match_table AS (
         SELECT * FROM (
             SELECT count(sources.pivotID) as weight,
                    sources.entityID AS sourceID,
                    targets.entityID AS targetID
-            FROM (%s) AS sources
-
-            -- inner join as filter
-            JOIN (%s) AS pivot_filtered_ids
-                ON sources.pivotID = pivot_filtered_ids.luid
-
+            FROM sources
             -- target entities as type1 nodes
-            LEFT JOIN (%s) AS targets
+            LEFT JOIN targets
                 ON sources.pivotID = targets.pivotID
             GROUP BY sourceID, targetID
             ) AS match_table
-        WHERE match_table.weight > %i
+        WHERE match_table.weight > %(threshold)i
           AND sourceID IS NOT NULL
           AND targetID IS NOT NULL
 
     );
-    CREATE INDEX mt1idx ON match_table(sourceID, targetID)
-    """ % (
-        subq1,
-        subqmid,
-        subq2,
-        threshold
-        )
+    CREATE INDEX mt1idx ON match_table(sourceID, targetID);
+    """ % {
+            'sourcesq': subq1,
+            'targetsq': subq2,
+            'pfiltersq': subqmid,
+            'threshold': threshold
+    }
 
-    # mlog("DEBUG", "multimatch sql query", matchq)
+    mlog("DEBUGSQL", "multimatch sql query", matchq)
 
     # this table is the crossrels edges but will be reused for the other data (sameside edges and node infos)
     db_c.execute(matchq)
@@ -364,15 +418,149 @@ def multimatch(source_type, target_type, pivot_filters = []):
     edges_XR = db_c.fetchall()
     len_XR = len(edges_XR)
 
-    # 2 - matrix product XR·XR⁻¹ to build 'sameside' edges
-    #                         A
-    #                x  B [        ]
-    #             B       [   XR   ]
+
+    # intermediate step: create marginal sums (for each source its cardinality in pivots)
+    #                                         (for each target its cardinality in pivots)
+    #
+    # => these sums will be used as |Ai| and |Bj|
+    #     to "jaccardize" the cooc similarities
+    #    (cooc sims are equivalent to |Ai ∩ Bj|)
+
+    src_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS source_sums AS (
+            SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
+        );
+        CREATE INDEX ssums_idx ON source_sums(sourceID, card);
+        -- to do the operations in python
+        -- SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
+    """
+    tgt_sumsq = """
+        -- to do the operations in sql
+        CREATE TEMPORARY TABLE IF NOT EXISTS target_sums AS (
+            SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
+        );
+        CREATE INDEX tsums_idx ON target_sums(targetID, card);
+        -- to do the operations in python
+        -- SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
+    """
+
+    do_copies = """
+            CREATE TEMPORARY TABLE IF NOT EXISTS source_sums_2 AS (
+                SELECT * FROM source_sums
+            );
+            CREATE INDEX ssums2_idx ON source_sums_2(sourceID, card);
+            CREATE TEMPORARY TABLE IF NOT EXISTS target_sums_2 AS (
+                SELECT * FROM target_sums
+            );
+            CREATE INDEX tsums2_idx ON target_sums_2(targetID, card);
+    """
+
+    # mlog("DEBUG", "margsums sources sql query", src_sumsq)
+    # mlog("DEBUG", "margsums targets sql query", tgt_sumsq)
+
+    db_c.execute(src_sumsq)
+    db_c.execute(tgt_sumsq)
+    db_c.execute(do_copies)   # <= because apparently can't use an alias ?
+
+    # ...or to do the operations in python
+    # src_sums = db_c.fetchall()
+    # tgt_sums = db_c.fetchall()
+
+    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+    #                           A
+    #              x  pivot [        ]
+    #           pivot       [   M1   ]
     #         [      ]
-    #      A  [  XR  ]       square
+    #      A  [  M1  ]         square
+    #         [      ]        sameside
+    sameside_direct_format = """
+        SELECT result.*,
+               -- keywords.kwstr, k2.kwstr,
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
+        FROM (
+            SELECT * FROM (
+                SELECT
+                    sources.entityID   AS nid_i,
+                    sources_2.entityID AS nid_j,
+                    count(*) AS coocWeight,     -- here: how often each distinct pairs i,j was used
+                    max(source_sums.card) AS sum_i,
+                    max(source_sums_2.card) AS sum_j
+                FROM sources
+                JOIN sources_2
+                    ON sources.pivotID = sources_2.pivotID
+                LEFT JOIN source_sums
+                    ON source_sums.sourceID = sources.entityID
+                LEFT JOIN source_sums_2
+                    ON source_sums_2.sourceID = sources_2.entityID
+                GROUP BY nid_i, nid_j
+            ) AS dotproduct
+            WHERE nid_i != nid_j
+            --  AND coocWeight > %(threshold)i
+        ) AS result
+        -- JOIN keywords ON nid_i = keywords.kwid
+        -- JOIN keywords AS k2 ON nid_j = k2.kwid
+        -- ORDER BY jaccardWeight DESC
+    """
+
+    # 2a we'll need a copy of the M1 table
+    db_c.execute("""
+    CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
+        SELECT * FROM sources
+    );
+    CREATE INDEX sem2idx ON sources_2(pivotID, entityID);
+    """)
+
+    # 2b sameside edges type0 <=> type0
+    dot_threshold = 0
+    edges_00_q = sameside_direct_format
+
+    # mlog("DEBUG", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
+
+    # print("edges_00", edges_00)
+
+    # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
+    #                         B
+    #                x  A [        ]
+    #             A       [   XR   ]
+    #         [      ]
+    #      B  [  XR  ]       square
     #         [      ]      sameside
 
-    # 2a we'll need a copy of the XR table
+    # nid_type is the output (eg entity type B)
+    # transi_type disappears in the operation
+    sameside_indirect_format = """
+        SELECT dotproduct.*,
+               -- scholars.email, s2.email,
+               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
+        FROM (
+            SELECT
+                match_table.%(nid_type)s   AS nid_i,
+                match_table_2.%(nid_type)s AS nid_j,
+                sum(
+                    match_table.weight * match_table_2.weight
+                ) AS coocWeight,
+                max(sums_1.card) AS sum_i,
+                max(sums_2.card) AS sum_j
+            FROM match_table
+            JOIN match_table_2
+                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+            LEFT JOIN %(nid_type_sums)s AS sums_1
+                ON sums_1.%(nid_type)s = match_table.%(nid_type)s
+            LEFT JOIN %(nid_type_sums)s_2 AS sums_2
+                ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
+            GROUP BY nid_i, nid_j
+        ) AS dotproduct
+                -- JOIN scholars ON nid_i = scholars.luid
+                -- JOIN scholars AS s2 ON nid_j = s2.luid
+        WHERE nid_i != nid_j
+                --  AND coocWeight > %(threshold)i
+                -- ORDER BY jaccardWeight DESC
+    """
+
+    # 3a we'll need a copy of the XR table
     db_c.execute("""
     CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
         SELECT * FROM match_table
@@ -380,47 +568,21 @@ def multimatch(source_type, target_type, pivot_filters = []):
     CREATE INDEX mt2idx ON match_table_2(sourceID, targetID)
     """)
 
-    # nid_type is A and transi_type is B
-    sameside_format = """
-        SELECT * FROM (
-            SELECT
-                match_table.%(nid_type)s   AS nid_i,
-                match_table_2.%(nid_type)s AS nid_j,
-                sum(
-                    match_table.weight * match_table_2.weight
-                ) AS dotweight
-            FROM match_table
-            JOIN match_table_2
-                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
-            GROUP BY nid_i, nid_j
-        ) AS dotproduct
-        WHERE nid_i != nid_j
-          AND dotweight > %(threshold)i
-    """
+    # 3b sameside edges type1 <=> type1
+    dot_threshold = 1
+    # mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
 
-    # 2b sameside edges type0 <=> type0
-    dot_threshold = floor(.5 + len_XR/3000)
-    edges_00_q = sameside_format % {'nid_type': "sourceID",
-                                   'transi_type': "targetID",
-                                   'threshold': dot_threshold}
-    # print("DEBUGSQL", "edges_00_q", edges_00_q)
-    mlog("DEBUG", "multimatch src dot_threshold src", dot_threshold, len_XR)
-    db_c.execute(edges_00_q)
-    edges_00 = db_c.fetchall()
-
-
-    # 2c sameside edges type1 <=> type1
-    # dot_threshold = floor(10*sqrt(len_XR)) if target_type != 'sch' else 0
-    dot_threshold = floor(len_XR/3000)
-    edges_11_q = sameside_format % {'nid_type': "targetID",
-                                   'transi_type': "sourceID",
-                                   'threshold': dot_threshold}
-    # print("DEBUGSQL", "edges_11_q", edges_11_q)
-    mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
+    edges_11_q = sameside_indirect_format % {'nid_type': "targetID",
+                                          'transi_type': "sourceID",
+                                        'nid_type_sums': "target_sums",
+                                            'threshold': dot_threshold}
+    mlog("DEBUG", "edges_11_q", edges_11_q)
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
 
-    # 3 - we use DBEntity.getInfos() to build node sets
+    # print("edges_11", edges_11)
+
+    # 4 - we use DBEntity.getInfos() to build node sets (attach node info to id)
     get_nodes_format = """
         SELECT entity_infos.* FROM match_table
         LEFT JOIN (%s) AS entity_infos
@@ -443,38 +605,76 @@ def multimatch(source_type, target_type, pivot_filters = []):
     graph["nodes"] = {}
     graph["links"] = {}
 
+    if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+        nodes_normfactors = {}
+
+    # print("nodes_tgt", nodes_tgt)
+
     for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
         for nd in ndata:
             nid = make_node_id(ntype, nd['entityID'])
             graph["nodes"][nid] = {
               'label': nd['label'],
               'type': ntype,
-              'size': log1p(nd['nodeweight']),
+              'size': round(log1p(nd['nodeweight']), 3) if ntype == source_type else 2,
               'color': '243,183,19' if ntype == source_type else '139,28,28'
             }
 
+            if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
+                nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
+
+            if ntype == 'kw' and MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+                # if kw then nodeweight is the total of scholars with the kw
+                nodes_normfactors[nid] = 1 / log1p(nd['nodeweight'])
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
-            nidi = make_node_id(endtype, ed['nid_i'])
-            nidj = make_node_id(endtype, ed['nid_j'])
-            eid  =  nidi+';'+nidj
-            graph["links"][eid] = {
-              's': nidi,
-              't': nidj,
-            #   'w': log1p(int(ed['dotweight']))
-              'w': sqrt(int(ed['dotweight']))
-            #   'w': float(ed['dotweight'])
-            }
+            if not MATCH_OPTIONS["avg_bidirectional_links"]:
+                nidi = make_node_id(endtype, ed['nid_i'])
+                nidj = make_node_id(endtype, ed['nid_j'])
+                eid  =  nidi+';'+nidj
+                graph["links"][eid] = {
+                  's': nidi,
+                  't': nidj,
+                  'w': float(round(ed['jaccardWeight'], 5))
+                }
+            else:
+                nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
+                nids = sorted(nids)
+                eid  =  nids[0]+';'+nids[1]
+                if eid in graph["links"]:
+                    # merging by average like in traditional BipartiteExtractor
+                    # (NB just taking the sum would also make sense)
+                    graph["links"][eid]["w"] = round((graph["links"][eid]["w"] + float(ed['jaccardWeight']))/2, 5)
+                else:
+                    graph["links"][eid] = {
+                      's': nids[0],
+                      't': nids[1],
+                      'w': float(round(ed['jaccardWeight'], 5))
+                    }
 
     for ed in edges_XR:
         nidi = make_node_id(source_type, ed['sourceID'])
         nidj = make_node_id(target_type, ed['targetID'])
         eid  =  nidi+';'+nidj
+        wei  = MATCH_OPTIONS['XR_weight_constant'] * ed['weight']
+
+        if source_type == 'kw' and target_type == 'sch':
+            if MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
+                # different than jaccard normalization by sum_i because normfactor counted on all DB
+                wei *= nodes_normfactors[nidi]
+            if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
+                # same remark
+                wei *= nodes_normfactors[nidj]
+        else:
+            wei = float(round(
+                    MATCH_OPTIONS['XR_weight_constant'] * ed['weight'], 5
+                ))
+
         graph["links"][eid] = {
           's': nidi,
           't': nidj,
-          'w': int(ed['weight']*100)
+          'w': float(round(wei, 5))
         }
 
     return graph
@@ -742,25 +942,34 @@ class BipartiteExtractor:
         self.unique_id = {}
 
 
-    def jaccard(self,cooc,occ1,occ2):
+    def pseudojaccard(self,cooc,occ1,occ2):
         """
-        Used for SOC edges (aka nodes1 or edgesA)
-
-        (Cooc normalized by total scholars occs)
+        Not a real jaccard (products instead of union: more like PMI)
+        Was used for SOC edges (aka nodes1 or edgesA)
         """
         if occ1==0 or occ2==0:
             return 0
         else:
             return cooc*cooc/float(occ1*occ2)
 
-    def log_sim(self,cooc,occ1,occ2):
+
+    def jaccard(self,cooc,occ1,occ2):
         """
-        Alternative for SOC edges
-            => preserves monotony
-            => + log scale (=> good for display !!)
+        To use for all sameside edges (aka nodes1/edgesA and nodes2/edgesB)
+
+        (intersect (=cooc) normalized by union (=totals in this query - cooc))
         """
-        return log1p(self.jaccard(cooc,
-                                  occ1,occ2))
+        return cooc/(occ1+occ2-cooc)
+
+
+    def comex_sim(self,cooc,occ1,occ2):
+        """
+        experiments that could be used instead of jaccard
+
+        POSS for keywords case, counts could be normalized by log(total_occ) in the corpus
+             where total_occ is available from info['occurrences'] from results4
+        """
+        # pass
 
     def getScholarsList(self,qtype,filter_dict):
         """
@@ -793,38 +1002,14 @@ class BipartiteExtractor:
                 # remove quotes from id
                 unique_id = sub(r'^"|"$', '', filter_dict['unique_id'])
 
+                mlog("INFO", "unique_id: query is", unique_id)
+
                 # we use the sch_kw table (scholars <=> kw map)
-                sql_query="""
-                SELECT
-                    neighbors_by_kw.uid,
-                    scholars.initials,
-                    COUNT(matching.kwid) AS cooc
-
-                FROM scholars
-
-                -- step 1
-                JOIN sch_kw AS matching
-                            ON matching.uid = scholars.luid
-                -- step 2
-                JOIN sch_kw AS neighbors_by_kw
-                            ON neighbors_by_kw.kwid = matching.kwid
-
-                WHERE luid = "%s"
-
-                AND (
-                    record_status = 'active'
-                    OR
-                    (record_status = 'legacy' AND valid_date >= NOW())
-                )
-                GROUP BY neighbors_by_kw.uid
-                ORDER BY cooc DESC
-                """ % unique_id
-
-                self.cursor.execute(sql_query)
-                results=self.cursor.fetchall()
+                results = kw_neighbors(unique_id, self.cursor)
 
                 # debug
                 mlog("DEBUG", "getScholarsList<== len(all 2-step neighbors) =", len(results))
+
 
                 if len(results) == 0:
                     # should never happen if input unique_id is valid
@@ -841,12 +1026,12 @@ class BipartiteExtractor:
 
                         scholar_array[node_uid] = 1
                 # debug
-                # mlog("DEBUG", "getScholarsList<==scholar_array", scholar_array)
+                # mlog("DEBUGSQL", "getScholarsList<==scholar_array", scholar_array)
 
             elif qtype == "filters":
                 sql_query = None
 
-                mlog("INFO", "filters: REST query is", filter_dict)
+                mlog("INFO", "filters: query is", filter_dict)
 
                 if "query" in filter_dict and filter_dict["query"] == "*":
                     # query is "*" <=> all scholars
@@ -880,7 +1065,7 @@ class BipartiteExtractor:
                     -- our filtering constraints fit here
                     WHERE  %s
 
-                    """ % (full_scholar_sql, " AND ".join(sql_constraints))
+                    """ % (FULL_SCHOLAR_SQL, " AND ".join(sql_constraints))
 
                 mlog("DEBUGSQL", "getScholarsList SELECT:  ", sql_query)
 
@@ -1028,7 +1213,11 @@ class BipartiteExtractor:
                 info['first_name'] = res3['first_name'];
                 info['mid_initial'] = res3['middle_name'][0] if res3['middle_name'] else ""
                 info['last_name'] = res3['last_name'];
+
+                # card(keywords) of this scholar **in the DB**
+                # (because queries take all keywords, it should be equal to scholarsMatrix[term_scholars[k]]['marginal_tot_kws'])
                 info['keywords_nb'] = res3['keywords_nb'];
+                info["normfactor"] = 1/log1p(res3['keywords_nb'])
                 info['keywords_ids'] = res3['keywords_ids'].split(',') if res3['keywords_ids'] else [];
                 info['keywords_list'] = res3['keywords_list'];
                 info['country'] = res3['country'];
@@ -1071,49 +1260,32 @@ class BipartiteExtractor:
         scholarsMatrix = {};
         scholarsIncluded = 0;
 
-        # constant for bipartite edge weights
-        bipaW = 8
-        # explanation:
-        #  - same sides edge weights are of magnitude ~~ coocc / occ²
-        #  - but bipart edge weights are of magnitude ~~     1 / occ²
-        #  - used like this with a forceAtlas, the visual result of graphs
-        #    will then always cluster nodes of each type together (stronger ties for same side edges)
-        #  - used with the constant this effect is avoided (stronger ties for bipartite edges)
-
-        mlog('DEBUG', 'extractDataCustom:'+" ".join([self.scholars[i]['initials'] for i in self.scholars]))
-
         for i in self.scholars:
+            mlog('DEBUGSQL', 'extractDataCustom:'+self.scholars[i]['email'])
             self.scholars_colors[self.scholars[i]['email'].strip()]=0;
             scholar_keywords = self.scholars[i]['keywords_ids'];
+
             for k in range(len(scholar_keywords)):
                 kw_k = scholar_keywords[k]
 
-                # TODO join keywords and count to do this part already via sql
-                # mlog('DEBUG', 'extractDataCustom:keyword '+kw_k)
-
                 if kw_k != None and kw_k!="":
                     # mlog("DEBUG", kw_k)
-                    if kw_k in termsMatrix:
-                        termsMatrix[kw_k]['occ'] = termsMatrix[kw_k]['occ'] + 1
-
-                        for l in range(len(scholar_keywords)):
-                            kw_l = scholar_keywords[l]
-                            if kw_l in termsMatrix[kw_k]['cooc']:
-                                termsMatrix[kw_k]['cooc'][kw_l] += 1
-                            else:
-                                termsMatrix[kw_k]['cooc'][kw_l] = 1;
-
-                    else:
+                    if kw_k not in termsMatrix:
                         termsMatrix[kw_k]={}
-                        termsMatrix[kw_k]['occ'] = 1;
+                        termsMatrix[kw_k]['marginal_tot_occs'] =  0;
                         termsMatrix[kw_k]['cooc'] = {};
-                        for l in range(len(scholar_keywords)):
-                            kw_l = scholar_keywords[l]
-                            if kw_l in termsMatrix[kw_k]['cooc']:
-                                termsMatrix[kw_k]['cooc'][kw_l] += 1
-                            else:
-                                termsMatrix[kw_k]['cooc'][kw_l] = 1;
 
+                    # total occs within this query
+                    # (count of sch having this kw **among sch of this query**)
+                    # (this is not total occs in the DB because queries don't take all scholars of a keyword)
+                    termsMatrix[kw_k]['marginal_tot_occs'] += 1;
+
+                    for l in range(len(scholar_keywords)):
+                        kw_l = scholar_keywords[l]
+                        if kw_l in termsMatrix[kw_k]['cooc']:
+                            termsMatrix[kw_k]['cooc'][kw_l] += 1
+                        else:
+                            termsMatrix[kw_k]['cooc'][kw_l] = 1;
 
         # ------- debug -------------------------------
         # print(">>>>>>>>>termsMatrix<<<<<<<<<")
@@ -1142,10 +1314,12 @@ class BipartiteExtractor:
             idT = res['kwid']
             info = {}
             info['kwid'] = idT
-            info['occurrences'] = res['occs']
+            info['occurrences'] = res['occs']   # total occs in the DB
+                                                # (used as normalization if
+                                                # normalize_schkw_by_kw_totoccs)
             info['kwstr'] = res['kwstr']
 
-            # job counter: how many times a term in cited in job ads
+            # job counter: how many times a term is cited in job ads
             if res['nbjobs']:
                 info['nbjobs'] = int(res['nbjobs'])
                 # mlog("DEBUG", "nbjobs", info['kwstr'], int(res['nbjobs']))
@@ -1173,29 +1347,23 @@ class BipartiteExtractor:
                 term_scholars.append("S::"+row['initials']+"/%05i"%int(row['uid']))
 
             for k in range(len(term_scholars)):
-                if term_scholars[k] in scholarsMatrix:
-                    scholarsMatrix[term_scholars[k]]['occ'] = scholarsMatrix[term_scholars[k]]['occ'] + 1
-                    for l in range(len(term_scholars)):
-                        if term_scholars[l] in self.scholars:
-                            if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
-                            else:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
-
-                else:
+                if term_scholars[k] not in scholarsMatrix:
                     scholarsMatrix[term_scholars[k]]={}
-                    scholarsMatrix[term_scholars[k]]['occ'] = 1;
+                    scholarsMatrix[term_scholars[k]]['marginal_tot_kws'] = 0 ;
                     scholarsMatrix[term_scholars[k]]['cooc'] = {};
 
-                    for l in range(len(term_scholars)):
-                        if term_scholars[l] in self.scholars:
-                            if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
-                            else:
-                                scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
+                # total nbkws of scholar within this filter (should == total nbkws of this scholar)
+                scholarsMatrix[term_scholars[k]]['marginal_tot_kws'] += 1
 
-                                # eg matrix entry for scholar k
-                                # 'S::SK/04047': {'occ': 1, 'cooc': {'S::SL/02223': 1}}
+                for l in range(len(term_scholars)):
+                    if term_scholars[l] in self.scholars:
+                        if term_scholars[l] in scholarsMatrix[term_scholars[k]]['cooc']:
+                            scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] += 1
+                        else:
+                            scholarsMatrix[term_scholars[k]]['cooc'][term_scholars[l]] = 1;
+
+            # eg matrix entry for scholar k
+            # 'S::SK/04047': {'marginal_tot_occs': 1, 'cooc': {'S::SL/02223': 1}}
             nodeId = "K::"+str(term)
             self.Graph.add_node(nodeId)
 
@@ -1210,68 +1378,99 @@ class BipartiteExtractor:
         for scholar in self.scholars:
             if scholar in scholarsMatrix:
                 if len(scholarsMatrix[scholar]['cooc']) >= 1:
+
                     for keyword in self.scholars[scholar]['keywords_ids']:
                         if keyword:
                             source= str(scholar)
                             target="K::"+str(keyword)
 
-                            # term--scholar weight: constant / log(1+total keywords of scholar)
-                            weight = bipaW / log1p(scholarsMatrix[scholar]['occ'])
-                            self.Graph.add_edge( source , target , {'weight':weight,'type':"bipartite"})
+                            # term--scholar weight: constant * optional factors
+                            weight = MATCH_OPTIONS['XR_weight_constant']
+
+                            # 1/log(1+total_keywords_of_scholar)
+                            if MATCH_OPTIONS['normalize_schkw_by_sch_totkw']:
+                                weight *= self.scholars[scholar]['normfactor']
+
+                            # 1/log(1+total_scholars_of_keyword)
+                            if MATCH_OPTIONS['normalize_schkw_by_kw_totoccs']:
+                                weight *= 1/log1p(self.terms_dict[keyword]['occurrences'])
+
+                            self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"bipartite"})
 
         for term in self.terms_dict:
             nodeId1 = self.terms_dict[term]['kwid'];
             if str(nodeId1) in termsMatrix:
-                neighbors = termsMatrix[str(nodeId1)]['cooc'];
-                for i, neigh in enumerate(neighbors):
+                neighbor_coocs = termsMatrix[str(nodeId1)]['cooc'];
+                id1_occs = termsMatrix[str(nodeId1)]['marginal_tot_occs']
+                for i, neigh in enumerate(neighbor_coocs):
                     if neigh != term:
                         source="K::"+term
                         target="K::"+neigh
 
-                        # term--term weight: number of common scholars / (total occs of t1 x total occs of t2)
-                        weight=neighbors[neigh]/(self.terms_dict[term]['occurrences'] * self.terms_dict[neigh]['occurrences'])
+                        id2_occs = termsMatrix[str(neigh)]['marginal_tot_occs']
 
-                        # detailed debug
-                        # if neighbors[neigh] != 1:
+                        # term--term weight
+                        weight=self.jaccard(neighbor_coocs[neigh],
+                                            id1_occs,
+                                            id2_occs)
+
+
+                        # jaccard: cooc / (total_query_occ_i + total_query_occ_j - cooc)
+
+                        # total_query_occ_i: total occs within this query
+
+                        # NB: total occurrences within DB also available for normalization
+                        #     in self.terms_dict[neigh]['occurrences'])
+
+                        # detailed debug:
+                        # if neighbor_coocs[neigh] != 1:
                         #     mlog("DEBUG", "extractDataCustom.extract edges b/w terms====")
                         #     mlog("DEBUG", "term:", self.terms_dict[term]['kwstr'], "<===> neighb:", self.terms_dict[neigh]['kwstr'])
                         #     mlog("DEBUG", "kwoccs:", self.terms_dict[term]['occurrences'])
-                        #     mlog("DEBUG", "neighbors[neigh]:", neighbors[neigh])
+                        #     mlog("DEBUG", "neighbor_coocs[neigh]:", neighbor_coocs[neigh])
                         #     mlog("DEBUG", "edge w", weight)
 
-                        self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes2"})
+                        # cf also final edge weights after rounding in buildJSON
+
+                        self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"nodes2"})
 
         for scholar in self.scholars:
             nodeId1 = scholar;
             if str(nodeId1) in scholarsMatrix:
 
                 # weighted list of other scholars
-                neighbors=scholarsMatrix[str(nodeId1)]['cooc'];
+                neighbor_coocs=scholarsMatrix[str(nodeId1)]['cooc'];
                 # eg {'S::KW/03291': 1, 'S::WTB/04144': 3}
 
 
-                for i, neigh in enumerate(neighbors):
+                for i, neigh in enumerate(neighbor_coocs):
                     if neigh != str(scholar):
                         source=str(scholar)
                         target=str(neigh)
                         # scholar--scholar weight: number of common terms / (total keywords of scholar 1 x total keywords of scholar 2)
-                        weight=self.jaccard(neighbors[str(neigh)],
-                                                scholarsMatrix[nodeId1]['occ'],
-                                                scholarsMatrix[neigh]['occ'])
+
+                        # actual: pseudojaccard: cooc*cooc/float(occ1*occ2)
+                        # jaccard: cooc / (total_occ_i + total_occ_j - cooc)
+
+                        weight = self.jaccard(
+                            neighbor_coocs[str(neigh)],
+                            scholarsMatrix[nodeId1]['marginal_tot_kws'],
+                            scholarsMatrix[neigh]['marginal_tot_kws']
+                        )
                         #mlog("DEBUG", "\t"+source+","+target+" = "+str(weight))
-                        self.Graph.add_edge( source , target , {'weight':weight,'type':"nodes1"})
+                        self.Graph.add_edge( source , target , {'weight':round(weight,5),'type':"nodes1"})
 
         # ------- debug nodes1 -------------------------
         # print(">>>>>>>>>scholarsMatrix<<<<<<<<<")
         # print(scholarsMatrix)
 
         # exemple:
-        # {'S::PFC/00002': {'occ': 6,
+        # {'S::PFC/00002': {'marginal_tot_kws': 6,
         #                   'cooc': {'S::PFC/00002': 6,
         #                            'S::fl/00009': 1,
         #                            'S::DC/00010': 1}
         #                   },
-        #   'S::fl/00009': {'occ': 9,
+        #   'S::fl/00009': {'marginal_tot_kws': 9,
         #                   'cooc': {'S::fl/00009': 9,
         #                            'S::PFC/00002': 1}
         #                  }
@@ -1454,7 +1653,7 @@ class BipartiteExtractor:
 
                 # special attribute normalizing factor
                 if self.scholars[idNode]["keywords_ids"] and len(self.scholars[idNode]["keywords_ids"]):
-                    node["attributes"]["normfactor"] = "%.5f" % (1/log1p(len(self.scholars[idNode]["keywords_ids"])))
+                    node["attributes"]["normfactor"] = self.scholars[idNode]["normfactor"]
                 else:
                     node["attributes"]["normfactor"] = 1
 
@@ -1476,56 +1675,57 @@ class BipartiteExtractor:
 
                 nodes[idNode] = node
 
-#            mlog("DEBUG", "SCH","\t",idNode,"\t",nodeLabel)
+                # mlog("DEBUG", "SCH","\t",idNode,"\t",nodeLabel)
 
                 nodesA+=1
 
-        GG = Graph()
-        for n in self.Graph.edges_iter():
-            s = n[0]
-            t = n[1]
-            w = float(self.Graph[n[0]][n[1]]['weight'])
-            tp = self.Graph[n[0]][n[1]]['type']
+        if MATCH_OPTIONS['avg_bidirectional_links']:
+            GG = Graph()
+            for n in self.Graph.edges_iter():
+                s = n[0]
+                t = n[1]
+                w = float(self.Graph[n[0]][n[1]]['weight'])
+                tp = self.Graph[n[0]][n[1]]['type']
 
-            if GG.has_edge(s,t):
-                oldw = GG[s][t]['weight']
-                avgw = (oldw+w)/2      # TODO this avg faster but not indifferent to sequence
-                GG[s][t]['weight'] = avgw
-            else:
-                GG.add_edge( s , t , { "weight":w , "type":tp } )
+                if GG.has_edge(s,t):
+                    # (case when same edge, both directions)
+                    oldw = GG[s][t]['weight']
+                    # NB this avg works because at max 2 values
+                    avgw = (oldw+w)/2
+                    GG[s][t]['weight'] = avgw
+                else:
+                    GG.add_edge( s , t , { "weight":round(w,5) , "type":tp } )
+        else:
+            GG = DiGraph()
+            for n in self.Graph.edges_iter():
+                s = n[0]
+                t = n[1]
+                w = float(self.Graph[n[0]][n[1]]['weight'])
+                tp = self.Graph[n[0]][n[1]]['type']
+                GG.add_edge( s , t , { "weight":round(w,5) , "type":tp } )
 
         e = 0
         for n in GG.edges_iter():#Memory, what's wrong with you?
             wr = 0.0
             origw = GG[n[0]][n[1]]['weight']
-            for i in range(2,10):
-                wr = round( origw , i)
-                if wr > 0.0: break
+            wr = round( origw , 5 )
             edge = {}
             edge["s"] = n[0]
             edge["t"] = n[1]
             edge["w"] = str(wr)
-#        edge["type"] = GG[n[0]][n[1]]['type']
             if GG[n[0]][n[1]]['type']=="nodes1": edgesA+=1
             if GG[n[0]][n[1]]['type']=="nodes2": edgesB+=1
             if GG[n[0]][n[1]]['type']=="bipartite": edgesAB+=1
 
-#        mlog("DEBUG", edge["type"],"\t",nodes[n[0]]["label"],"\t",nodes[n[1]]["label"],"\t",edge["w"])
+            # --------------------------------------
+            # final edge weights for all edge types
+            # --------------------------------------
+            # mlog("DEBUG", nodes[n[0]]["label"],"\t",nodes[n[1]]["label"],"\t",edge["w"])
 
-#        if edge["type"]=="nodes1": mlog("DEBUG", wr)
             edges[str(e)] = edge
             e+=1
-            #if e%1000 == 0:
+            # if e%1000 == 0:
             #    mlog("INFO", e)
-#    for n in GG.nodes_iter():
-#        if nodes[n]["type"]=="Keywords":
-#            concepto = nodes[n]["label"]
-#            nodes2 = []
-#            neigh = GG.neighbors(n)
-#            for i in neigh:
-#                if nodes[i]["type"]=="Keywords":
-#                    nodes2.append(nodes[i]["label"])
-#            mlog("DEBUG", concepto,"\t",", ".join(nodes2))
 
         graph = {}
         graph["nodes"] = nodes
@@ -1533,13 +1733,8 @@ class BipartiteExtractor:
         graph["stats"] = { "sch":nodesA,"kw":nodesB,"n11(soc)":edgesA,"n22(sem)":edgesB,"nXR(bi)":edgesAB ,  }
         graph["ID"] = self.unique_id
 
-        mlog("INFO", graph["stats"])
+        mlog("INFO", "BipartiteExtractor results:", graph["stats"])
 
-        # mlog("DEBUG", "scholars",nodesA)
-        # mlog("DEBUG", "concept_tags",nodesB)
-        # mlog("DEBUG", "nodes1",edgesA)
-        # mlog("DEBUG", "nodes2",edgesB)
-        # mlog("DEBUG", "bipartite",edgesAB)
         return graph
 
 

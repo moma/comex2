@@ -254,31 +254,53 @@ def multimatch_graph_api():
     (uses the new approach dbdatapi.multimatch)
     """
     graph = {'links':{}, 'nodes':{}}
+
+    supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
+
+    # default types
+    type0 = 'kw'
+    type1 = 'sch'
+
+    # constraints
+    sql_filters = []
+
     if 'type0' in request.args and 'type1' in request.args:
         type0 = request.args['type0']
         type1 = request.args['type1']
         mlog("INFO", "multimatch query for", type0, type1)
 
-        supported_types = ["sch","lab" ,"inst","kw" ,"ht" ,"country"]
-        if type0 in supported_types and type1 in supported_types:
+    if type0 in supported_types and type1 in supported_types:
 
-            sql_filters = []
-            print ("multimatch_graph_api types", type0, type1, request.args)
+        if 'qtype' in request.args:
+            if request.args['qtype'] == 'filters':
+                # query is a set of filters like: key <=> array of values
+                # (expressed as rest parameters: "keyA[]=valA1&keyB[]=valB1&keyB[]=valB2")
 
-            if 'qtype' in request.args and request.args['qtype'] == 'filters':
+                # 1. we create a representation as dict of arrays
+                filterq_dict = tools.restparse(request.query_string.decode())
 
-                filterq_dict = tools.restparse(
-                                request.query_string.decode()
-                                )
-
+                # 2. we map it to an sql conjunction of alternatives
+                #    ==> WHERE colA IN ("valA1") AND colB IN ("valB1", "valB2")
                 sql_filters = dbdatapi.rest_filters_to_sql(filterq_dict)
-                print("query => SQL", sql_filters)
 
-            graph = dbdatapi.multimatch(
-                        type0,
-                        type1,
-                        sql_filters
-                    )
+            elif request.args['qtype'] == "uid" and 'unique_id' in request.args:
+                # query is the id of a unique scholar
+                # 1. remove quotes from id
+                unique_id = int(sub(r'^"|"$', '', request.args['unique_id']))
+
+                # 2. get the direct neighbors of the scholar
+                # 3. use them as an 'IN' filter :/
+                neighbors = dbdatapi.kw_neighbors(unique_id)
+                sql_filters = ["full_scholar.luid IN %s" % (
+                    '('+','.join([str(nei["uid"]) for nei in neighbors])+')'
+                )]
+
+        print("query => SQL", sql_filters)
+        graph = dbdatapi.multimatch(
+                    type0,
+                    type1,
+                    sql_filters
+                )
 
     return(
         Response(
