@@ -32,9 +32,6 @@ TW.facetOptions = TW.conf.defaultFacetOptions
 if (/mobile/i.test(navigator.userAgent))   mobileAdaptConf()
 
 
-// stats for de debug displays and dev tests
-TW.stats = {}
-
 //  ======== [   what to do at start ] ========= //
 console.log("Starting TWJS")
 
@@ -106,8 +103,6 @@ function syncRemoteGraphData () {
   var inData;        // = {nodes: [....], edges: [....], cats:...}
 
   var mapLabel;      // user displayed label for this input dataset
-
-  let t0 = performance.now()
 
   // case (1) read from remote DB via API bridge fetching
   // ex: /services/api/graph?q=filters...
@@ -303,12 +298,6 @@ function syncRemoteGraphData () {
       console.log('  fetch result: typeof data', typeof inData)
       console.log("\n============================\n")
     }
-  }
-
-  let dataLoadTime = performance.now() - t0
-  console.log("data loading time:", dataLoadTime)
-  if (TW.stats) {
-    TW.stats.dataLoadTime = dataLoadTime
   }
 
   return [inFormat, inData, mapLabel]
@@ -576,7 +565,6 @@ function mainStartGraph(inFormat, inData, twInstance) {
       }
 
       if (TW.conf.debug.logSettings) console.info("FA2 settings", TW.FA2Params)
-
       // track which type has already been spatialised once
       TW.didFA2OnTypes = TW.categories.map(function(){return false})
 
@@ -600,7 +588,6 @@ function mainStartGraph(inFormat, inData, twInstance) {
           }
         })
       }
-
 
       // REFA new sigma.js
       TW.partialGraph.camera.goTo({x:0, y:0, ratio:1.2, angle: 0})
