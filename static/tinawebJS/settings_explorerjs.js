@@ -7,8 +7,8 @@ TW.conf = (function(TW){
   let TWConf = {}
 
   TWConf.branding = {
-    'name': 'ProjectExplorer',   // <--- name displayed in upper left
-    'link': 'http://iscpif.fr',                         // home  link
+    'name': 'Community Explorer 2',  // <--- name displayed in upper left
+    'link': 'https://communityexplorer.org',            // home  link
     'video': 'https://player.vimeo.com/video/38383946'  // video link
   }
 
@@ -25,7 +25,7 @@ TW.conf = (function(TW){
   TWConf.sourceAPI={}
   TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
 
   // "services/api/graph" : traditional match with BipartiteExtractor
   // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
@@ -193,10 +193,10 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=900;     // constant factor in duration of auto-run
-    TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional log(nEdges)
+    TWConf.fa2Milliseconds=500;     // constant factor in duration of auto-run
+    TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional sqrt(nEdges)
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
-    TWConf.fa2SlowerMeso = true     // slow down meso if few nodes
+    TWConf.fa2SlowerMeso = false    // slow down meso if few nodes
 
 
   // Full-text search
@@ -278,6 +278,9 @@ TW.conf = (function(TW){
   TWConf.zoomMin = 1/64            // for zoom IN   (ex: 1/64 to allow zoom x64)
   TWConf.zoomMax = 8               // for zoom OUT
 
+  // NB these "inverted" semantics are based on sigma's own zoomMin and zoomMax
+  //    cf. https://github.com/jacomyal/sigma.js/wiki/Settings#captors-settings
+
   // circle selection cursor
   TWConf.circleSizeMin = 0;
   TWConf.circleSizeMax = 200;
@@ -288,12 +291,12 @@ TW.conf = (function(TW){
   TWConf.tagcloudFontsizeMax = 1.5 ;
 
   TWConf.tagcloudSameLimit = 50     // max displayed neighbors of the same type
-  TWConf.tagcloudOpposLimit = 10    // max displayed neighbors of the opposite type
+  TWConf.tagcloudOpposLimit = 50    // max displayed neighbors of the opposite type
 
   // relative sizes (iff ChangeType == both nodetypes)
   TWConf.sizeMult = [];
   TWConf.sizeMult[0] = 2.0;     // ie for node type 0 (<=> sem)
-  TWConf.sizeMult[1] = 3.0;     // ie for node type 1 (<=> soc)
+  TWConf.sizeMult[1] = 4.0;     // ie for node type 1 (<=> soc)
 
 
   // ===========

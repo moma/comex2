@@ -23,6 +23,9 @@
             <h2 class="oldstyle">Job market</h2>
             <div class="message-hero">
               {{ message | safe }}
+              <br/>
+              <br/>
+              All the jobs are also visible in <a href="/explorerjs.html?sourcemode=%22api%22&type=%22filter%22&srcparams=%22%257B%2522_node0%2522%253A%2522kw%2522%252C%2522_node1%2522%253A%2522jobs_and_candidates%2522%252C%2522_pivot_type%2522%253A%2522keywords%2522%257D%22">this explorer map <br> (all job-looking candidates with relationship to the keywords of the jobs).</a>
             </div>
             {% if can_edit %}
               <p class="mini-hero" style="clear:both">

@@ -25,8 +25,11 @@ The environment variable `DOORS_HOST` must simply be set to your doors server's 
 
 ##### 3) Run the docker
 ```
-# prepare the data directory (or copy one if you already have data)
+# prepare the data/ directory (or copy one if you already have data)
 mkdir data/shared_mysql_data
+
+# prepare the logs/ directory
+mkdir logs
 
 # build the components
 cd setup/dockers
@@ -35,6 +38,8 @@ sudo docker-compose build
 # run them and link them
 sudo docker-compose up
 # at this point your comex app is available on http://localhost:8080
+#               your sql data will always be in data
+#               and logs are under logs/services.log
 ```
 
 #### Nginx

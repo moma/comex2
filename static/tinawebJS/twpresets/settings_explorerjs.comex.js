@@ -25,7 +25,7 @@ TW.conf = (function(TW){
   TWConf.sourceAPI={}
   TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
   TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
 
   // "services/api/graph" : traditional match with BipartiteExtractor
   // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
@@ -291,7 +291,7 @@ TW.conf = (function(TW){
   TWConf.tagcloudFontsizeMax = 1.5 ;
 
   TWConf.tagcloudSameLimit = 50     // max displayed neighbors of the same type
-  TWConf.tagcloudOpposLimit = 10    // max displayed neighbors of the opposite type
+  TWConf.tagcloudOpposLimit = 50    // max displayed neighbors of the opposite type
 
   // relative sizes (iff ChangeType == both nodetypes)
   TWConf.sizeMult = [];

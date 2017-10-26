@@ -23,12 +23,12 @@ if __package__ == 'services':
     from services.tools import mlog, REALCONFIG
     from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                                    DBHashtags, DBCountries
+                                    DBHashtags, DBCountries, DBScholarsAndJobs, Org
 else:
     from tools          import mlog, REALCONFIG
     from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
-                               DBHashtags, DBCountries
+                               DBHashtags, DBCountries, DBScholarsAndJobs, Org
 
 
 # options work for both matching algorithms (BipartiteExtractor and multimatch)
@@ -51,6 +51,22 @@ MATCH_OPTIONS = {
 
     # weight of sch-kw XR edges divided by log(1+keyword["total_occs"])
     "normalize_schkw_by_kw_totoccs": True
+}
+
+# for multi-matching
+TYPE_MAP = {
+    # entities that support *scholar* pivot
+    "lab" :  DBLabs,
+    "inst" : DBInsts,
+    "ht" :   DBHashtags,
+    "country" :   DBCountries,
+
+    # entities that support *keyword* pivot
+    "jobs_and_candidates" : DBScholarsAndJobs,
+
+    # entities that support both pivots
+    "sch" :  DBScholars,
+    "kw" :   DBKeywords
 }
 
 
@@ -99,6 +115,7 @@ FIELDS_FRONTEND_TO_SQL = {
 
     "linked":          {'col':"linked_ids.ext_id_type", 'type': "EQ_relation"}
 }
+
 
 # explorer REST "filters" syntax => sql "WHERE" constraints on scholars
 # =====================================================================
@@ -245,39 +262,53 @@ def kw_neighbors(uid, db_cursor = None):
     return results
 
 
+
+
 # multimatch(nodetype_1, nodetype_2)
 # ==================================
-def multimatch(source_type, target_type, pivot_filters = []):
+def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'scholars'):
     """
+    @args:
+      - source_type ∈ {'kw', 'ht'}
+      - target_type ∈ {'sch', 'lab', 'inst', 'country', 'jobs_and_candidates'}
+
+      + optional pivot_filters on scholars table as strings of the form:
+            'WHERE colA IN ("valA1", "valA2") AND colB LIKE "%%valB1%%"'
+
+    NB: An alternate pivot_type 'keywords' can be specified for some DBEntities.
+
+        For instance for "job matching" the source and pivot is keywords and
+        target is jobs_and_candidates (union of jobs and job-looking scholars).
+
+        It is supported because scholars and jobs both have their own related
+        keywords (via sch_kw and job_kw). The keyword pivots allow constructing
+        the similarity between the job description and the job candidates.
+
+    ----------------------------------------------------------------------------
     Returns a bipartite graph with:
+
+    - a list of nodes (objects of source_type U related objects of target_type)
 
     - a list of edges between the objects of type 1 and those of type 2,
       via their matching scholars (used as pivot and for filtering)
-
-      => src_type ∈ {kw, ht}
-      => tgt_type ∈ {sch, lab, inst, country}
+      (weights of cross-relations edges use the normalizations of MATCH_OPTIONS)
 
     - 2 lists of internal edges (between type 1 nodes and type 2 nodes resp.)
-    - the list of nodes
+
+    - weights of internal edges use jaccard weights using:
+      => marginal sums of M1[type1 to pivot] and M2[pivot to type2]
+      => coefs of the dotproduct of M1 o M1⁻¹
+                              or of (M1 o M2)⁻¹ o (M1 o M2)
     """
 
-    type_map = {
-        "sch" :  DBScholars,
-        "lab" :  DBLabs,
-        "inst" : DBInsts,
-        "kw" :   DBKeywords,
-        "ht" :   DBHashtags,
-        "country" :   DBCountries,
-    }
-
     # unsupported entities
-    if ( source_type not in type_map
-      or target_type not in type_map ):
+    if ( source_type not in TYPE_MAP
+      or target_type not in TYPE_MAP ):
         return []
 
     # instanciating appropriate DBEntity class
-    o1 = type_map[source_type]()
-    o2 = type_map[target_type]()
+    o1 = TYPE_MAP[source_type]()
+    o2 = TYPE_MAP[target_type]()
 
     db = connect_db()
     db_c = db.cursor(DictCursor)
@@ -285,8 +316,12 @@ def multimatch(source_type, target_type, pivot_filters = []):
     # idea: we can always (SELECT subq1)
     #       and JOIN with (SELECT subq2)
     #       because they both expose pivotID
-    subq1 = o1.toPivot()
-    subq2 = o2.toPivot()
+    subq1 = o1.toPivot(pivotType = pivot_type)
+    subq2 = o2.toPivot(pivotType = pivot_type)
+
+    # def parameter for the sameside edges of type1
+    # ('indirect' vs 'direct')
+
 
     # additional filter step: the middle pivot step allows filtering pivots
     #                         by any information that can be related to it
@@ -294,27 +329,42 @@ def multimatch(source_type, target_type, pivot_filters = []):
     if (len(pivot_filters)):
         subqmidfilters = "WHERE " + " AND ".join(pivot_filters)
 
-    # make some columns available for filtering
-    # luid
-    # country
-    # job_looking
-    # job_looking_date
-    # orgs_list
-    # hashtags_list
-    # keywords_list
-    subqmid =  """
-                SELECT * FROM (
+    if pivot_type == 'scholars':
+        # default method is direct (faster)
+        sem_edge_method = 'direct'
+
+        # make some columns available for filtering
+        # luid
+        # country
+        # job_looking
+        # job_looking_date
+        # orgs_list
+        # hashtags_list
+        # keywords_list
+        subqmid =  """
+                    SELECT * FROM (
+                        %s
+                    ) AS full_scholar
+                    -- our filtering constraints fit here
                     %s
-                ) AS full_scholar
-                -- our filtering constraints fit here
-                %s
-    """ % (FULL_SCHOLAR_SQL, subqmidfilters)
+        """ % (FULL_SCHOLAR_SQL, subqmidfilters)
+    elif pivot_type == 'keywords':
+        # flag to use the (i) formula for sameside keywords
+        # (when keywords are pivots they can't provide direct links with themselves)
+        sem_edge_method = 'indirect'
+
+        # for keywords (used in job matching) we have only 3 fields for filter: label (LIKE), n_occs, nb_jobs
+        subqmid =  """
+                    SELECT * FROM keywords
+                    -- our filtering constraints fit here
+                    %s
+        """ % subqmidfilters
 
     # ------------------------------------------------------------  Explanations
     #
     # At this point in matrix representation:
-    #  - subq1 is M1 [source_type x filtered_scholars]
-    #  - subq2 is M2 [filtered_scholars x target_type]
+    #  - subq1 is M1 [source_type x filtered_pivots]
+    #  - subq2 is M2 [filtered_pivots x target_type]
     #
     #
     # The SQL match_table built below will correspond to the cross-relations XR:
@@ -333,7 +383,10 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #  Neighs_11 = M1 o M1⁻¹
     #  Neighs_22 = M2⁻¹ o M2
     #
-    # In practice, we will use formula (ii) for Neighs_11,
+    # +results with (ii) are filtered by sources that matched a target (for 11)
+    #                                 or targets that matched a source (for 22)
+    #
+    # In practice, we will use formula (ii) for Neighs_11 except if pivot is keywords,
     #                      and formula (i)  for Neighs_22,
     #   because:
     #     - type_1 ∈ {kw, ht}
@@ -360,23 +413,26 @@ def multimatch(source_type, target_type, pivot_filters = []):
     matchq = """
     -- filtered pivot
     CREATE TEMPORARY TABLE IF NOT EXISTS pivot_filtered_ids AS (
-        SELECT luid FROM ( %(pfiltersq)s ) AS filtered_on_infos
+        SELECT %(pivotIDField)s AS pivotID FROM ( %(pfiltersq)s ) AS filtered_on_infos
     );
-    CREATE INDEX filteridx ON pivot_filtered_ids(luid);
+    CREATE INDEX filteridx ON pivot_filtered_ids(pivotID);
 
-    -- eg: kw to pivot
+    -- eg: kw to sch pivot
+    -- eg: kw as source to itself as pivot (step is a useless then, but kept to remain in the general scenario)
     CREATE TEMPORARY TABLE IF NOT EXISTS sources AS (
-        SELECT * FROM (%(sourcesq)s) AS sem_matrix
+        SELECT sem_matrix.* FROM (%(sourcesq)s) AS sem_matrix
         JOIN pivot_filtered_ids
-            ON sem_matrix.pivotID = pivot_filtered_ids.luid
+            ON sem_matrix.pivotID = pivot_filtered_ids.pivotID
     );
     CREATE INDEX semidx ON sources(pivotID, entityID);
 
-    -- eg: pivot to orgs
+    -- eg: sch pivot to orgs
+    -- eg: sch pivot to itself as result (same remark about useless step kept as special case of the general scenario)
+    -- eg: kw pivot to jobs+candidates
     CREATE TEMPORARY TABLE IF NOT EXISTS targets  AS (
-        SELECT * FROM (%(targetsq)s) AS soc_matrix
+        SELECT soc_matrix.* FROM (%(targetsq)s) AS soc_matrix
         JOIN pivot_filtered_ids
-            ON soc_matrix.pivotID = pivot_filtered_ids.luid
+            ON soc_matrix.pivotID = pivot_filtered_ids.pivotID
     );
     CREATE INDEX socidx ON targets(pivotID, entityID);
 
@@ -402,6 +458,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
     );
     CREATE INDEX mt1idx ON match_table(sourceID, targetID);
     """ % {
+            'pivotIDField': 'kwid' if pivot_type == 'keywords' else 'luid',
             'sourcesq': subq1,
             'targetsq': subq2,
             'pfiltersq': subqmid,
@@ -432,8 +489,6 @@ def multimatch(source_type, target_type, pivot_filters = []):
             SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
         );
         CREATE INDEX ssums_idx ON source_sums(sourceID, card);
-        -- to do the operations in python
-        -- SELECT sourceID, sum(weight) AS card FROM match_table GROUP BY sourceID
     """
     tgt_sumsq = """
         -- to do the operations in sql
@@ -441,10 +496,12 @@ def multimatch(source_type, target_type, pivot_filters = []):
             SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
         );
         CREATE INDEX tsums_idx ON target_sums(targetID, card);
-        -- to do the operations in python
-        -- SELECT targetID, sum(weight) AS card FROM match_table GROUP BY targetID
     """
 
+    # several copies needed for self-joining
+    # --------------
+    # cf "You cannot refer to a TEMPORARY table more than once in the same query"
+    # in https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
     do_copies = """
             CREATE TEMPORARY TABLE IF NOT EXISTS source_sums_2 AS (
                 SELECT * FROM source_sums
@@ -475,51 +532,70 @@ def multimatch(source_type, target_type, pivot_filters = []):
     #      A  [  M1  ]         square
     #         [      ]        sameside
     sameside_direct_format = """
-        SELECT result.*,
-               -- keywords.kwstr, k2.kwstr,
+        -- the coocWeights operation after reporting sums
+        SELECT dotproduct.*,
+                -- keywords.kwstr, k2.kwstr,
                coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
-            SELECT * FROM (
+            -- reporting sums
+            SELECT nid_i,
+                   nid_j,
+                   coocWeight,
+                   -- all sum_i the same for a nid_i
+                   source_local_sums.localMargSum AS sum_i,
+                   source_local_sums_2.localMargSum AS sum_j
+
+            FROM (
+                -- -----------------------
+                -- grouping (nid_i, nid_j)
+                -- -----------------------
                 SELECT
                     sources.entityID   AS nid_i,
                     sources_2.entityID AS nid_j,
-                    count(*) AS coocWeight,     -- here: how often each distinct pairs i,j was used
-                    max(source_sums.card) AS sum_i,
-                    max(source_sums_2.card) AS sum_j
+                    COUNT(*) AS coocWeight      -- here: how often each distinct pairs i,j was used
                 FROM sources
                 JOIN sources_2
                     ON sources.pivotID = sources_2.pivotID
-                LEFT JOIN source_sums
-                    ON source_sums.sourceID = sources.entityID
-                LEFT JOIN source_sums_2
-                    ON source_sums_2.sourceID = sources_2.entityID
+                WHERE sources.entityID != sources_2.entityID
                 GROUP BY nid_i, nid_j
-            ) AS dotproduct
-            WHERE nid_i != nid_j
-            --  AND coocWeight > %(threshold)i
-        ) AS result
-        -- JOIN keywords ON nid_i = keywords.kwid
-        -- JOIN keywords AS k2 ON nid_j = k2.kwid
+            ) AS source_local_coocs
+            LEFT JOIN source_local_sums
+                ON source_local_sums.nid = nid_i
+            LEFT JOIN source_local_sums_2
+                ON source_local_sums_2.nid = nid_j
+
+        ) AS dotproduct
+            -- WHERE coocWeight > %(threshold)i
+
+             -- JOIN keywords ON nid_i = keywords.kwid
+             -- JOIN keywords AS k2 ON nid_j = k2.kwid
+
         -- ORDER BY jaccardWeight DESC
     """
 
-    # 2a we'll need a copy of the M1 table
+    # 2 prepare a few elements for the sameside edges
     db_c.execute("""
     CREATE TEMPORARY TABLE IF NOT EXISTS sources_2 AS (
         SELECT * FROM sources
     );
     CREATE INDEX sem2idx ON sources_2(pivotID, entityID);
+
+    -- prepare sums on M1
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums AS (
+        SELECT
+            entityID AS nid,
+            count(pivotID) AS localMargSum
+        FROM sources
+        GROUP BY entityID
+    );
+    CREATE INDEX slsums_idx ON source_local_sums(nid, localMargSum);
+
+    -- and one more copy
+    CREATE TEMPORARY TABLE IF NOT EXISTS source_local_sums_2 AS (
+        SELECT * FROM source_local_sums
+    );
+    CREATE INDEX slsums2_idx ON source_local_sums_2(nid, localMargSum);
     """)
-
-    # 2b sameside edges type0 <=> type0
-    dot_threshold = 0
-    edges_00_q = sameside_direct_format
-
-    # mlog("DEBUG", "edges_00_q", edges_00_q)
-    db_c.execute(edges_00_q)
-    edges_00 = db_c.fetchall()
-
-    # print("edges_00", edges_00)
 
     # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
     #                         B
@@ -565,8 +641,22 @@ def multimatch(source_type, target_type, pivot_filters = []):
     CREATE TEMPORARY TABLE IF NOT EXISTS match_table_2 AS (
         SELECT * FROM match_table
     );
-    CREATE INDEX mt2idx ON match_table_2(sourceID, targetID)
+    CREATE INDEX mt2idx ON match_table_2(sourceID, targetID);
     """)
+
+
+    # sameside edges type0 <=> type0
+    if (sem_edge_method == "direct"):
+        edges_00_q = sameside_direct_format
+    else:
+        dot_threshold = 0
+        edges_00_q = sameside_indirect_format % {'nid_type': "sourceID",
+                                              'transi_type': "targetID",
+                                            'nid_type_sums': "source_sums",
+                                                'threshold': dot_threshold}
+    mlog("DEBUG", "edges_00_q", edges_00_q)
+    db_c.execute(edges_00_q)
+    edges_00 = db_c.fetchall()
 
     # 3b sameside edges type1 <=> type1
     dot_threshold = 1
@@ -580,25 +670,100 @@ def multimatch(source_type, target_type, pivot_filters = []):
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
 
+    # example edge result
+    # +-------+-------+------------+-------+-------+---------------+
+    # | nid_i | nid_j | coocWeight | sum_i | sum_j | jaccardWeight |
+    # +-------+-------+------------+-------+-------+---------------+
+    # |    17 |    26 |          2 |     4 |     3 |        0.4000 |
+    # |    25 |    27 |          1 |     2 |     4 |        0.2000 |
+    # |    25 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    26 |    17 |          2 |     3 |     4 |        0.4000 |
+    # |    26 |    31 |          1 |     3 |     3 |        0.2000 |
+    # |    27 |    25 |          1 |     4 |     2 |        0.2000 |
+    # |    28 |    30 |          1 |     2 |     3 |        0.2500 |
+    # |    30 |    25 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    28 |          1 |     3 |     2 |        0.2500 |
+    # |    30 |    32 |          1 |     3 |     2 |        0.2500 |
+    # |    31 |    26 |          1 |     3 |     3 |        0.2000 |
+    # |    32 |    30 |          1 |     2 |     3 |        0.2500 |
+    # +-------+-------+------------+-------+-------+---------------+
+
     # print("edges_11", edges_11)
 
     # 4 - we use DBEntity.getInfos() to build node sets (attach node info to id)
-    get_nodes_format = """
-        SELECT entity_infos.* FROM match_table
-        LEFT JOIN (%s) AS entity_infos
-            ON entity_infos.entityID = match_table.%s
-        GROUP BY entity_infos.entityID
+    get_nodes_sql = """
+        SELECT entity_infos.*
+        FROM (   %(entity_infos_q)s   ) AS entity_infos
+        -- filter by the matched ids
+        JOIN (
+            SELECT %(id_field)s AS ID FROM match_table
+            GROUP BY %(id_field)s
+        ) AS matched_ids
+            ON matched_ids.ID = entity_infos.entityID
     """
-    src_nds_q = get_nodes_format % (o1.getInfos(), 'sourceID')
-    db_c.execute(src_nds_q)
-    nodes_src = db_c.fetchall()
 
-    tgt_nds_q = get_nodes_format % (o2.getInfos(), 'targetID')
-    db_c.execute(tgt_nds_q)
-    nodes_tgt = db_c.fetchall()
+    # node infos for entities of respective ID tables 'sources' and 'targets'
+    node_infos = {}
+
+    for ntype, ntable, nidfield, nclass in [
+            (source_type, 'sources', 'sourceID', o1),
+            (target_type, 'targets', 'targetID', o2)
+        ]:
+
+        nds_q = get_nodes_sql % {
+            'id_field': nidfield,
+            'id_table': ntable,
+            'entity_infos_q': nclass.getInfos(),
+        }
+
+        # spec case: jobs_and_candidates need subtype from their toPivot table
+        #                                 and 2 x getInfos subqueries
+        if ntype == "jobs_and_candidates":
+            nds_q_with_class = """
+                -- spec start from the toPivot ntable ("targets" table)
+                --                (it's the only that has the subtype field)
+                SELECT target_entities.*,
+                       job_infos.*,
+                       sch_infos.*
+                FROM (
+                  SELECT entityID, max(subtype) AS subtype FROM targets
+                  GROUP BY entityID
+                ) AS target_entities
+
+                -- filter by the matched ids
+                JOIN (
+                    SELECT targetID AS ID FROM match_table
+                    GROUP BY targetID
+                ) AS matched_ids
+                    ON matched_ids.ID = target_entities.entityID
+
+                -- getInfos for jobs entities (NULL for scholars)
+                LEFT JOIN (
+                    %(entity_infos_q_for_jobs)s
+                ) AS job_infos
+                    ON job_infos.jobid = target_entities.entityID
+
+                -- getInfos for scholars (NULL for jobs)
+                LEFT JOIN (
+                    %(entity_infos_q_for_scholars)s
+                ) AS sch_infos
+                    ON sch_infos.entityID = target_entities.entityID
+            """ % {
+                    'entity_infos_q_for_scholars': nclass.getInfos(subtype="sch"),
+                    'entity_infos_q_for_jobs': nclass.getInfos(subtype="job")
+                 }
+            nds_q = nds_q_with_class
+
+        # in all cases
+        mlog("DEBUGSQL", "nds_q (for %s)" % ntable, nds_q)
+        db_c.execute(nds_q)
+        node_infos[ntable] = db_c.fetchall()
 
     # connection close also removes the temp tables
+    #                       -----------------------
     db.close()
+
+    # mlog("DEBUG", "node_infos", node_infos)
 
     # build the graph structure (POSS: reuse Sam's networkx Graph object ?)
     graph = {}
@@ -608,18 +773,16 @@ def multimatch(source_type, target_type, pivot_filters = []):
     if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
         nodes_normfactors = {}
 
-    # print("nodes_tgt", nodes_tgt)
-
-    for ntype, ndata in [(source_type, nodes_src),(target_type, nodes_tgt)]:
+    for ntype, ntable, nclass in [(source_type, 'sources', o1),(target_type, 'targets', o2)]:
+        ndata = node_infos[ntable]
+        # mlog("DEBUG", "ntype", ntype)
         for nd in ndata:
             nid = make_node_id(ntype, nd['entityID'])
-            graph["nodes"][nid] = {
-              'label': nd['label'],
-              'type': ntype,
-              'size': round(log1p(nd['nodeweight']), 3) if ntype == source_type else 2,
-              'color': '243,183,19' if ntype == source_type else '139,28,28'
-            }
 
+            # node creation (dict of each node to export to json)
+            graph["nodes"][nid] = nclass.formatNode(nd, ntype)
+
+            # store optional normalization values
             if ntype == 'sch' and MATCH_OPTIONS["normalize_schkw_by_sch_totkw"]:
                 nodes_normfactors[nid] = 1 / log1p(nd['keywords_nb'])
 
@@ -629,6 +792,8 @@ def multimatch(source_type, target_type, pivot_filters = []):
 
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
+            # if endtype == source_type:
+            #     print("ed:", ed)
             if not MATCH_OPTIONS["avg_bidirectional_links"]:
                 nidi = make_node_id(endtype, ed['nid_i'])
                 nidj = make_node_id(endtype, ed['nid_j'])
@@ -678,6 +843,7 @@ def multimatch(source_type, target_type, pivot_filters = []):
         }
 
     return graph
+
 
 
 def make_node_id(type, id):
@@ -888,26 +1054,6 @@ def find_scholar(some_key, some_str_value, cmx_db = None):
         db.close()
 
     return luid
-
-
-class Org:
-    " tiny helper class to serialize/deserialize orgs TODO use more OOP :) "
-
-    def __init__(self, org_array, org_class=None):
-        if len(org_array) < 3:
-            raise ValueError("Org is implemented for at least [name, acr, loc]")
-        self.name = org_array[0]
-        self.acro = org_array[1]
-        self.locname = org_array[2]
-        self.org_class = org_class
-
-        # DB specifications say that at least one of name||acr is NOT NULL
-        self.any = self.acro if self.acro else self.name
-        self.label  = (  ( self.name if self.name else "")
-                        + ((' ('+self.acro+')') if self.acro else "")
-                        + ((', '+self.locname) if self.locname else "")
-                        )
-
 
 class BipartiteExtractor:
     """
