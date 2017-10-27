@@ -356,7 +356,7 @@
       //               ---------
       // a copy of the user info in json: available to all templates except bare
       //               ---------
-      var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("null" | safe) }};
+      var uinfo = {{ (current_user.json_info | safe) if current_user.info else ("{}" | safe) }};
       Object.freeze(uinfo)
       sessionStorage.uinfo = JSON.stringify(uinfo)
   </script>

@@ -66,7 +66,7 @@ foreach ($scholars as $scholar) {
     $content.= '  <div class="span3" align="justify">';
     // remote pictures url 'http://some.org/path/blabla.png'
     //            or local '/data/shared_user_img/blabla.png'
-    if ($scholar['pic_src'] != null) {
+    if ($scholar['pic_src'] != null && $scholar['pic_src'] != 'None') {
         $pic_src = $scholar['pic_src'] ;
         if ($_SERVER['REQUEST_SCHEME'] == 'https') {
             $pic_src = preg_replace('/^http:/i', 'https:', $pic_src) ;

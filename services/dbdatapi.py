@@ -1353,6 +1353,7 @@ class BipartiteExtractor:
                 ide="S::"+res3['initials']+("/%05i"%int(res3['luid']));
                 info['id'] = ide;
                 info['luid'] = res3['luid'];
+                info['initials'] = res3['initials'];
                 info['doors_uid'] = res3['doors_uid'];
                 info['pic_src'] = pic_src ;
                 info['first_name'] = res3['first_name'];
@@ -1875,7 +1876,7 @@ class BipartiteExtractor:
         graph = {}
         graph["nodes"] = nodes
         graph["links"] = edges
-        graph["stats"] = { "sch":nodesA,"kw":nodesB,"n1(soc)":edgesA,"n2(sem)":edgesB,"nbi":edgesAB ,  }
+        graph["stats"] = { "sch":nodesA,"kw":nodesB,"n11(soc)":edgesA,"n22(sem)":edgesB,"nXR(bi)":edgesAB ,  }
         graph["ID"] = self.unique_id
 
         mlog("INFO", "BipartiteExtractor results:", graph["stats"])
