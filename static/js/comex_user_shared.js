@@ -489,7 +489,7 @@ var cmxClt = (function(cC) {
 
         // let's go
         for (var i in params.cols) {
-          //   console.info("testFillField COLS["+i+"]", cC.COLS[i])
+          // console.info("testFillField COLS["+i+"]", cC.COLS[i])
 
           var fieldName = params.cols[i][0]
           var mandatory = params.cols[i][1]
@@ -611,11 +611,15 @@ var cmxClt = (function(cC) {
             aUform.elMainMessage.innerHTML = "<span class='green glyphicon glyphicon-check glyphicon-float-left' style='float:left;'></span><p>OK thank you! <br/>(we have all the fields needed for the mapping!)<br/>(don't forget to SAVE!)</p>"
 
             aUform.elMainMessage.classList.add('faded')
+            aUform.elSubmitBtn.disabled = false
+            aUform.elSubmitBtn.title = "Click here to save the changes"
         }
         else {
             aUform.elMainMessage.innerHTML = "<span class='orange glyphicon glyphicon-exclamation-sign glyphicon-float-left'></span><p>There are some <br/> important missing fields</p>"
 
             aUform.elMainMessage.classList.remove('faded')
+            aUform.elSubmitBtn.disabled = true
+            aUform.elSubmitBtn.title = "Please fill the missing fields before saving"
         }
 
         // list of missing fields
