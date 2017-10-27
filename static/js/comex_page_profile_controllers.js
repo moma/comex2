@@ -33,7 +33,7 @@ function setupSavedItems(uinfo) {
             var chosenV = uinfo[colName]
 
             // special case
-            if (colName == 'inst_type' && uinfo.insts.length) {
+            if (colName == 'inst_type' &&  uinfo.insts && uinfo.insts.length) {
                 chosenV = uinfo.insts[0].inst_type
             }
 
@@ -127,7 +127,6 @@ var instLabelInput = document.getElementById('inst_label')
 var instTypeInput = document.getElementById('inst_type')
 var instLabelPreviousVal = instLabelInput.value
 instLabelInput.onblur = function () {
-    console.log("hello onblur")
     if (instTypeInput.value) {
         if (instLabelPreviousVal != ""
            && (   !instLabelInput.value

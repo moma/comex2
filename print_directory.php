@@ -459,7 +459,6 @@ echo '</div>';
 echo $html_tail_imports;
 echo tagcloud_snippet($kw_counts_as_sorted_couples_array);
 echo $rm_ads_snippet;
-echo $auto_popfilters_snippet;
 echo '</body>
 </html>';
 exit(0);
