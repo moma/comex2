@@ -44,11 +44,12 @@ class DBEntity:
           - label
           - nodeweight
 
-        TODO add a 4th column "content" with html for information div
-        POSS add a 5th column "attributes" with json for coloring
+         Any other columns also possible:
+            - cf. formatNode which takes these fields and creates node attributes and content
+           - columns for an "attributes" subdict, for coloring etc.
+           - columns to use in a "content" property (html str for sidepanel info)
         """
         pass
-
 
     def formatNode(self, nd, ntype):
         """
@@ -64,6 +65,7 @@ class DBEntity:
           'size': round(log1p(nd['nodeweight']), 3) if ntype != 'sch' else 2,
           'color': '243,183,19' if ntype in ['kw', 'ht'] else '139,28,28'
         }
+
 
 class DBLabs(DBEntity):
     """
@@ -449,13 +451,19 @@ class DBJobs(DBEntity):
 
         content += "<h4>Job: "+title+"</h4>"
 
+
+        # prepare keywords
+        kws_html =  ''
+        for kw in nd['keywords_list'].split(','):
+            kws_html += '<div class="box-highlight minibox">'+kw+'</div>'
+
         # 1) list of meta infos
-        content += "<p><b>Keywords:</b> "+nd['keywords_list']+"</p>"
+        content += "<p><b>Keywords:</b> "+kws_html+"</p>"
         content += "<p><b>Posted on:</b> "+nd['last_modified'].strftime("%d/%m/%y")+"</p>"
         if nd['job_valid_date']:
             content += "<p><b>Valid until:</b> "+nd['job_valid_date'].strftime("%d/%m/%y")+"</p>"
 
-        content += "<p><b>Contact:</b> "+nd['email']+"</p>"
+        content += "<p class=red><b>Contact:</b> "+nd['email']+"</p>"
 
         # 2) overview (like a v-card of the job)
         full_location = []
