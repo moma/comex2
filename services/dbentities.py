@@ -9,6 +9,7 @@ from math      import log1p, floor
 from random    import randint
 from json      import loads
 from cgi       import escape
+from re        import sub
 
 if __package__ == 'services':
     from services.dbcrud  import FULL_SCHOLAR_SQL
@@ -358,11 +359,11 @@ class DBScholars(DBEntity):
             content += '<img src="static/img/'+str(im_id)+'.png" width='  + str(imsize) +  'px>'
 
         # label in vcard
-        content += '<p class=bigger><b>'+nd['label']+'</b></p>'
+        content += '<p class=bigger><b>'+str(nd['label'])+'</b></p>'
 
         # other infos in vcard
         content += '<p>'
-        content += '<b>Country: </b>' + nd['country'] + '</br>'
+        content += '<b>Country: </b>' + str(nd['country']) + '</br>'
 
         if nd['position'] and nd['position'] != "":
             content += '<b>Position: </b>' +nd['position'].replace("&"," and ")+ '</br>'
@@ -427,19 +428,55 @@ class DBJobs(DBEntity):
         SELECT
             jobs.jobid AS entityID,
             CONCAT(jobs.jobid, "-", IFNULL(jobs.jtitle, "")) AS label,
+
             1 AS nodeweight,
-            jobs.*
+            jobs.*,
+            GROUP_CONCAT(keywords.kwstr) AS keywords_list,
+            COUNT(keywords.kwid) AS keywords_nb
         FROM jobs
         LEFT JOIN job_kw
             ON job_kw.jobid = jobs.jobid
+        LEFT JOIN keywords
+            ON job_kw.kwid = keywords.kwid
         GROUP BY jobs.jobid
         """
 
     def formatNode(self, nd, ntype):
-        title = nd['jtitle'] if nd['jtitle'] else "no title"
-        content = "<div class=information-others>"
-        content += "<a href=\"/services/job/"+str(nd['jobid'])+"\" target=\"_blank\">See the job ("+ title +")</a>"
+        title = nd['jtitle'] if nd['jtitle'] else "(no title)"
+
+        # sidebar content
+        content = "<div class=information-vcard>"
+
+        content += "<h4>Job: "+title+"</h4>"
+
+        # 1) list of meta infos
+        content += "<p><b>Keywords:</b> "+nd['keywords_list']+"</p>"
+        content += "<p><b>Posted on:</b> "+nd['last_modified'].strftime("%d/%m/%y")+"</p>"
+        if nd['job_valid_date']:
+            content += "<p><b>Valid until:</b> "+nd['job_valid_date'].strftime("%d/%m/%y")+"</p>"
+
+        content += "<p><b>Contact:</b> "+nd['email']+"</p>"
+
+        # 2) overview (like a v-card of the job)
+        full_location = []
+        if nd['locname']:
+            full_location.append(nd['locname'])
+
+        if nd['country']:
+            full_location.append(nd['country'])
+        content += "<p><b>Location</b><br>"+",".join(full_location)+"</p>"
+
+        if nd['mission_text']:
+            content += "<p><b>Mission</b><br>"+sub('\n', '<br>', nd['mission_text'])+"</p>"
+        if nd['recruiter_org_text'] and len(nd['recruiter_org_text']):
+            content += "<p><b>Organization</b><br>"+sub('\n', '<br>', nd['recruiter_org_text'])+"</p>"
+
+        # link to original
+        content += "<a href=\"/services/job/"+str(nd['jobid'])+"\" target=\"_blank\">See the full job ("+ title +")</a>"
+
         content += '</div>'
+
+
 
         return {
           'label': nd['label'],
@@ -513,9 +550,6 @@ class DBScholarsAndJobs(DBEntity):
             return DBJobs.getInfos(self)
 
     def formatNode(self, nd, ntype):
-
-        # print("PRE DATA", nd)
-
         # remove subquery prefix from property names
         if nd['subtype'] == "sch":
             ok_ns='sch_infos.'
@@ -535,18 +569,20 @@ class DBScholarsAndJobs(DBEntity):
             if key[0:strlen_ok_ns] == ok_ns:
                 clean_key = key[strlen_ok_ns:]
                 clean_ndata[clean_key] = nd[key]
+            elif key[0:strlen_ko_ns] == ko_ns:
+                continue
+            # we copy the rest without overwrite
+            # (some keys like 'country', 'label' can belong to theother subtype)
+            elif key not in clean_ndata:
+                clean_ndata[key] = nd[key]
 
-        # overwrite in nd
-        for key in clean_ndata:
-            nd[key] = clean_ndata[key]
-
-        # print("CLEAN DATA", nd)
+        nd = clean_ndata
 
         # forward to parent function
         if nd['subtype'] == "sch":
-            return DBScholars.formatNode(self, nd, ntype)
+            return DBScholars.formatNode(self, clean_ndata, ntype)
         elif nd['subtype'] == "job":
-            return DBJobs.formatNode(self, nd, ntype)
+            return DBJobs.formatNode(self, clean_ndata, ntype)
 
 
 class Org:
