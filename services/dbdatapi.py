@@ -1363,7 +1363,7 @@ class BipartiteExtractor:
                 # card(keywords) of this scholar **in the DB**
                 # (because queries take all keywords, it should be equal to scholarsMatrix[term_scholars[k]]['marginal_tot_kws'])
                 info['keywords_nb'] = res3['keywords_nb'];
-                info["normfactor"] = 1/log1p(res3['keywords_nb'])
+                info["normfactor"] = 1/log1p(res3['keywords_nb']) if res3['keywords_nb'] else 1
                 info['keywords_ids'] = res3['keywords_ids'].split(',') if res3['keywords_ids'] else [];
                 info['keywords_list'] = res3['keywords_list'];
                 info['country'] = res3['country'];
