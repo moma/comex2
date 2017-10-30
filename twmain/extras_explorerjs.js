@@ -1280,6 +1280,62 @@ function showAttrConf(event, optionalAttrname) {
 }
 
 
+function newSettingsAndRun() {
+
+  // matching: traditional vs multi
+  let match_alg = document.getElementById('match-alg').value
+  if (match_alg == "tradi") {
+    TW.conf.sourceAPI["forNormalQuery"] = "services/api/graph"
+    TW.conf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+  }
+  else if (match_alg == "multi") {
+    TW.conf.sourceAPI["forNormalQuery"] = "services/api/multimatch"
+    TW.conf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
+  }
+
+  // position stability scenarios
+  let scenario = document.getElementById('layout-scenario').value
+
+  if (scenario == "allstable") {
+    TW.conf.stablePositions = true
+    TW.conf.independantTypes = false
+    TW.conf.fa2SlowerMeso = false
+    TW.FA2Params.iterationsPerRender = 12
+    TW.FA2Params.slowDown = .4
+  }
+  else if (scenario == "indeptypes") {
+    TW.conf.stablePositions = true
+    TW.conf.independantTypes = true
+    TW.conf.fa2SlowerMeso = false
+    TW.FA2Params.iterationsPerRender = 4
+  }
+  else if (scenario == "indeptypes-adaptspeed") {
+    TW.conf.stablePositions = true
+    TW.conf.independantTypes = true
+    TW.conf.fa2SlowerMeso = true
+    TW.FA2Params.iterationsPerRender = 4
+    TW.FA2Params.iterationsPerRender = 4
+  }
+  else if (scenario == "notstable") {
+    TW.conf.stablePositions = false
+    TW.conf.independantTypes = true
+    TW.conf.fa2SlowerMeso = false
+    TW.FA2Params.iterationsPerRender = 4
+  }
+
+  console.warn("TW.conf.sourceAPI[\"forFilteredQuery\"] <= ", TW.conf.sourceAPI["forFilteredQuery"])
+  console.warn("TW.conf.stablePositions <= ", TW.conf.stablePositions)
+  console.warn("TW.conf.independantTypes <= ", TW.conf.independantTypes)
+  console.warn("TW.FA2Params.iterationsPerRender <= ", TW.FA2Params.iterationsPerRender)
+
+  // in all cases we reload
+  TW.resetGraph()
+  var [inFormat, inData, mapLabel] = syncRemoteGraphData()
+  mainStartGraph(inFormat, inData, TW.instance)
+  writeLabel(mapLabel)
+}
+
+
 // writes new attribute configuration from user form, recreates facet bins AND runs the new color
 // processing time: ~~ 1.5 ms for 100 nodes
 function newAttrConfAndColor() {
