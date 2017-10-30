@@ -168,8 +168,6 @@ function syncRemoteGraphData () {
 
               var restParams = []
               var nameElts = []
-              var filterLen = 0
-
               // build REST parameters from filtering arrays
               // and name from each filter value
               for (var fieldName in TW.APIQuery) {
@@ -188,7 +186,6 @@ function syncRemoteGraphData () {
                   }
                   // an array of filters
                   else {
-                    filterLen ++
                     var nameSubElts = []
                     for (var value of TW.APIQuery[fieldName]) {
                         // exemple: "countries[]=France"
@@ -200,11 +197,10 @@ function syncRemoteGraphData () {
 
               }
 
-              if (filterLen) {
+              if (restParams.length) {
                   thedata = "qtype=filters&" + restParams.join("&")
                   mapLabel = nameElts.join(" and ")
               }
-              // special param 'query' with special value '*' used to "matchall"
               else {
                   thedata = "qtype=filters&query=*"
                   mapLabel = "(ENTIRE NETWORK)"
