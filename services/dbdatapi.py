@@ -776,6 +776,12 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
         nodes_normfactors = {}
 
+    # special case keywords: find the max for gradient color
+    if source_type == "kw":
+        for nd in node_infos['sources']:
+            if nd['nbjobs'] and nd['nbjobs'] > o1.max_nbjobs:
+                o1.max_nbjobs = nd['nbjobs']
+
     # create nodes
     for ntype, ntable, nclass in [(source_type, 'sources', o1),(target_type, 'targets', o2)]:
         ndata = node_infos[ntable]

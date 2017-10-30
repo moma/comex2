@@ -163,6 +163,11 @@ class DBKeywords(DBEntity):
     """
     keywords from keywords table
     """
+
+    def __init__(self):
+        # spec variable for keywords family
+        self.max_nbjobs = 0
+
     def toPivot(self, pivotType = "scholars"):
         # normal multimatch case
         if pivotType == "scholars":
@@ -195,11 +200,20 @@ class DBKeywords(DBEntity):
                 """
 
     def formatNode(self, nd, ntype):
+        # define gradient color
+        if not nd['nbjobs']:
+            ratio = 0
+        else:
+            ratio = nd['nbjobs']/self.max_nbjobs
+
+        colorRed=int(200+55*ratio)
+        colorGreen=int(150-120*ratio)
+
         return {
           'label': nd['label'],
           'type': ntype,
           'size': round(log1p(nd['nodeweight']), 3),
-          'color': '200,20,19',
+          'color': str(colorRed)+","+str(colorGreen)+",40",
           'attributes': {
              # we add 1 for keywords in jobs but with no occs among scholars
             'total_occurrences': nd['nodeweight'],
