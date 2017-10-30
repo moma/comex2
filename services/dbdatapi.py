@@ -297,8 +297,8 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
 
     - weights of internal edges use jaccard weights using:
       => marginal sums of M1[type1 to pivot] and M2[pivot to type2]
-      => coefs of the dotproduct of M1 o M1⁻¹
-                              or of (M1 o M2)⁻¹ o (M1 o M2)
+      => coefs of the coocproduct of M1 <> M1⁻¹
+                               or of (M1 o M2)⁻¹ <> (M1 o M2)
     """
 
     # unsupported entities
@@ -374,14 +374,17 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     #
     # Finally we will have two possibilities to build the "sameside neighbors"
     # (let Neighs_11 represent them within type 1, Neighs_22 within type 2)
+    #  <> represents a sort of extended cooccurrence count (in a graph view,
+    #     gives weight of auto-link after taking the o of the adjacency matrix)
+    #     TODO: clarify this notion more
     #
     # (i) using all transitions (ie via pivot edges and via opposite type edges)
-    #  Neighs_11 = XR o XR⁻¹   = (M1 o M2)   o (M1 o M2)⁻¹
-    #  Neighs_22 = XR⁻¹ o XR   = (M1 o M2)⁻¹ o (M1 o M2)
+    #  Neighs_11 = XR <> XR⁻¹   = (M1 o M2)   <> (M1 o M2)⁻¹
+    #  Neighs_22 = XR⁻¹ <> XR   = (M1 o M2)⁻¹ <> (M1 o M2)
     #
     # (ii) or via pivot edges only
-    #  Neighs_11 = M1 o M1⁻¹
-    #  Neighs_22 = M2⁻¹ o M2
+    #  Neighs_11 = M1 <> M1⁻¹
+    #  Neighs_22 = M2⁻¹ <> M2
     #
     # +results with (ii) are filtered by sources that matched a target (for 11)
     #                                 or targets that matched a source (for 22)
@@ -524,16 +527,16 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     # src_sums = db_c.fetchall()
     # tgt_sums = db_c.fetchall()
 
-    # 2 - matrix product M1·M1⁻¹ to build 'direct sameside' edges
+    # 2 - matrix cooc M1<>M1⁻¹ to build 'direct sameside' edges
     #                           A
-    #              x  pivot [        ]
+    #             <>  pivot [        ]
     #           pivot       [   M1   ]
     #         [      ]
     #      A  [  M1  ]         square
     #         [      ]        sameside
     sameside_direct_format = """
         -- the coocWeights operation after reporting sums
-        SELECT dotproduct.*,
+        SELECT cooc.*,
                 -- keywords.kwstr, k2.kwstr,
                coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
@@ -564,7 +567,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
             LEFT JOIN source_local_sums_2
                 ON source_local_sums_2.nid = nid_j
 
-        ) AS dotproduct
+        ) AS cooc
             -- WHERE coocWeight > %(threshold)i
 
              -- JOIN keywords ON nid_i = keywords.kwid
@@ -597,9 +600,9 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     CREATE INDEX slsums2_idx ON source_local_sums_2(nid, localMargSum);
     """)
 
-    # 3 - matrix product XR⁻¹·XR to build 'indirect sameside' edges
+    # 3 - matrix cooc XR⁻¹ <> XR to build 'indirect sameside' edges
     #                         B
-    #                x  A [        ]
+    #               <>  A [        ]
     #             A       [   XR   ]
     #         [      ]
     #      B  [  XR  ]       square
@@ -608,7 +611,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     # nid_type is the output (eg entity type B)
     # transi_type disappears in the operation
     sameside_indirect_format = """
-        SELECT dotproduct.*,
+        SELECT coocs.*,
                -- scholars.email, s2.email,
                coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
         FROM (
@@ -616,7 +619,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                 match_table.%(nid_type)s   AS nid_i,
                 match_table_2.%(nid_type)s AS nid_j,
                 sum(
-                    match_table.weight * match_table_2.weight
+                    match_table.weight
                 ) AS coocWeight,
                 max(sums_1.card) AS sum_i,
                 max(sums_2.card) AS sum_j
@@ -628,7 +631,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
             LEFT JOIN %(nid_type_sums)s_2 AS sums_2
                 ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
             GROUP BY nid_i, nid_j
-        ) AS dotproduct
+        ) AS coocs
                 -- JOIN scholars ON nid_i = scholars.luid
                 -- JOIN scholars AS s2 ON nid_j = s2.luid
         WHERE nid_i != nid_j
@@ -807,6 +810,8 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                 nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
                 nids = sorted(nids)
                 eid  =  nids[0]+';'+nids[1]
+                if not ed['jaccardWeight']:
+                    continue
                 if eid in graph["links"]:
                     # merging by average like in traditional BipartiteExtractor
                     # (NB just taking the sum would also make sense)
