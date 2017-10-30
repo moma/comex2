@@ -207,17 +207,13 @@ whoswho = (function(ww) {
           }
       }
 
-      // console.log("raw query: ", query);
-
-      query = JSON.stringify(query);
-
       // cache
       sessionStorage.setItem("whoswhoq-"+sessionStorage.tabid, query)
 
       if (cb && typeof cb == "function") {
         // debug
-        // console.log("calling callback with encoded query:", query)
-        return cb(encodeURIComponent(query), nFilters);
+        // console.log("calling callback with query:", query)
+        return cb(query, nFilters);
       }
       else {
         return query
@@ -341,8 +337,19 @@ $(document).ready(function() {
     return whoswho.collectFilters(function(query, nFilters) {
       // debug
       // console.log("collected filters: " + decodeURI(query));
-      // empty query => no map + warning
-      if (nFilters == 0) {
+
+      rawQuery = query
+
+      query = encodeURIComponent(JSON.stringify(query))
+
+      // exemples
+      // normal with filters : {_node0: "kw", _node1: "sch", keywords: Array(1)}
+      // forbidden matchall:   {_node0: "kw", _node1: "sch"}
+      // allowed matchall:     {_node0: "kw", _node1: "lab"}
+
+
+      // empty query => conditional warning
+      if (nFilters == 0 && rawQuery['_node0'] == 'kw' && rawQuery['_node1'] == 'sch') {
           if (document.getElementById('refine-warning')) {
             cmxClt.elts.box.toggleBox("refine-warning")
           }
@@ -366,6 +373,9 @@ $(document).ready(function() {
     return whoswho.collectFilters(function(query, nFilters) {
       // debug
       // console.log("collected filters: " + query);
+
+      query = encodeURIComponent(JSON.stringify(query))
+
       if (uinfo && uinfo.luid) {
         window.location = "/print_directory.php?query=" + query + "&user="+uinfo.luid;
       }
