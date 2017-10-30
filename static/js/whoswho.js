@@ -208,7 +208,7 @@ whoswho = (function(ww) {
       }
 
       // cache
-      sessionStorage.setItem("whoswhoq-"+sessionStorage.tabid, query)
+      sessionStorage.setItem("whoswhoq-"+sessionStorage.tabid, JSON.stringify(query))
 
       if (cb && typeof cb == "function") {
         // debug
