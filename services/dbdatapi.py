@@ -776,6 +776,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     if MATCH_OPTIONS["normalize_schkw_by_sch_totkw"] or MATCH_OPTIONS["normalize_schkw_by_kw_totoccs"]:
         nodes_normfactors = {}
 
+    # create nodes
     for ntype, ntable, nclass in [(source_type, 'sources', o1),(target_type, 'targets', o2)]:
         ndata = node_infos[ntable]
         # mlog("DEBUG", "ntype", ntype)
@@ -793,6 +794,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                 # if kw then nodeweight is the total of scholars with the kw
                 nodes_normfactors[nid] = 1 / log1p(nd['nodeweight'])
 
+    # create sameside edges
     for endtype, edata in [(source_type, edges_00), (target_type,edges_11)]:
         for ed in edata:
             # if endtype == source_type:
@@ -810,8 +812,6 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                 nids = [make_node_id(endtype, ed['nid_i']), make_node_id(endtype, ed['nid_j'])]
                 nids = sorted(nids)
                 eid  =  nids[0]+';'+nids[1]
-                if not ed['jaccardWeight']:
-                    continue
                 if eid in graph["links"]:
                     # merging by average like in traditional BipartiteExtractor
                     # (NB just taking the sum would also make sense)
@@ -823,6 +823,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                       'w': float(round(ed['jaccardWeight'], 5))
                     }
 
+    # create bipartite edges
     for ed in edges_XR:
         nidi = make_node_id(source_type, ed['sourceID'])
         nidj = make_node_id(target_type, ed['targetID'])
