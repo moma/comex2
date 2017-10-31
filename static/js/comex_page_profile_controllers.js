@@ -16,7 +16,6 @@
  // 3 exposed vars for inline js controls
  var teamCityDiv = document.getElementById('lab_locname_div')
  var otherInstDiv = document.getElementById('other_inst_div')
- // TODO make relative to inst_type and move inline snippet to extended form obj
  var otherInstTypeInput = document.getElementById('other_inst_type')
 
 // reselecting current_user's info choices
