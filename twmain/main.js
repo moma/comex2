@@ -168,6 +168,8 @@ function syncRemoteGraphData () {
 
               var restParams = []
               var nameElts = []
+              var filterLen = 0
+
               // build REST parameters from filtering arrays
               // and name from each filter value
               for (var fieldName in TW.APIQuery) {
@@ -186,6 +188,7 @@ function syncRemoteGraphData () {
                   }
                   // an array of filters
                   else {
+                    filterLen ++
                     var nameSubElts = []
                     for (var value of TW.APIQuery[fieldName]) {
                         // exemple: "countries[]=France"
@@ -197,14 +200,15 @@ function syncRemoteGraphData () {
 
               }
 
-              if (restParams.length) {
-                  thedata = "qtype=filters&" + restParams.join("&")
+              if (filterLen) {
                   mapLabel = nameElts.join(" and ")
               }
+              // special param 'query' with special value '*' used to "matchall"
               else {
-                  thedata = "qtype=filters&query=*"
+                  restParams.push("query=*")
                   mapLabel = "(ENTIRE NETWORK)"
               }
+              thedata = "qtype=filters&" + restParams.join("&")
           }
 
           var bridgeRes = AjaxSync({ url: theurl, data:thedata, type:'GET' })
@@ -358,7 +362,14 @@ function mainStartGraph(inFormat, inData, twInstance) {
       let optProjectFacets = null
 
       if (TW.sourcemode == "api") {
+        // defaults nodetypes for this API from conf
         optNodeTypes = TW.conf.sourceAPI.nodetypes
+
+        // possible nodetypes declarations from URL params
+        if (TW.APIQuery && typeof TW.APIQuery == 'object') {
+          if (TW.APIQuery._node0)   optNodeTypes['node0'] = TW.APIQuery._node0
+          if (TW.APIQuery._node1)   optNodeTypes['node1'] = TW.APIQuery._node1
+        }
       }
       else {
         // we assume the filePath is of the form projectPath/sourceFile

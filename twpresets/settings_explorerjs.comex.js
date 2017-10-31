@@ -24,8 +24,8 @@ TW.conf = (function(TW){
   // ...or remote bridge to default source api ajax queries
   TWConf.sourceAPI={}
   TWConf.sourceAPI["nodetypes"] = {"node0": "Keywords", "node1": "Scholars" }
-  TWConf.sourceAPI["forNormalQuery"] = "services/api/graph"
-  TWConf.sourceAPI["forFilteredQuery"] = "services/api/graph"
+  TWConf.sourceAPI["forNormalQuery"] = "services/api/multimatch"
+  TWConf.sourceAPI["forFilteredQuery"] = "services/api/multimatch"
 
   // "services/api/graph" : traditional match with BipartiteExtractor
   // "services/api/multimatch" : new match inspired by BipartiteExtractor but all SQL and more generic
@@ -109,7 +109,19 @@ TW.conf = (function(TW){
                          'binmode': 'samerange',
                          'n': 3,
                          'legend': 'Total occurrences'
-                       }
+                       },
+    'inst_type':{
+                        'col':"cluster" ,
+                        'binmode': 'off',
+                        'legend': 'Type de l\'organisme',
+                        'titlingMetric': 'off'
+                      },
+    'lab_code':{
+                        'col':"cluster" ,
+                        'binmode': 'off',
+                        'legend': 'Code labo',
+                        'titlingMetric': 'off'
+                      }
   }
   // NB we keep the defaults here for API sourcemode as it has no "project_conf"
 
@@ -131,9 +143,10 @@ TW.conf = (function(TW){
   TWConf.maxDiscreteValues = 15
   TWConf.legendsBins = 7
 
-  // to normalize node sizes (larger range does increase visual size difference)
-  TWConf.desirableNodeSizeMin=100;
-  TWConf.desirableNodeSizeMax=105;
+  // to normalize node sizes (larger range max-min increases visual size difference)
+  //                         (larger min           increases overall visual size)
+  TWConf.desirableNodeSizeMin=3000;
+  TWConf.desirableNodeSizeMax=3010;
 
 
   // =============
@@ -173,6 +186,8 @@ TW.conf = (function(TW){
   TWConf.filterSliders = true          // show sliders for nodes/edges subsets
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
+
+  TWConf.tuningPanel = false;          // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
