@@ -96,16 +96,20 @@ FULL_SCHOLAR_SQL = """
         FROM (
             SELECT
                 scholars_and_insts.*,
-                -- small serializations here to avoid 2nd query
+                -- small serializations here to avoid 2nd query at retrieval
                 GROUP_CONCAT(
                   JSON_ARRAY(labs.name, labs.acro, labs.locname)
-                ) AS labs_list
+                ) AS labs_list,
+                -- label is good for search (generated col: name + acro + loc)
+                GROUP_CONCAT(labs.label) AS labs_search_str
             FROM (
                 SELECT
                     scholars_and_jobs.*,
+                    -- idem: serialization for retrieval, labels for LIKE search
                     GROUP_CONCAT(
                       JSON_ARRAY(insts.name, insts.acro, insts.locname)
-                    ) AS insts_list
+                    ) AS insts_list,
+                    GROUP_CONCAT(insts.label) AS insts_search_str
                 FROM
                     (
                     SELECT scholars.*,

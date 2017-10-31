@@ -97,11 +97,11 @@ FIELDS_FRONTEND_TO_SQL = {
     "institutions": {'col':"orgs.label",
                       'class': "inst",              #  <= local where clause
                       'type': "LIKE_relation",
-                      'grouped': "insts_list"},
+                      'grouped': "insts_search_str"},
     "laboratories":  {'col':"orgs.label",
                       'class': "lab",               #  <= idem
                       'type': "LIKE_relation",
-                      'grouped': "labs_list"},
+                      'grouped': "labs_search_str"},
 
     # (POSS: locs.locname to factorize orgs.locname, jobs.locname at write time)
     "cities":       {'col':"orgs.locname",
