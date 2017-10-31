@@ -301,6 +301,17 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                                or of (M1 o M2)⁻¹ <> (M1 o M2)
     """
 
+    # match thresholds (to prune very weak edges)
+    thresholds = {
+        # XR edges
+        "match_thres": .05 * MATCH_OPTIONS['XR_weight_constant'],
+
+        # sameside edges
+        "direct_thres": .1,
+        "indirect_thres": .03
+    }
+
+
     # unsupported entities
     if ( source_type not in TYPE_MAP
       or target_type not in TYPE_MAP ):
@@ -410,9 +421,6 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     # ------------------------------------------------------------ /Explanations
 
 
-    # threshold = 1 if target_type != 'sch' else 0
-    threshold = 0
-
     matchq = """
     -- filtered pivot
     CREATE TEMPORARY TABLE IF NOT EXISTS pivot_filtered_ids AS (
@@ -454,7 +462,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
                 ON sources.pivotID = targets.pivotID
             GROUP BY sourceID, targetID
             ) AS match_table
-        WHERE match_table.weight > %(threshold)i
+        WHERE match_table.weight > %(threshold)f
           AND sourceID IS NOT NULL
           AND targetID IS NOT NULL
 
@@ -465,7 +473,7 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
             'sourcesq': subq1,
             'targetsq': subq2,
             'pfiltersq': subqmid,
-            'threshold': threshold
+            'threshold': thresholds['match_thres']
     }
 
     mlog("DEBUGSQL", "multimatch sql query", matchq)
@@ -535,43 +543,45 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     #      A  [  M1  ]         square
     #         [      ]        sameside
     sameside_direct_format = """
-        -- the coocWeights operation after reporting sums
-        SELECT cooc.*,
-                -- keywords.kwstr, k2.kwstr,
-               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
-        FROM (
-            -- reporting sums
-            SELECT nid_i,
-                   nid_j,
-                   coocWeight,
-                   -- all sum_i the same for a nid_i
-                   source_local_sums.localMargSum AS sum_i,
-                   source_local_sums_2.localMargSum AS sum_j
-
+        SELECT * FROM (
+            -- the coocWeights operation after reporting sums
+            SELECT cooc.*,
+                    -- keywords.kwstr, k2.kwstr,
+                   coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
             FROM (
-                -- -----------------------
-                -- grouping (nid_i, nid_j)
-                -- -----------------------
-                SELECT
-                    sources.entityID   AS nid_i,
-                    sources_2.entityID AS nid_j,
-                    COUNT(*) AS coocWeight      -- here: how often each distinct pairs i,j was used
-                FROM sources
-                JOIN sources_2
-                    ON sources.pivotID = sources_2.pivotID
-                WHERE sources.entityID != sources_2.entityID
-                GROUP BY nid_i, nid_j
-            ) AS source_local_coocs
-            LEFT JOIN source_local_sums
-                ON source_local_sums.nid = nid_i
-            LEFT JOIN source_local_sums_2
-                ON source_local_sums_2.nid = nid_j
+                -- reporting sums
+                SELECT nid_i,
+                       nid_j,
+                       coocWeight,
+                       -- all sum_i the same for a nid_i
+                       source_local_sums.localMargSum AS sum_i,
+                       source_local_sums_2.localMargSum AS sum_j
 
-        ) AS cooc
-            -- WHERE coocWeight > %(threshold)i
+                FROM (
+                    -- -----------------------
+                    -- grouping (nid_i, nid_j)
+                    -- -----------------------
+                    SELECT
+                        sources.entityID   AS nid_i,
+                        sources_2.entityID AS nid_j,
+                        COUNT(*) AS coocWeight      -- here: how often each distinct pairs i,j was used
+                    FROM sources
+                    JOIN sources_2
+                        ON sources.pivotID = sources_2.pivotID
+                    WHERE sources.entityID != sources_2.entityID
+                    GROUP BY nid_i, nid_j
+                ) AS source_local_coocs
+                LEFT JOIN source_local_sums
+                    ON source_local_sums.nid = nid_i
+                LEFT JOIN source_local_sums_2
+                    ON source_local_sums_2.nid = nid_j
 
-             -- JOIN keywords ON nid_i = keywords.kwid
-             -- JOIN keywords AS k2 ON nid_j = k2.kwid
+            ) AS cooc
+        ) AS weighted_direct
+        WHERE jaccardWeight > %(threshold)f
+
+        -- JOIN keywords ON nid_i = keywords.kwid
+        -- JOIN keywords AS k2 ON nid_j = k2.kwid
 
         -- ORDER BY jaccardWeight DESC
     """
@@ -611,32 +621,34 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
     # nid_type is the output (eg entity type B)
     # transi_type disappears in the operation
     sameside_indirect_format = """
-        SELECT coocs.*,
-               -- scholars.email, s2.email,
-               coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
-        FROM (
-            SELECT
-                match_table.%(nid_type)s   AS nid_i,
-                match_table_2.%(nid_type)s AS nid_j,
-                sum(
-                    match_table.weight
-                ) AS coocWeight,
-                max(sums_1.card) AS sum_i,
-                max(sums_2.card) AS sum_j
-            FROM match_table
-            JOIN match_table_2
-                ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
-            LEFT JOIN %(nid_type_sums)s AS sums_1
-                ON sums_1.%(nid_type)s = match_table.%(nid_type)s
-            LEFT JOIN %(nid_type_sums)s_2 AS sums_2
-                ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
-            GROUP BY nid_i, nid_j
-        ) AS coocs
-                -- JOIN scholars ON nid_i = scholars.luid
-                -- JOIN scholars AS s2 ON nid_j = s2.luid
-        WHERE nid_i != nid_j
-                --  AND coocWeight > %(threshold)i
-                -- ORDER BY jaccardWeight DESC
+        SELECT * FROM (
+            SELECT coocs.*,
+                   -- scholars.email, s2.email,
+                   coocWeight/(sum_i + sum_j - coocWeight) AS jaccardWeight
+            FROM (
+                SELECT
+                    match_table.%(nid_type)s   AS nid_i,
+                    match_table_2.%(nid_type)s AS nid_j,
+                    sum(
+                        match_table.weight
+                    ) AS coocWeight,
+                    max(sums_1.card) AS sum_i,
+                    max(sums_2.card) AS sum_j
+                FROM match_table
+                JOIN match_table_2
+                    ON match_table.%(transi_type)s = match_table_2.%(transi_type)s
+                LEFT JOIN %(nid_type_sums)s AS sums_1
+                    ON sums_1.%(nid_type)s = match_table.%(nid_type)s
+                LEFT JOIN %(nid_type_sums)s_2 AS sums_2
+                    ON sums_2.%(nid_type)s = match_table_2.%(nid_type)s
+                GROUP BY nid_i, nid_j
+            ) AS coocs
+                    -- JOIN scholars ON nid_i = scholars.luid
+                    -- JOIN scholars AS s2 ON nid_j = s2.luid
+            WHERE nid_i != nid_j
+        ) AS weighted_indirect
+        WHERE jaccardWeight > %(threshold)f
+        -- ORDER BY jaccardWeight DESC
     """
 
     # 3a we'll need a copy of the XR table
@@ -650,25 +662,23 @@ def multimatch(source_type, target_type, pivot_filters = [], pivot_type = 'schol
 
     # sameside edges type0 <=> type0
     if (sem_edge_method == "direct"):
-        edges_00_q = sameside_direct_format
+        edges_00_q = sameside_direct_format % {'threshold': thresholds['direct_thres']}
     else:
-        dot_threshold = 0
         edges_00_q = sameside_indirect_format % {'nid_type': "sourceID",
                                               'transi_type': "targetID",
                                             'nid_type_sums': "source_sums",
-                                                'threshold': dot_threshold}
+                                                'threshold': thresholds['indirect_thres']}
     mlog("DEBUG", "edges_00_q", edges_00_q)
     db_c.execute(edges_00_q)
     edges_00 = db_c.fetchall()
 
     # 3b sameside edges type1 <=> type1
-    dot_threshold = 1
-    # mlog("DEBUG", "multimatch tgt dot_threshold", dot_threshold, len_XR)
+    mlog("DEBUG", "multimatch tgt <=> tgt sameside threshold", thresholds['indirect_thres'], len_XR)
 
     edges_11_q = sameside_indirect_format % {'nid_type': "targetID",
                                           'transi_type': "sourceID",
                                         'nid_type_sums': "target_sums",
-                                            'threshold': dot_threshold}
+                                            'threshold': thresholds['indirect_thres']}
     mlog("DEBUG", "edges_11_q", edges_11_q)
     db_c.execute(edges_11_q)
     edges_11 = db_c.fetchall()
