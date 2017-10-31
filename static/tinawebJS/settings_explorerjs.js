@@ -131,9 +131,10 @@ TW.conf = (function(TW){
   TWConf.maxDiscreteValues = 15
   TWConf.legendsBins = 7
 
-  // to normalize node sizes (larger range does increase visual size difference)
-  TWConf.desirableNodeSizeMin=100;
-  TWConf.desirableNodeSizeMax=105;
+  // to normalize node sizes (larger range max-min increases visual size difference)
+  //                         (larger min           increases overall visual size)
+  TWConf.desirableNodeSizeMin=3000;
+  TWConf.desirableNodeSizeMax=3010;
 
 
   // =============
@@ -173,6 +174,8 @@ TW.conf = (function(TW){
   TWConf.filterSliders = true          // show sliders for nodes/edges subsets
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
+
+  TWConf.tuningPanel = true;           // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
