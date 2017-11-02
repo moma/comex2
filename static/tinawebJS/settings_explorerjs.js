@@ -64,7 +64,7 @@ TW.conf = (function(TW){
   TWConf.scanAttributes = true
 
   // use a facet for default color
-  TWConf.defaultColoring = "country"
+  TWConf.defaultColoring = "clust_louvain"
 
   // facetOptions: choose here the default visual result of your node attributes
   // ---------------------------------------------------------------------------
@@ -145,8 +145,8 @@ TW.conf = (function(TW){
 
   // to normalize node sizes (larger range max-min increases visual size difference)
   //                         (larger min           increases overall visual size)
-  TWConf.desirableNodeSizeMin=3000;
-  TWConf.desirableNodeSizeMax=3010;
+  TWConf.desirableNodeSizeMin=2500;
+  TWConf.desirableNodeSizeMax=2510;
 
 
   // =============
@@ -208,7 +208,7 @@ TW.conf = (function(TW){
   // if fa2Available, the auto-run config:
 
     TWConf.fa2Enabled= true;        // fa2 auto-run at start and after graph modified ?
-    TWConf.fa2Milliseconds=500;     // constant factor in duration of auto-run
+    TWConf.fa2Milliseconds=750;     // constant factor in duration of auto-run
     TWConf.fa2AdaptDuration=true;   // duration of auto-run proportional sqrt(nEdges)
     TWConf.minNodesForAutoFA2 = 5   // graph size threshold to auto-run
     TWConf.fa2SlowerMeso = false    // slow down meso if few nodes
