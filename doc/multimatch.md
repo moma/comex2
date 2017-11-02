@@ -24,8 +24,7 @@ Before summer 2017 the maps of community explorer were always matching **scholar
 **In our case, *scholar* as main pivot object**
  The data model of community explorer allows us to almost always be able to relate two pieces of data via scholars, because the scholars table is central to the data structure (cf. figure)
 
-![Image of DB objects and their relationship]
-(https://raw.githubusercontent.com/moma/comex2/master/doc/comex_obj_rels.png)
+![Image of DB objects and their relationship](https://raw.githubusercontent.com/moma/comex2/master/doc/comex_obj_rels.png)
 
 
 #### Implementation as operations on M  [type X <=> pivot]
