@@ -43,7 +43,7 @@ TW.conf = (function(TW){
 
   // routes by corresponding type
   TWConf.relatedDocsAPIS = {
-    "twitter": "http://127.0.0.1:5000/twitter_search",
+    "twitter": "/twitter_search",
     "CortextDB": "twbackends/phpAPI",
     "csv": "twbackends/phpAPI"
   }
@@ -178,6 +178,9 @@ TW.conf = (function(TW){
   //        *and* subdirectory of modules path to import if true
   // see also activateModules()
   TWConf.ModulesFlags["comexTopBarLoader"] = true ;
+
+  // automated interactive exploration
+  TWConf.ModulesFlags["demoFSAModule"] = true ;
 
   // Other GUI options
   // ------------------
