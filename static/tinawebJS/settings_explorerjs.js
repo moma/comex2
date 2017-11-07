@@ -164,7 +164,7 @@ TW.conf = (function(TW){
   // ------------
   TWConf.paths = {
     'ourlibs':   'static/tinawebJS/twlibs',
-    'modules':   'static/tinawebModuleComexLayout',
+    'modules':   'static/tinawebModules',
     'templates': 'static/tinawebJS/twlibs/default_hit_templates',
 
     'sourceFile': null,              // server: 1 default gexf|json graph source
