@@ -1,12 +1,19 @@
 /* ---------------------  demoFSA settings  ----------------------- */
 
 demoFSA.settings = {
-    // total duration of demo run in ms
-    // "totalDuration": 120000,
-    "totalDuration": 40000,
+    // show button (otherwise still runnable via console)
+    "showButton": false,
 
-    // duration sleep step between operations
-    "sleepDuration": 5000,
+    // behavior choice: the 2 possible conditions are "interactions", "duration"
+    "stopCondition": "interactions",
+
+    // pause duration before demo restart when user makes actions
+    // (used iff stopCondition is "interactions")
+    "pauseDuration": 120000,
+
+    // total duration of demo run
+    // (used iff stopCondition is "duration")
+    "totalDuration": 40000,
 
     // operations (probabilities for each op)
     "transition_probas": {
@@ -21,13 +28,15 @@ demoFSA.settings = {
       // only makes sense if TW.categories.length > 1
       "ChgType": .2,
       "SwitchNeiTab": .2
-    }
+    },
+
+    // sleep between operations
+    "sleepDuration": 5000
 
     // NB   at this point we return each time to the *same* state
     // POSSIBLE: we could define different states
     //           to allow contextual transition probas,
     //           ex: the proba to changeLevel could be higher after a zoom
-
 }
 
 
@@ -45,7 +54,6 @@ demoFSA.settings = {
 Demo = function (settings = demoFSA.settings) {
   // INIT
   // ----
-
   // opRanges: array of choices as a partition of segments inside [0;1]
   this.opRanges = []
   // exemple:
@@ -74,6 +82,43 @@ Demo = function (settings = demoFSA.settings) {
   }
 
 
+  // like "interrupt signal" to stop after current step
+  this.stopDemo = false
+
+  // flag to see if running
+  this.isRunning = false
+
+  // wait until lastInteraction > 120000
+  this.lastActionTimeout = null
+
+  this.pauseOnAction = function() {
+    // stop if running
+    this.stop()
+
+    // remove potentially scheduled starts
+    if (this.lastActionTimeout) {
+      window.clearTimeout(this.lastActionTimeout)
+    }
+
+    // schedule restart after pauseDuration
+    this.lastActionTimeout = window.setTimeout (
+       function(){
+         console.log("--- restarting demo ---", this.step)
+         this.stopDemo = false
+         this.run()
+       }.bind(this),
+       settings.pauseDuration
+    )
+  }
+
+  // listen in the window to remember last interactions
+  document.body.addEventListener("mousedown", this.pauseOnAction.bind(this), true)
+  document.body.addEventListener("keydown", this.pauseOnAction.bind(this), true)
+  document.body.addEventListener("touchstart", this.pauseOnAction.bind(this), true)
+
+  // NB: 'mousedown' better than 'click' because we may trigger 'click' via demo
+
+
   // ROUTINES
   // --------
 
@@ -92,6 +137,14 @@ Demo = function (settings = demoFSA.settings) {
   // cf. stackoverflow.com/questions/951021
   this._sleep = function(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+
+  // allow manual stopping
+  this.stop = function() {
+    if (this.isRunning) {
+      this.stopDemo = true
+    }
   }
 
   this.randomSelect = function() {
@@ -166,7 +219,18 @@ Demo = function (settings = demoFSA.settings) {
   // switching neighbors/opposites tab
   this.switchNeiTab = function() {
     // do we have another possible tab (an inactive one) ?
-    let possTabsAnchors = document.querySelectorAll("#selection-tabs-contnr > ul > li:not(.active) > a")
+    let possTabsItems = document.querySelectorAll("#selection-tabs-contnr > ul > li:not(.active)")
+    let possTabsAnchors = []
+
+    // we must also filter li by display != 'none'
+    for (var i=0 ; i < possTabsItems.length ; i++) {
+      let elLi = possTabsItems[i]
+      if (elLi && (!elLi.style.display || elLi.style.display != 'none')) {
+        let elA = elLi.querySelector("a")
+        possTabsAnchors.push(elA)
+      }
+    }
+
     if (!possTabsAnchors.length) {
       console.warn("won't switchNeiTab: no inactive neighbors-tab")
     }
@@ -198,13 +262,51 @@ Demo = function (settings = demoFSA.settings) {
   }
 
 
+  // call changeLevel if at least one selected
+  this.changeLevel = function() {
+    if (TW.SystemState().selectionNids.length) {
+      window.changeLevel()
+      this.cam.goTo({x:0, y:0, ratio:.9, angle: 0})
+    }
+    else {
+      console.warn("won't changeLevel: no selection")
+    }
+  }
+
   // call changeType if more than one type
   this.changeType = function() {
     if (TW.categories.length > 1) {
       window.changeType()
+      this.cam.goTo({x:0, y:0, ratio:.9, angle: 0})
     }
     else {
       console.warn("won't changeType: only one nodetype")
+    }
+  }
+
+
+  // OPTIONAL BUTTON
+  // ---------------
+
+  // add a button to run the demo
+  this.showButton = function(demoObjName = "demo") {
+    let navbar = document.getElementById('searchnav')
+    if (navbar) {
+      let navItem = document.createElement('li')
+      navItem.id = "demo-navitem"
+      navItem.classList.add("navbar-lower", "demoFSAModule")
+      navItem.style.marginLeft = ".5em"
+      navbar.appendChild(navItem)
+
+      let demoButton = document.createElement('button')
+      demoButton.id = "run-demo"
+      demoButton.classList.add("btn", "btn-warning", "btn-sm")
+      demoButton.style.color = "DarkSlateGray"
+      demoButton.innerText = "Run Demo"
+
+      let buttonClick = function() { this.run() }.bind(this)
+      demoButton.addEventListener('click', buttonClick, false)
+      navItem.appendChild(demoButton)
     }
   }
 
@@ -213,7 +315,7 @@ Demo = function (settings = demoFSA.settings) {
   // --------
   // mapping from our actions to the name of the method to call
   this.actions = {
-    "ChgLvl" :    window.changeLevel, // => will call window.changeLevel()
+    "ChgLvl" :    this.changeLevel.bind(this),
     "ChgType" :   this.changeType.bind(this),
     "NeiSelect":  this.neighborSelect.bind(this),
     "NeiAdd":     this.neighborAdd.bind(this),
@@ -222,6 +324,7 @@ Demo = function (settings = demoFSA.settings) {
     "RandSelect": this.randomSelect.bind(this)
   }
 
+
   // prevent linking to any other method
   Object.freeze(this.actions)
 
@@ -229,7 +332,11 @@ Demo = function (settings = demoFSA.settings) {
 
   this.step = 0
 
+
+  // run until stopDemo
   this.run = async function(settings = demoFSA.settings) {
+    this.stopDemo = false
+    this.isRunning = true
 
     // wait until partialGraph (sigma instance) is loaded
     while (typeof TW.partialGraph == 'undefined') {
@@ -247,7 +354,11 @@ Demo = function (settings = demoFSA.settings) {
     this.randomSelect()
 
     // next steps
-    while (performance.now() - startTime < settings.totalDuration) {
+    while (!this.stopDemo
+         &&
+          (   settings.stopCondition != "duration"
+           || performance.now() - startTime < settings.totalDuration)
+         ) {
       // choose an action
       let todoAction = null
       let rand = Math.random() * this.lastRangeMax  // <=> normalized by total
@@ -275,7 +386,7 @@ Demo = function (settings = demoFSA.settings) {
             this.cam,                         // cam
             aNode[camPfx+'x'] - this.cam.x,   // x
             aNode[camPfx+'y'] - this.cam.y,   // y
-            .4,                               // rel ratio
+            .7,                               // rel ratio
             {'duration': 500}                 // animation
           )
         }
@@ -285,28 +396,20 @@ Demo = function (settings = demoFSA.settings) {
       await this._sleep(settings.sleepDuration)
 
       // when abs cam ratio becomes too close, add a 2s de-zoom step
-      if (this.cam.ratio < .3) {
+      if (this.cam.ratio < .4) {
         // de-zoom
         sigma.utils.zoomTo(this.cam, 0, 0, 1/this.cam.ratio, {'duration': 2000})
         await this._sleep(2000)
       }
 
     }
-    console.log("--- finished demo ---")
+    console.log("--- paused demo ---")
+    this.isRunning = false
   }
 }
 
-
-// add a button to run the demo
+// runnable with demo.run()
 let demo = new Demo()
-let demoButton = '<button type="button" id="run-demo" class="btn btn-warning btn-sm" title="Lancez une démo d\'exploration automatique" onclick="demo.run()" style="color: DarkSlateGray;">Run Demo</button>'
-let navbar = document.getElementById('searchnav')
-if (navbar) {
-  let navItem = document.createElement('li')
-  navItem.id = "demo-navitem"
-  navItem.classList.add("navbar-lower")
-  navItem.classList.add("demoFSAModule")
-  navItem.style.marginLeft = ".5em"
-  navItem.innerHTML = demoButton
-  navbar.appendChild(navItem)
-}
+
+// optional button
+if (demoFSA.settings.showButton)  demo.showButton()
