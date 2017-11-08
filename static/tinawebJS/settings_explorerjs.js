@@ -190,7 +190,7 @@ TW.conf = (function(TW){
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
 
-  TWConf.tuningPanel = true;           // show "Tune settings" menu button
+  TWConf.tuningPanel = false;          // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
