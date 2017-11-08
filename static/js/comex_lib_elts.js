@@ -78,9 +78,6 @@ var cmxClt = (function(cC) {
               <li>
                 <a href='/services/jobboard/'>Job Market</a>
               </li>
-              <li>
-                <a href="/explorerjs.html?sourcemode=%22api%22&type=%22filter%22&srcparams=%22%257B%2522_node0%2522%253A%2522kw%2522%252C%2522_node1%2522%253A%2522jobs_and_candidates%2522%252C%2522_pivot_type%2522%253A%2522keywords%2522%257D%22">Job Map</a>
-              </li>
             </ul>
           </li>
         `
@@ -98,9 +95,6 @@ var cmxClt = (function(cC) {
             <ul class="dropdown-menu">
               <li>
                 <a href='/services/jobboard/'> Job Market </a>
-              </li>
-              <li>
-                <a href="/explorerjs.html?sourcemode=%22api%22&type=%22filter%22&srcparams=%22%257B%2522_node0%2522%253A%2522kw%2522%252C%2522_node1%2522%253A%2522jobs_and_candidates%2522%252C%2522_pivot_type%2522%253A%2522keywords%2522%257D%22">Job Map</a>
               </li>
             </ul>
           </li>
