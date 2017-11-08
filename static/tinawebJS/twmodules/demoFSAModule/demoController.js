@@ -2,7 +2,7 @@
 
 demoFSA.settings = {
     // show button (otherwise still runnable via console)
-    "showButton": false,
+    "showButton": true,
 
     // behavior choice: the 2 possible conditions are "interactions", "duration"
     "stopCondition": "interactions",
