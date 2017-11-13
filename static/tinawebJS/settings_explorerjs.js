@@ -180,7 +180,7 @@ TW.conf = (function(TW){
   TWConf.ModulesFlags["comexTopBarLoader"] = true ;
 
   // automated interactive exploration
-  TWConf.ModulesFlags["demoFSAModule"] = true ;
+  TWConf.ModulesFlags["demoFSAModule"] = false ;
 
   // Other GUI options
   // ------------------
