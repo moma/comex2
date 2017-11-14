@@ -246,7 +246,7 @@ TW.conf = (function(TW){
 
   TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
-  TWConf.colorTheme = "24DivergingZeileis"   // color palette for clusters
+  TWConf.colorTheme = "50Pastel"   // color palette for clusters
                                              //  - "9CBrewerSet1"
                                              //  - "12CBrewerPaired",
                                              //  - "22Kelly"
