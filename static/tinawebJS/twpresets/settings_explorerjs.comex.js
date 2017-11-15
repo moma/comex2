@@ -190,12 +190,14 @@ TW.conf = (function(TW){
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
 
-  TWConf.tuningPanel = true;           // show "Tune settings" menu button
+  TWConf.tuningPanel = false;          // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
-  TWConf.deselectOnclickStage = true   // click on background remove selection ?
-                                       // (except when dragging)
+  TWConf.deselectOnClickStage = false   // click on background remove selection?
+                                        // (except when dragging)
+
+  TWConf.deselectOnDoubleClickStage = true   // idem double click on background
 
   TWConf.histogramStartThreshold = 10 ;   // for daily histo module
                                           // (from how many docs are significant)
@@ -244,7 +246,7 @@ TW.conf = (function(TW){
 
   TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
-  TWConf.colorTheme = "24DivergingZeileis"   // color palette for clusters
+  TWConf.colorTheme = "50Pastel"   // color palette for clusters
                                              //  - "9CBrewerSet1"
                                              //  - "12CBrewerPaired",
                                              //  - "22Kelly"
@@ -277,16 +279,20 @@ TW.conf = (function(TW){
                                          // (old tina: showLabelsIfZoom)
 
       // hovered nodes
-      defaultHoverLabelBGColor: '#fff',
+      // -------------
+      twDefaultBGBoxColor: '#fff',      // common value for hovered/selected
+                                        //               label box bg def color
       defaultHoverLabelColor: '#000',
-      borderSize: 1,                     // for ex, bigger border when hover
+      borderSize: 2.5,                   // for ex, bigger border when hover
       nodeBorderColor: "node",           // choices: 'default' color vs. node color
       defaultNodeBorderColor: "black",   // <- if nodeBorderColor = 'default'
+      labelHoverBGColor: "default",     // "node" for a label bg like the node color,
+                                        // "default" for a bg with defaultBGBoxColor
 
-
-      // selected nodes <=> special label
-      twSelectedColor: "default",     // "node" for a label bg like the node color,
-                                      // "default" for white background
+      // selected nodes
+      // --------------
+      twSelectedBGColor: "default",     // "node" for a label bg like the node color,
+                                        // "default" for a bg with defaultBGBoxColor
 
       // not selected <=> (1-greyness)
       twNodesGreyOpacity: .5,                       // smaller value: more grey
