@@ -89,13 +89,8 @@ function setupSavedItems(uinfo) {
 
 // also pre-setup for images
 var picShow = document.getElementById('show_pic')
-if (uinfo.pic_url || uinfo.pic_fname) {
-    if (uinfo.pic_url) {
-        cmxClt.uform.showPic(uinfo.pic_url)
-    }
-    if (uinfo.pic_fname) {
-        cmxClt.uform.showPic('/data/shared_user_img/'+uinfo.pic_fname)
-    }
+if (uinfo.pic_src) {
+  cmxClt.uform.showPic(uinfo.pic_src)
 }
 
 

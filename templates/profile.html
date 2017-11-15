@@ -64,7 +64,7 @@
                {% if not current_user.empty %}
                <div id="information-example" class="our-vcard">
                    <!-- TODO if empty then click on image starts showPicImg -->
-                   <img src="{{ (current_user.pic_src | safe) if current_user.pic_src else ''}}" class="our-vcard-img">
+                   <img src="{{ (current_user.info.pic_src | safe) if current_user.info.pic_src else ''}}" class="our-vcard-img">
                    <ul>
                        <li class=bigger>
                            <b>                      {{ current_user.info.hon_title or '' }}

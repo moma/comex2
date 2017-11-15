@@ -16,11 +16,11 @@ from re          import match
 if __package__ == 'services':
     from services.dbcrud import connect_db, get_full_scholar, \
                                             get_doors_temp_user
-    from services.tools import mlog, REALCONFIG, prejsonize
+    from services.tools import mlog, REALCONFIG, prejsonize, IMAGE_SAVING_POINT
 else:
     from dbcrud         import connect_db, get_full_scholar, \
                                            get_doors_temp_user
-    from tools          import mlog, REALCONFIG, prejsonize
+    from tools          import mlog, REALCONFIG, prejsonize, IMAGE_SAVING_POINT
 
 # will be exported to main for initialization with app
 login_manager = LoginManager()
@@ -77,16 +77,19 @@ class User(object):
             else:
                 self.uid = luid
                 self.info = scholar
-                self.json_info = dumps(prejsonize(scholar))
                 self.doors_uid = self.info['doors_uid']
                 self.empty = False
 
+                # add pic_src into info
                 if 'pic_fname' in self.info and self.info['pic_fname']:
-                    self.pic_src = '/data/shared_user_img/'+self.info['pic_fname']
+                    self.info['pic_src'] = '/' + '/'.join(IMAGE_SAVING_POINT+[self.info['pic_fname']])
                 elif 'pic_url' in self.info and self.info['pic_url']:
-                    self.pic_src = self.info['pic_url']
+                    self.info['pic_src'] = self.info['pic_url']
                 else:
-                    self.pic_src = None
+                    self.info['pic_src'] = None
+
+                # self.info --> js uinfo for client-side
+                self.json_info = dumps(prejsonize(self.info))
 
         # user exists in doors but has nothing in scholars DB yet
         elif doors_uid is not None:
