@@ -64,7 +64,7 @@
                {% if not current_user.empty %}
                <div id="information-example" class="our-vcard">
                    <!-- TODO if empty then click on image starts showPicImg -->
-                   <img src="{{ (current_user.pic_src | safe) if current_user.pic_src else ''}}" class="our-vcard-img">
+                   <img src="{{ (current_user.info.pic_src | safe) if current_user.info.pic_src else ''}}" class="our-vcard-img">
                    <ul>
                        <li class=bigger>
                            <b>                      {{ current_user.info.hon_title or '' }}
@@ -410,7 +410,7 @@
                <div class="input-group">
                  <label for="home_url" class="smlabel input-group-addon">Homepage</label>
                  <input id="home_url" name="home_url" maxlength="120"
-                        type="text" class="form-control autocomp" placeholder='eg "http://www.wittyexample.org/~me"'
+                        type="text" class="form-control autocomp" placeholder='eg "https://www.wittyexample.org/~me"'
                         value="{{ current_user.info.home_url }}">
                </div>
              </div>
@@ -434,7 +434,7 @@
                <div class="input-group">
                  <label for="pic_url" class="smlabel input-group-addon">Picture link</label>
                  <input id="pic_url" name="pic_url" maxlength="120"
-                        type="text" class="form-control autocomp" placeholder='eg "http://www.wittyexample.org/~me/my_great_pic.png"'
+                        type="text" class="form-control autocomp" placeholder='eg "https://www.wittyexample.org/~me/my_great_pic.png"'
                         value="{{ current_user.info.pic_url }}">
                </div>
              </div>

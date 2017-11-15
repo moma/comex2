@@ -20,12 +20,12 @@ from traceback import format_tb
 from json      import loads
 
 if __package__ == 'services':
-    from services.tools import mlog, REALCONFIG
+    from services.tools import mlog, REALCONFIG, IMAGE_SAVING_POINT
     from services.dbcrud  import connect_db, FULL_SCHOLAR_SQL
     from services.dbentities import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                     DBHashtags, DBCountries, DBScholarsAndJobs, Org
 else:
-    from tools          import mlog, REALCONFIG
+    from tools          import mlog, REALCONFIG, IMAGE_SAVING_POINT
     from dbcrud         import connect_db, FULL_SCHOLAR_SQL
     from dbentities     import DBScholars, DBLabs, DBInsts, DBKeywords, \
                                DBHashtags, DBCountries, DBScholarsAndJobs, Org
@@ -1337,7 +1337,7 @@ class BipartiteExtractor:
                 # ex "S::JFK/00001"
 
                 if 'pic_fname' in res3 and res3['pic_fname']:
-                    pic_src = '/data/shared_user_img/'+res3['pic_fname']
+                    pic_src = '/'+'/'.join(IMAGE_SAVING_POINT + [res3['pic_fname']])
                 elif 'pic_url' in res3 and res3['pic_url']:
                     pic_src = res3['pic_url']
                 else:

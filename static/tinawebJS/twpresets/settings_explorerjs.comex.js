@@ -190,12 +190,14 @@ TW.conf = (function(TW){
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
 
-  TWConf.tuningPanel = true;           // show "Tune settings" menu button
+  TWConf.tuningPanel = false;          // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
-  TWConf.deselectOnclickStage = true   // click on background remove selection ?
-                                       // (except when dragging)
+  TWConf.deselectOnClickStage = false   // click on background remove selection?
+                                        // (except when dragging)
+
+  TWConf.deselectOnDoubleClickStage = true   // idem double click on background
 
   TWConf.histogramStartThreshold = 10 ;   // for daily histo module
                                           // (from how many docs are significant)
@@ -244,7 +246,7 @@ TW.conf = (function(TW){
 
   TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
-  TWConf.colorTheme = "24DivergingZeileis"   // color palette for clusters
+  TWConf.colorTheme = "50Pastel"   // color palette for clusters
                                              //  - "9CBrewerSet1"
                                              //  - "12CBrewerPaired",
                                              //  - "22Kelly"

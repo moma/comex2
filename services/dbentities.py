@@ -333,7 +333,7 @@ class DBScholars(DBEntity):
 
         # pic source
         if 'pic_fname' in nd and nd['pic_fname']:
-            pic_src = '/data/shared_user_img/'+nd['pic_fname']
+            pic_src = '/'+'/'.join(IMAGE_SAVING_POINT + [nd['pic_fname']])
         elif 'pic_url' in nd and nd['pic_url']:
             pic_src = nd['pic_url']
         else:

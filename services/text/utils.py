@@ -33,7 +33,11 @@ def sanitize(value, specific_type=None):
 
     elif specific_type == "surl":
         try:
-            san_val = urlunparse(map(quote,list(urlparse(str_val))))
+            url_elts = [elt for elt in  map(quote,list(urlparse(str_val)))]
+            if len(url_elts) and url_elts[0] == 'http':
+                # force https to prevent mixed content
+                url_elts[0] = 'https'
+            san_val = urlunparse(url_elts)
         except:
             mlog("WARNING", "sanitize via urllib couldn't parse url '%s', using regexp sanitize instead" % str_val)
             san_val = sub(r'[^\w@\.: /~_+$?=&%-]', '_', str_val)
