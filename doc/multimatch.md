@@ -71,7 +71,7 @@ For instance, `kw_α -- kw_β` neighbor links are found by following **2** DB li
   - **keyword α** -> scholars
     - it's `M1`
   - scholars -> **keyword β**
-    - it's `M2`
+    - it's `M1⁻¹`
 
 In practice, we will use formula (ii) for Neighs_11 and formula (i)  for Neighs_22,
  because:
@@ -92,11 +92,11 @@ For *bipartite relationships*, `count(pivotID)` is our base **weight**.
 
 For instance if we match keywords <=> laboratories, the weight of the  `kw_α -- lab_A` edge is the number of scholars from lab_A with kw_α.
 
-And with the *sameside relationships*, the weighting uses 2 steps
+And with the *sameside relationships*, the weighting uses 2 steps to create a jaccard normalization of the cooccurrence:
   - coocurrence `cooc(α,β)` is defined as the **count of pivots that have BOTH α AND β**
-  - and the normalized value `cooc(α,β)/(total(α) + total(β) - cooc(α,β))` is our edge weight (it is the jaccard formula adapted to our case).
+  - and the normalized value `cooc(α,β)/(total(α) + total(β) - cooc(α,β))` is our edge weight.
 
-For instance the weight of a `kw_α -- kw_β` edge is the total scholars that have both of them divided by the total scholars that have any of them (union in jaccard).
+For instance the weight of a `kw_α -- kw_β` edge is the total scholars that have both keywords α AND β (numerator) of them divided by the total scholars that have any of α OR β (denominator).
 
 
 #### Implementation in the app
