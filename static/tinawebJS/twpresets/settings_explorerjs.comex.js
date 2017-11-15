@@ -190,12 +190,12 @@ TW.conf = (function(TW){
 
   TWConf.colorByAtt = true;            // show "Set colors" menu
 
-  TWConf.tuningPanel = false;          // show "Tune settings" menu button
+  TWConf.tuningPanel = true;           // show "Tune settings" menu button
 
   TWConf.dragNodesAvailable = true;    // allow dragging nodes with CTRL+click
 
-  TWConf.deselectOnClickStage = false   // click on background remove selection?
-                                        // (except when dragging)
+  TWConf.deselectOnClickStage = true   // click on background remove selection?
+                                       // (except when dragging)
 
   TWConf.deselectOnDoubleClickStage = true   // idem double click on background
 
@@ -246,7 +246,7 @@ TW.conf = (function(TW){
 
   TWConf.independantTypes = true   // if stablePositions, types are not moving together
 
-  TWConf.colorTheme = "50Pastel"   // color palette for clusters
+  TWConf.colorTheme = "24DivergingZeileis"   // color palette for clusters
                                              //  - "9CBrewerSet1"
                                              //  - "12CBrewerPaired",
                                              //  - "22Kelly"
@@ -283,7 +283,7 @@ TW.conf = (function(TW){
       twDefaultBGBoxColor: '#fff',      // common value for hovered/selected
                                         //               label box bg def color
       defaultHoverLabelColor: '#000',
-      borderSize: 2.5,                   // for ex, bigger border when hover
+      borderSize: 1,                     // for ex, bigger border when hover
       nodeBorderColor: "node",           // choices: 'default' color vs. node color
       defaultNodeBorderColor: "black",   // <- if nodeBorderColor = 'default'
       labelHoverBGColor: "default",     // "node" for a label bg like the node color,
