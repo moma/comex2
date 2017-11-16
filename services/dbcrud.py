@@ -10,11 +10,11 @@ from MySQLdb.cursors  import DictCursor
 
 if __package__ == 'services':
     # when we're run via import
-    from services.tools      import mlog, REALCONFIG
+    from services.tools      import mlog, REALCONFIG, BLOB_SAVING_POINT
     from services.text.utils import normalize_chars, normalize_forms
 else:
     # when this script is run directly
-    from tools          import mlog, REALCONFIG
+    from tools          import mlog, REALCONFIG, BLOB_SAVING_POINT
     from text.utils     import normalize_chars, normalize_forms
 
 
@@ -1039,9 +1039,22 @@ def get_jobs(author_uid = None, job_id = None):
 
     db_c.execute(sql_q)
 
-    job_rows = db_c.fetchall()
+    job_rows = [prepare_job(jr) for jr in db_c.fetchall()]
+
     db.close()
     return job_rows
+
+def prepare_job(job_row):
+    """
+    from 1 job SQL record to full info
+    """
+
+    # pdf filename => abs route for js client
+    if 'pdf_fname' in job_row and job_row['pdf_fname'] is not None:
+        job_row['pdf_fname'] = '/' + '/'.join(BLOB_SAVING_POINT + [job_row['pdf_fname']])
+
+    return job_row
+
 
 def find_jobs_pdf(job_id):
     """

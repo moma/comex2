@@ -13,8 +13,9 @@ from re        import sub
 
 if __package__ == 'services':
     from services.dbcrud  import FULL_SCHOLAR_SQL
+    from services.tools   import IMAGE_SAVING_POINT
 else:
-    from dbcrud           import FULL_SCHOLAR_SQL
+    from tools            import IMAGE_SAVING_POINT
 
 
 
