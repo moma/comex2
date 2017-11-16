@@ -80,7 +80,7 @@ function createJobForm(containerId, args) {
       <p id="previous-pdf" class="mega-legend">
         <span class="glyphicon glyphicon-file"></span>
         Consult the
-        <a href="/data/shared_user_files/${args.job.pdf_fname}" target="_blank">
+        <a href="${args.job.pdf_fname}" target="_blank">
           provided job description
         </a> (pdf).
       </p>

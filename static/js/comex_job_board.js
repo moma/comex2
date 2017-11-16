@@ -107,7 +107,7 @@ let gridFields = [
      itemTemplate: function(value) {
        if (value) {
          return `<a class="norowclick"
-                    href="/data/shared_user_files/${value}" target="_blank">
+                    href="${value}" target="_blank">
                   <span class="glyphicon glyphicon-file norowclick"></span>
                 </a>`
        }
