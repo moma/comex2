@@ -71,7 +71,8 @@ JOB_COLS = [
          ("locname",            False,    120,    False),
          ("country",            False,     60,    False),
          ("job_valid_date",      True,   None,    False),
-         ("pdf_fname",          False,    120,    False)
+         ("pdf_fname",          False,    120,    False),
+         ("job_type",           False,     60,    False)
          # 'last_modified'       timestamp added by DB itself
     ]
 

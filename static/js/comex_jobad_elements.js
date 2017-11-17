@@ -23,7 +23,15 @@ jobCols = [
      ["email",                  true,       "plsfill", "t",     null    ],
      ["locname",                true,         "pref",  "t",     null    ],
      ["country",                true,         "pref",  "t",     null    ],
+     ["job_type",               true,         "pref",  "m",     null    ],
      ["job_valid_date",         true,       "plsfill", "d",     null    ]
+
+    //    FIELD NAME           CHECK        mandatory   |
+    //                                                fieldType to customize tests and saves
+    //                                                t: text
+    //                                               at: array of texts
+    //                                                d: date
+    //                                                m: select menu
    ]
 
 
@@ -34,7 +42,7 @@ function recreateNewlines(aStr) {
 
 // args has 4 optional slots:
 //   'user': a uinfo object
-//   'job': a job as jsgrid item
+//   'job': a job as jsgrid item (window.params.jobTable elt)
 //   'can_edit': a boolean
 //   'alt_submit': an optional alternate submit button id
 function createJobForm(containerId, args) {
@@ -45,8 +53,8 @@ function createJobForm(containerId, args) {
   }
 
   let rw = args.can_edit ? '' : 'readonly'
-  console.log("createJobForm rw:", rw)
-  console.log("createJobForm args:", args)
+  // console.log("createJobForm rw:", rw)
+  // console.log("createJobForm args:", args)
 
   let optionalSubmit = ''
 
@@ -106,6 +114,8 @@ function createJobForm(containerId, args) {
     <form id="comex_job_form" enctype="multipart/form-data"
           method="post" onsubmit="console.info('submitted')">
 
+        ${pdfSection}
+
         <!-- TITLE OF THE JOB (which is usually a jobtitle + other info) -->
         <h3 class="formcat">Position</h3>
         <div class="question">
@@ -121,6 +131,28 @@ function createJobForm(containerId, args) {
           </div>
           ${args.can_edit ? '<p class="legend">(80 chars max)</p>' : ''}
         </div>
+
+
+
+        <div class="question">
+            <div class="input-group">
+              <label for="job_type" class="smlabel input-group-addon">Job Type</label>
+              <select id="job_type" name="job_type"  ${rw} ${args.can_edit ? '' : 'disabled'}
+                      class="custom-select form-control"
+                      >
+                <option selected disabled value="">${args.can_edit ? 'Please Select' : '-- N/A --'}</option>
+                <option value="intern">Intern</option>
+                <option value="phd">PhD</option>
+                <option value="postdoc">Post-doc</option>
+                <option value="eng">Engineer</option>
+                <option value="research">Research fellow</option>
+                <option value="teacher">Teacher (Prof., MdC, etc.)</option>
+                <option value="adm">Administrative</option>
+                <option value="com">Communication</option>
+              </select>
+            </div>
+        </div>
+
 
 
         <!-- MISSION & KEYWORDS -->
@@ -215,8 +247,6 @@ function createJobForm(containerId, args) {
           ${args.can_edit ? '<p class="legend">You can always remove the job manually before this date.</p>' : ''}
         </div>
 
-        ${pdfSection}
-
         <!-- hidden input for associated user id -->
         <input id="uid" name="uid" type="text" hidden
               value="${args.user ? args.user.luid : ''}">
@@ -233,6 +263,14 @@ function createJobForm(containerId, args) {
 
   // replace in DOM
   tgtElt.innerHTML = jobHtml
+
+  // select menu item
+  if (args.job && args.job.job_type) {
+    let opt = tgtElt.querySelector(`select#job_type > option[value='${args.job.job_type}']`)
+    if (opt) {
+      opt.selected = true
+    }
+  }
 
   // initialize form controllers
   let jobadForm = cmxClt.uform.Form(

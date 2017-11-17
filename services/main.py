@@ -128,6 +128,7 @@ JOB_FIELDS = [
          ("locname",                True,        None),
          ("country",                True,      "scountry"),
          ("job_valid_date",         True,       "sdate"),
+         ("job_type",              False,        None),   # predefined values
          ("pdf_attachment",         True,       "sblob", "pdf", "pdf_fname"), # saved separately
          # => for *jobs* table
 

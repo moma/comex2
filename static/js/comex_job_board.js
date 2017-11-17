@@ -98,6 +98,14 @@ let gridFields = [
      css:"jobdate"
    },
    {
+     name: "job_type",
+     title:"Type",
+     type: "text",
+     width: 30,
+     align: "center",
+     css:"jobtype"
+   },
+   {
      name: "pdf_fname",
      title:"PDF",
      type: "text",

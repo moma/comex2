@@ -208,6 +208,7 @@ CREATE TABLE jobs (
     country              varchar(60),
     pdf_fname            varchar(120),   -- locally saved pdf (basename)
     jtitle               varchar(80) not null,
+    job_type             varchar(60),
 
     -- NB: job is deleted when scholar is deleted
     FOREIGN KEY (uid)  REFERENCES scholars(luid) ON DELETE CASCADE
