@@ -99,9 +99,9 @@ TW.conf = (function(TW){
                          'titlingMetric': 'off'
                        },
     'nbjobs':{
-                         'col':"heatmap" ,
+                         'col':"gradient" ,
                          'binmode': 'samerange',
-                         'n': 2,
+                         'n': 4,
                          'legend': 'Number of related job ads'
                        },
     'total_occurrences':{
