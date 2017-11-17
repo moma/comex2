@@ -277,6 +277,10 @@
          style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
          transform="matrix(-0.2,0,0,-0.2,-1.2,0)" />
     </marker>
+    <inkscape:path-effect
+       effect="spiro"
+       id="path-effect4917-1-2"
+       is_visible="true" />
   </defs>
   <sodipodi:namedview
      id="base"
@@ -285,16 +289,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.7"
-     inkscape:cx="137.70509"
-     inkscape:cy="388.40356"
+     inkscape:zoom="0.49497475"
+     inkscape:cx="369.31833"
+     inkscape:cy="359.12996"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="1600"
-     inkscape:window-height="833"
-     inkscape:window-x="0"
-     inkscape:window-y="472"
+     inkscape:window-width="1280"
+     inkscape:window-height="984"
+     inkscape:window-x="1600"
+     inkscape:window-y="0"
      inkscape:window-maximized="1"
      showguides="true"
      inkscape:guide-bbox="true" />
@@ -315,12 +319,14 @@
      inkscape:groupmode="layer"
      id="layer1">
     <rect
-       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.91321886;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect3634"
-       width="742.85712"
-       height="1050"
-       x="1.4285715"
-       y="2.3622048" />
+       width="712.63934"
+       height="1001.5994"
+       x="21.588234"
+       y="13.430492"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
     <rect
        style="opacity:0.75;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.63615382;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect27898-1"
@@ -1145,7 +1151,7 @@
            id="tspan5465-0-7"
            y="326.19485"
            x="1527.4924"
-           sodipodi:role="line">comexreg (py-flask)</tspan></text>
+           sodipodi:role="line">comex services/user</tspan></text>
     </g>
     <text
        xml:space="preserve"
@@ -1170,7 +1176,7 @@
          x="182.17062"
          y="332.45483"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.44335938px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
-         id="tspan11894-9-0">server_comex_registration.py</tspan></text>
+         id="tspan11894-9-0">registration and job backend</tspan></text>
     <path
        inkscape:connector-curvature="0"
        style="fill:none;stroke:#000000;stroke-width:3.11758971;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1Send)"
@@ -1297,18 +1303,6 @@
        height="32.321804"
        x="93.109383"
        y="488.22647" />
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:16.99618721px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
-       x="124.88677"
-       y="538.69226"
-       id="text11541-5-3"
-       sodipodi:linespacing="85.000002%"><tspan
-         sodipodi:role="line"
-         x="124.88677"
-         y="538.69226"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:9.45852566px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
-         id="tspan11894-4">nouvelle base</tspan></text>
     <ellipse
        style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
        id="path19290-3"
@@ -1346,12 +1340,12 @@
        id="path27902"
        inkscape:connector-curvature="0" />
     <rect
-       style="opacity:0.5270004;fill:#008000;fill-opacity:1;stroke:#000000;stroke-width:1.06399679;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="opacity:0.5270004;fill:#008000;fill-opacity:1;stroke:#000000;stroke-width:0.92478305;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect27898"
-       width="449.4303"
-       height="327.58731"
-       x="25.194288"
-       y="703.15082" />
+       width="429.36646"
+       height="259.03616"
+       x="32.195751"
+       y="695" />
     <rect
        style="opacity:0.75;fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect31875"
@@ -1362,127 +1356,94 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:23.325737px;line-height:125%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       x="33.982449"
-       y="715.78925"
+       x="43.982449"
+       y="723.78925"
        id="text27906"
        sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
          id="tspan27908"
-         x="33.982449"
-         y="715.78925"
+         x="43.982449"
+         y="723.78925"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">create table comex_registrations (</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="729.85175"
+         x="43.982449"
+         y="737.85175"
          id="tspan27912"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    doors_uid            char(36) not null unique,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="743.91425"
+         x="43.982449"
+         y="751.91425"
          id="tspan27914"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    last_modified_date   char(24) not null,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="757.97675"
+         x="43.982449"
+         y="765.97675"
          id="tspan27916"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    email                varchar(255) not null unique</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="772.03925"
+         x="43.982449"
+         y="780.03925"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'"
          id="tspan31873">                                      primary key,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="786.10175"
+         x="43.982449"
+         y="794.10175"
          id="tspan27918"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    initials             varchar(7) not null,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="800.16425"
+         x="43.982449"
+         y="808.16425"
          id="tspan27920"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    country              varchar(60) not null,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="814.22675"
+         x="43.982449"
+         y="822.22675"
          id="tspan27922"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    first_name           varchar(30) not null,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="828.28925"
+         x="43.982449"
+         y="836.28925"
          id="tspan27924"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    middle_name          varchar(30),</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="842.35175"
+         x="43.982449"
+         y="850.35175"
          id="tspan27926"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    last_name            varchar(50) not null,</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="856.41425"
-         id="tspan27928"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    jobtitle             varchar(30) not null,</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="870.47675"
-         id="tspan27930"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    keywords             varchar(350) not null,</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="884.53925"
-         id="tspan27932"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    institution          varchar(120) not null,</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="898.60175"
-         id="tspan27934"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    institution_type     varchar(50) not null,</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="912.66425"
-         id="tspan27936"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    team_lab             varchar(50),</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="926.72675"
-         id="tspan27938"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    institution_city     varchar(50),</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="940.78925"
-         id="tspan27940"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    interests_text       varchar(1200),</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="954.85175"
-         id="tspan27942"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    community_hashtags   varchar(350),</tspan><tspan
-         sodipodi:role="line"
-         x="33.982449"
-         y="968.91425"
+         x="43.982449"
+         y="864.41425"
          id="tspan27944"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    gender               char(1),</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="982.97675"
+         x="43.982449"
+         y="878.47675"
          id="tspan27946"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">    pic_file             blob</tspan><tspan
          sodipodi:role="line"
-         x="33.982449"
-         y="997.03925"
+         x="43.982449"
+         y="892.53925"
          id="tspan27948"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.25px;font-family:'Fira Mono';-inkscape-font-specification:'Fira Mono Bold'">) ;</tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:15.63410664px;line-height:125%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       x="70.535233"
-       y="692.27356"
+       style="font-style:normal;font-weight:normal;font-size:23.37549019px;line-height:125%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="68.221397"
+       y="914.65717"
        id="text27950"
        sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
          id="tspan27952"
-         x="70.535233"
-         y="692.27356"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:'Calibri Bold'">actuellement 1 table: comex_registrations</tspan></text>
+         x="68.221397"
+         y="914.65717"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:'Calibri Bold'">main table: <tspan
+   style="font-size:25px"
+   id="tspan4811">scholars</tspan></tspan><tspan
+         sodipodi:role="line"
+         x="68.221397"
+         y="944.65955"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:'Calibri Bold'"
+         id="tspan4809">+ linked tables: keywords, orgs, jobs...</tspan></text>
     <rect
        style="fill:#f7f7f7;fill-opacity:0;stroke:#000000;stroke-width:2.2157011;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect5469-5-9-9"
@@ -1522,12 +1483,12 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#916f6f;fill-opacity:1;stroke:none"
-       x="542.76355"
+       x="540.76355"
        y="388.43433"
        id="text11541-5-7-8-9"
        sodipodi:linespacing="85.000002%"><tspan
          sodipodi:role="line"
-         x="542.76355"
+         x="540.76355"
          y="388.43433"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.44335938px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#916f6f"
          id="tspan11894-9-52-3">API login</tspan></text>
@@ -1548,7 +1509,7 @@
          x="603.45099"
          y="573.33539"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:9.45852566px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
-         id="tspan11894-4-3">base doors (slick)</tspan></text>
+         id="tspan11894-4-3">base doors (h2)</tspan></text>
     <rect
        style="opacity:0.75;fill:#ff0000;fill-opacity:1;stroke:none;stroke-width:1.95328355;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
        id="rect19307-3-1"
@@ -1585,12 +1546,12 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
-       x="556.7984"
+       x="554.7984"
        y="414.31653"
        id="text11541-5-7-8-9-0"
        sodipodi:linespacing="85.000002%"><tspan
          sodipodi:role="line"
-         x="556.7984"
+         x="554.7984"
          y="414.31653"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.44335938px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
          id="tspan11894-9-52-3-5">API register</tspan></text>
@@ -1630,12 +1591,12 @@
          x="429.34021"
          sodipodi:role="line">(ajax cors)</tspan></text>
     <rect
-       style="opacity:0.75;fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:0.92216796;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="opacity:0.75;fill:#ffffff;fill-opacity:0.62702703;stroke:#000000;stroke-width:1.07397175;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect30909"
-       width="114.6123"
-       height="55.988773"
-       x="499.84235"
-       y="367.7854" />
+       width="114.46049"
+       height="76.040024"
+       x="497.89798"
+       y="361.80042" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:13.36516571px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
@@ -1701,5 +1662,105 @@
        d="m 478.29896,732.4145 c 0,0 -19.15954,15.13696 -41.52507,23.36996 -22.1279,8.14553 -36.52314,10.859 -46.3763,13.12061"
        id="path15494-3-7-6-6"
        sodipodi:nodetypes="csc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:12.9133358px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
+       x="126.6133"
+       y="543.81049"
+       id="text11541-5-7-6-3"
+       sodipodi:linespacing="85.000002%"><tspan
+         sodipodi:role="line"
+         x="126.6133"
+         y="543.81049"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.01286602px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan11894-9-0-67">comex_db</tspan><tspan
+         sodipodi:role="line"
+         x="126.6133"
+         y="555.72144"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.01286602px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan4549">docker</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
+       x="532.33618"
+       y="470.2865"
+       id="text11541-5-7-8-9-0-5"
+       sodipodi:linespacing="85.000002%"><tspan
+         sodipodi:role="line"
+         x="532.33618"
+         y="470.2865"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.44335938px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan11894-9-52-3-5-3">resetPass</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
+       x="542.16705"
+       y="496.22699"
+       id="text11541-5-7-8-9-0-5-5"
+       sodipodi:linespacing="85.000002%"><tspan
+         sodipodi:role="line"
+         x="542.16705"
+         y="496.22699"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.44335938px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan11894-9-52-3-5-3-6">doors profile</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="420.22345"
+       y="495.76816"
+       id="text4701"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4703"
+         x="420.22345"
+         y="495.76816"></tspan></text>
+    <g
+       id="g4723"
+       transform="translate(-13.131983,-17.172593)">
+      <path
+         sodipodi:nodetypes="cccccccc"
+         inkscape:connector-curvature="0"
+         inkscape:original-d="m 378.59984,476.08317 94.65367,-0.62398 -0.19008,-15.59941 35.16254,31.61482 -34.59229,34.11072 0.19007,-14.14348 -94.84376,0.41599 z"
+         inkscape:path-effect="#path-effect4917-1-2"
+         id="path4915-7-9"
+         d="m 378.59984,476.08317 94.65367,-0.62398 -0.19008,-15.59941 35.16254,31.61482 -34.59229,34.11072 0.19007,-14.14348 -94.84376,0.41599 -0.38015,-35.77466 z"
+         style="fill:#d3d7cf;stroke:#000000;stroke-width:0.39365938px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="85.000002%"
+         id="text11541-5-7-8-9-0-5-1"
+         y="498.24728"
+         x="434.08072"
+         style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
+         xml:space="preserve"><tspan
+           id="tspan11894-9-52-3-5-3-2"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:15px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+           y="498.24728"
+           x="434.08072"
+           sodipodi:role="line">UI navigation</tspan></text>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:7.96573257px;line-height:85.00000238%;font-family:'Bitstream Vera Sans';fill:#000000;fill-opacity:1;stroke:none"
+       x="113.13089"
+       y="411.76221"
+       id="text11541-5-7-8-9-0-5-5-7"
+       sodipodi:linespacing="85.000002%"><tspan
+         sodipodi:role="line"
+         x="115.95863"
+         y="411.76221"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.5px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan11894-9-52-3-5-3-6-0"><tspan
+           style="font-size:15.625px"
+           id="tspan4750"> UI and forms for</tspan></tspan><tspan
+         sodipodi:role="line"
+         x="113.13089"
+         y="427.43906"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.5px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan4748">comex profile</tspan><tspan
+         sodipodi:role="line"
+         x="113.13089"
+         y="443.11591"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.5px;line-height:85.00000238%;font-family:'Helvetica Rounded LT Std';-inkscape-font-specification:'Helvetica Rounded LT Std';text-align:center;writing-mode:lr-tb;text-anchor:middle"
+         id="tspan4746" /></text>
   </g>
 </svg>
