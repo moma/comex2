@@ -153,3 +153,6 @@ For further development work, we list here pointers to the main elements of the 
    - [static/tinawebJS](https://github.com/moma/comex2/blob/master/static/tinawebJS)
    - integrated via git-subtree from [this upstream repo](https://github.com/moma/ProjectExplorer)
    - using the settings from [this preset file](https://github.com/moma/comex2/blob/master/static/tinawebJS/twpresets/settings_explorerjs.comex.js)
+   - using modules made especially for comex
+     - module to load and display the comex topbar CSS and JS inside the tina explorer view [static/tinawebModules/comexTopBarLoader](https://github.com/moma/comex2/blob/master/static/tinawebModules/comexTopBarLoader)
+     - module to allow a dynamical demo (pauses on user action) [static/tinawebModules/comexTopBarLoader](https://github.com/moma/comex2/blob/master/static/tinawebModules/comexTopBarLoader)
