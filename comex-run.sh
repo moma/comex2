@@ -55,4 +55,4 @@ export COMEX_NWORKERS=$(grep -oP '(?<=COMEX_NWORKERS=).*' config/parametres_come
 bash setup/toolbox/make_passphrase.sh
 
 # ...and let's run
-gunicorn -b $COMEX_BIND_POINT services.main:app --workers $COMEX_NWORKERS --worker-class
+gunicorn -b $COMEX_BIND_POINT services.main:app --workers $COMEX_NWORKERS --worker-class gevent
